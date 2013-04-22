@@ -14,13 +14,13 @@
 #include "talk/p2p/base/p2ptransportchannel.h"
 
 static const uint32 kCandidatePriority = 2130706432U;
-static const uint32 kCandidateGeneration = 2;
-static const uint32 kCandidateGeneration3 = 3;
-static const char kCandidateFoundation1[] = "a0+B/1";
+static const uint32 kCandidateGeneration = 0;
+static const char kCandidateFoundation[] = "a0+B/1";
 static const char kIceUfrag1[] = "TESTICEUFRAG0001";
 static const char kIcePwd1[] = "TESTICEPWD00000000000001";
 
 int port;
+std::string host;
 
 class TestRun : public talk_base::Runnable {
  public:
@@ -42,6 +42,7 @@ class InputThread : public talk_base::Runnable, public sigslot::has_slots<>,
 
   virtual void Run(talk_base::Thread* thread) {
     while (true) {
+    std::cout << "WAITING FOR INPUT" << std::endl;
     std::cin >> input_;
     std::cout << "READABLE " << transport_->any_channels_readable() << std::endl;
     if (transport_->any_channels_readable() && set_ == 0) {
@@ -85,13 +86,15 @@ class Test : public sigslot::has_slots<> {
 
   virtual void OnAllocationDone(cricket::Transport* transport) {
     std::cout << "DEBUG allocationdone" << std::endl;
-  cricket::Candidates candidates2;
-  talk_base::SocketAddress address2("192.168.1.156", port);
 
-  cricket::Candidate candidate2(
-      "", cricket::ICE_CANDIDATE_COMPONENT_DEFAULT, "udp", address2, 
-      kCandidatePriority, kIceUfrag1, kIcePwd1, cricket::LOCAL_PORT_TYPE,
-      "", 0, kCandidateFoundation1);
+    if (port == 0) return;
+    cricket::Candidates candidates2;
+    talk_base::SocketAddress address2(host, port);
+
+    cricket::Candidate candidate2(
+        "", cricket::ICE_CANDIDATE_COMPONENT_DEFAULT, "udp", address2, 
+        kCandidatePriority, kIceUfrag1, kIcePwd1, cricket::LOCAL_PORT_TYPE,
+        "", kCandidateGeneration, kCandidateFoundation);
 
   candidates2.push_back(candidate2);
     transport->OnRemoteCandidates(candidates2);
@@ -107,34 +110,33 @@ class Test : public sigslot::has_slots<> {
   }
 
 };
-
 int main(int argc, char **argv) {
 
   talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
-  int role = 1;
-  port = atoi(argv[1]);
+  host = argv[1];
+  port = atoi(argv[2]);
 
   std::string content_name("svpn-sjingle");
   talk_base::PhysicalSocketServer socket_server;
   talk_base::Thread worker_thread(&socket_server);
   worker_thread.Start(new TestRun);
 
+  const uint32 flags = cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG |
+                       cricket::PORTALLOCATOR_DISABLE_RELAY | 
+                       cricket::PORTALLOCATOR_DISABLE_TCP |
+                       cricket::PORTALLOCATOR_ENABLE_SHARED_SOCKET;
+
+  talk_base::SocketAddress stun_server("stun.l.google.com", 19302);
+  talk_base::SocketAddress relay_server;
   talk_base::BasicNetworkManager manager;
-  cricket::BasicPortAllocator allocator(&manager);
-  allocator.set_flags(cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG);
+  cricket::BasicPortAllocator allocator(&manager, stun_server, relay_server,
+                                        relay_server, relay_server);
+  allocator.set_flags(flags);
+  allocator.set_allow_tcp_listen(false);
+  allocator.SetPortRange(5800, 5810);
   cricket::P2PTransport transport(talk_base::Thread::Current(),
                                   &worker_thread,
                                   content_name, &allocator);
-
-  if (role == 1) {
-    transport.SetTiebreaker(111111);
-    transport.SetRole(cricket::ROLE_CONTROLLING);
-  }
-  else {
-    transport.SetTiebreaker(222222);
-    transport.SetRole(cricket::ROLE_CONTROLLED);
-  }
-
   cricket::Candidates candidates;
   cricket::TransportDescription local_desc(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(),
@@ -146,6 +148,9 @@ int main(int argc, char **argv) {
       kIceUfrag1, kIcePwd1, cricket::ICEMODE_FULL, NULL, candidates);
 
   transport.SetRemoteTransportDescription(remote_desc, cricket::CA_ANSWER);
+
+  transport.SetTiebreaker(111111);
+  transport.SetRole(cricket::ROLE_CONTROLLING);
 
   Test test;
   transport.SignalRequestSignaling.connect(&test, &Test::OnRequestSignaling);
