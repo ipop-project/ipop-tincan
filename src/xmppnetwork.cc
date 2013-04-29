@@ -13,7 +13,7 @@
 
 namespace sjingle {
 
-const buzz::StaticQName QN_SVPN = { "svpn:webrtc", "data" };
+static const buzz::StaticQName QN_SVPN = { "svpn:webrtc", "data" };
 
 const std::string SvpnTask::uid() {
   return GetClient()->jid().Str();
@@ -22,7 +22,7 @@ const std::string SvpnTask::uid() {
 void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
   const buzz::Jid to(uid);
   talk_base::scoped_ptr<buzz::XmlElement> get(
-      MakeIq("get", to, task_id()));
+      MakeIq(buzz::STR_GET, to, task_id()));
   buzz::XmlElement* element = new buzz::XmlElement(QN_SVPN);
   element->SetBodyText(data);
   get->AddElement(element);
@@ -49,7 +49,7 @@ int SvpnTask::ProcessStart() {
 bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
   std::cout << "HANDLE STANZA" << std::endl;
   std::cout << stanza->Str() << std::endl;
-  if (!MatchRequestIq(stanza, "get", QN_SVPN)) {
+  if (!MatchRequestIq(stanza, buzz::STR_GET, QN_SVPN)) {
     return false;
   }
   QueueStanza(stanza);
@@ -98,8 +98,7 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
   if (status.jid().resource().compare(0, 7, kXmppPrefix) == 0 &&
       status.jid() != client_->jid()) {
-    std::string data("connect");
-    svpn_task_.SendToPeer(status.jid().Str(), data);
+    svpn_task_.HandlePeer(status.jid().Str(), status.status());
   }
 }
 

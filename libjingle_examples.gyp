@@ -99,18 +99,17 @@
       ],
     },  # target svpn
     {
-      'target_name': 'sjingle',
+      'target_name': 'svpn-jingle',
       'type': 'executable',
       'dependencies': [
         '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
         'libjingle.gyp:libjingle_peerconnection',
       ],
       'sources': [
-        'examples/sjingle/src/svpnconnectionmanager.cc',
-        'examples/sjingle/src/svpnconnectionobserver.cc',
-        'examples/sjingle/src/xmppnetwork.cc',
+        'examples/svpn-jingle/src/svpnconnectionmanager.cc',
+        'examples/svpn-jingle/src/xmppnetwork.cc',
       ],
-    },  # target svpn
+    },  # target svpn-jingle
     {
       'target_name': 'peerconnection_server',
       'type': 'executable',

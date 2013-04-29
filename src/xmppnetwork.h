@@ -48,19 +48,19 @@ class SvpnTask
 class XmppNetwork : public sigslot::has_slots<> {
  public:
   explicit XmppNetwork(buzz::XmppClient *client);
-
   SocialNetworkSenderInterface* sender() { return &svpn_task_; }
 
- protected:
-  void OnSignOn();
-  void OnStateChange(buzz::XmppEngine::State state);
-  void OnPresenceMessage(const buzz::PresenceStatus &status);
-
+ private:
   buzz::XmppClient* client_;
   buzz::PresenceStatus my_status_;
   buzz::PresenceReceiveTask presence_receive_;
   buzz::PresenceOutTask presence_out_;
   SvpnTask svpn_task_;
+
+  void OnSignOn();
+  void OnStateChange(buzz::XmppEngine::State state);
+  void OnPresenceMessage(const buzz::PresenceStatus &status);
+
 };
 
 }  // namespace sjingle

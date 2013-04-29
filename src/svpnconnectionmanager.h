@@ -6,71 +6,81 @@
 #include <string>
 #include <map>
 
-#include "talk/app/webrtc/jsep.h"
-#include "talk/base/refcount.h"
-#include "talk/base/scoped_ref_ptr.h"
-#include "talk/app/webrtc/test/fakeconstraints.h"
 #include "talk/base/sigslot.h"
-#include "talk/app/webrtc/datachannelinterface.h"
+#include "talk/p2p/base/p2ptransport.h"
+#include "talk/p2p/client/basicportallocator.h"
+#include "talk/p2p/base/transportdescription.h"
+#include "talk/p2p/base/transportchannelimpl.h"
 
-#include "svpnconnectionobserver.h"
 #include "xmppnetwork.h"
 
 namespace sjingle {
 
-class SvpnConnectionManager
-    : public IceNotifierInterface,
-      public sigslot::has_slots<> {
+
+class SvpnConnectionManager : public talk_base::MessageHandler,
+                              public sigslot::has_slots<> {
 
  public:
-  explicit SvpnConnectionManager(SocialNetworkSenderInterface* social_sender);
-  virtual void CreateConnection(const std::string& uid,
-                                webrtc::SessionDescriptionInterface* desc);
-  virtual void DeleteConnection(const std::string& uid);
+  SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
+                        talk_base::AsyncPacketSocket* socket,
+                        talk_base::Thread* signaling_thread,
+                        talk_base::Thread* worker_thread);
 
-  // will be used as callback for xmppnetwork
+  // Inherited from MessageHandler
+  virtual void OnMessage(talk_base::Message* msg);
+
+  // Signal handler for SocialNetworkSenderInterface
   virtual void HandlePeer(const std::string& uid, const std::string& data);
 
-  // inherited from IceNotifierInterface
-  virtual void Notify(const std::string& uid);
+  // Signal handler for PacketSenderInterface
+  virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
+      const char* data, size_t len, const talk_base::SocketAddress& addr);
+
+  // Signal handlers for TransportChannelImpl
+  virtual void OnRequestSignaling(cricket::TransportChannelImpl* channel);
+  virtual void OnCandidateReady(cricket::TransportChannelImpl* channel,
+                                const cricket::Candidate& candidate);
+  virtual void OnCandidatesAllocationDone(
+      cricket::TransportChannelImpl* channel);
+  virtual void OnRoleConflict(cricket::TransportChannelImpl* channel);
+  virtual void OnReadableState(cricket::TransportChannel* channel);
+  virtual void OnWritableState(cricket::TransportChannel* channel);
+  virtual void OnReadPacket(cricket::TransportChannel* channel, 
+                            const char* data, size_t len, int flags);
+  virtual void OnRouteChange(cricket::TransportChannel* channel,
+                             const cricket::Candidate& candidate);
+  virtual void OnDestroyed(cricket::TransportChannel* channel);
+
+  struct PeerState {
+    int peer_idx;
+    std::string uid;
+    cricket::TransportChannelImpl* channel;
+    cricket::Candidates candidates;
+  };
 
  private:
-  typedef talk_base::RefCountedObject<SvpnDataChannelObserver>
-            RefSvpnDataChannelObserver;
-  typedef talk_base::RefCountedObject<SvpnConnectionObserver>
-            RefSvpnConnectionObserver;
-  typedef talk_base::RefCountedObject<SvpnSetSessionDescriptionObserver>
-            RefSvpnSetSdpObserver;
-  typedef talk_base::RefCountedObject<SvpnCreateSessionDescriptionObserver>
-            RefSvpnCreateSdpObserver;
-
-  typedef struct PeerConnectionState {
-    talk_base::scoped_refptr<webrtc::PeerConnectionInterface> connection;
-    talk_base::scoped_refptr<webrtc::DataChannelInterface> channel;
-    talk_base::scoped_refptr<RefSvpnDataChannelObserver> data_observer;
-    talk_base::scoped_refptr<RefSvpnConnectionObserver> observer;
-    talk_base::scoped_refptr<RefSvpnSetSdpObserver> set_observer;
-    talk_base::scoped_refptr<RefSvpnCreateSdpObserver> sdp_observer;
-    std::string sdp;
-  } PeerConnectionState;
-
-  typedef talk_base::RefCountedObject<PeerConnectionState> RefConnectionState;
-  typedef std::map<const std::string, 
-                   talk_base::scoped_refptr<RefConnectionState> >
-                   PeerConnectionMap;
-
+  int peer_idx_;
+  const std::string content_name_;
   SocialNetworkSenderInterface* social_sender_;
-  webrtc::FakeConstraints constraints_;
-  webrtc::PeerConnectionInterface::IceServer server_;
-  webrtc::PeerConnectionInterface::IceServers servers_;
-  talk_base::scoped_refptr<webrtc::AudioTrackInterface> audio_track_;
-  talk_base::scoped_refptr<webrtc::MediaStreamInterface> stream_;
-  talk_base::scoped_refptr<webrtc::PeerConnectionFactoryInterface>
-      peer_connection_factory_;
-  PeerConnectionMap connections_;
+  talk_base::AsyncPacketSocket* socket_;
+  std::map<std::string, PeerState> uid_map_;
+  std::map<cricket::TransportChannel*, PeerState> channel_map_;
+  cricket::Candidates candidates_;
+  talk_base::SocketAddress stun_server_;
+  talk_base::BasicNetworkManager network_manager_;
+  cricket::BasicPortAllocator port_allocator_;
+  cricket::P2PTransport transport_;
+  cricket::TransportDescription transport_description_;
+
+  void HandlePeer_w(const std::string& uid, const std::string& data);
+  void HandlePacket_w(const char* data, size_t len,
+                      const talk_base::SocketAddress& addr);
+  void CreateConnection(const std::string& uid);
+  void DeleteConnection(const std::string& uid);
+  void AddPeerAddress(const std::string& uid, const std::string& addr_string);
 };
 
 }  // namespace sjingle
 
-#endif  // SJINGLE_SVPNCONNECTIONOBSERVER_H_
+#endif  // SJINGLE_SVPNCONNECTIONMANAGER_H_
 
