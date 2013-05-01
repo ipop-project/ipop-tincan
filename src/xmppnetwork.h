@@ -15,7 +15,8 @@
 
 namespace sjingle {
 
-const char kXmppPrefix[] = "sjingle";
+const char kXmppPrefix[] = "svpn";
+const int kResourceSize = 10;
 
 class SocialNetworkSenderInterface {
  public:

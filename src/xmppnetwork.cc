@@ -38,7 +38,7 @@ int SvpnTask::ProcessStart() {
   std::cout << "PROCESS DONE" << std::endl;
 
   buzz::Jid from(stanza->Attr(buzz::QN_FROM));
-  if (from.resource().compare(0, 7, kXmppPrefix) == 0 &&
+  if (from.resource().compare(0, 4, kXmppPrefix) == 0 &&
       from != GetClient()->jid()) {
     HandlePeer(stanza->Attr(buzz::QN_FROM),
                stanza->FirstNamed(QN_SVPN)->BodyText());
@@ -96,9 +96,9 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 }
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
-  if (status.jid().resource().compare(0, 7, kXmppPrefix) == 0 &&
+  if (status.jid().resource().compare(0, 4, kXmppPrefix) == 0 && 
       status.jid() != client_->jid()) {
-    svpn_task_.HandlePeer(status.jid().Str(), status.status());
+    svpn_task_.HandlePeer(status.jid().Str(), std::string());
   }
 }
 
