@@ -5,6 +5,7 @@
 
 #include <string>
 #include <map>
+#include <set>
 
 #include "talk/base/sigslot.h"
 #include "talk/p2p/base/p2ptransport.h"
@@ -55,7 +56,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     int peer_idx;
     std::string uid;
     cricket::TransportChannelImpl* channel;
-    cricket::Candidates candidates;
+    std::set<std::string> addresses;
   };
 
  private:
@@ -65,7 +66,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::AsyncPacketSocket* socket_;
   std::map<std::string, PeerState> uid_map_;
   std::map<cricket::TransportChannel*, PeerState> channel_map_;
-  cricket::Candidates candidates_;
+  std::set<std::string> addresses_;
   talk_base::SocketAddress stun_server_;
   talk_base::BasicNetworkManager network_manager_;
   cricket::BasicPortAllocator port_allocator_;

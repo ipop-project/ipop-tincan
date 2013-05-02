@@ -81,7 +81,7 @@ SvpnConnectionManager::SvpnConnectionManager(
       socket_(socket),
       uid_map_(),
       channel_map_(),
-      candidates_(),
+      addresses_(),
       stun_server_(kStunServer, kStunPort),
       network_manager_(),
       port_allocator_(&network_manager_, stun_server_,
@@ -120,17 +120,17 @@ void SvpnConnectionManager::OnCandidateReady(
     const cricket::Candidate& candidate) {
   std::cout << "CANDIDATE READY" << std::endl;
   std::cout << candidate.ToString() << std::endl;
-  candidates_.push_back(candidate);
+  addresses_.insert(candidate.address().ToString());
 }
 
 void SvpnConnectionManager::OnCandidatesAllocationDone(
     cricket::TransportChannelImpl* channel) {
   std::cout << "ALLOCATION DONE" << std::endl;
   std::string data(kContentName);
-  for (cricket::Candidates::iterator it = candidates_.begin();
-       it != candidates_.end(); ++it) {
+  for (std::set<std::string>::iterator it = addresses_.begin();
+       it != addresses_.end(); ++it) {
     data += " ";
-    data += it->address().ToString();
+    data += *it;
   }
 
   if (channel_map_.find(channel) != channel_map_.end()) {
@@ -177,12 +177,16 @@ void SvpnConnectionManager::OnDestroyed(
 void SvpnConnectionManager::CreateConnection(const std::string& uid) {
   std::string uid_key = uid.substr(uid.size() - kResourceSize);
   std::cout << "UID KEY " << uid_key << std::endl;
+  cricket::TransportChannelImpl* channel;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
+    cricket::ConnectionInfos infos;
+    channel = uid_map_[uid_key].channel;
+    channel->GetStats(&infos);
+    std::cout << "CONNECTIONS NUMBER " << infos.size() << std::endl;
     return;
   }
 
-  cricket::TransportChannelImpl* channel = 
-      transport_.CreateChannel(peer_idx_);
+  channel = transport_.CreateChannel(peer_idx_);
   channel->SignalRequestSignaling.connect(
       this, &SvpnConnectionManager::OnRequestSignaling);
   channel->SignalCandidateReady.connect(
@@ -218,23 +222,20 @@ void SvpnConnectionManager::AddPeerAddress(const std::string& uid,
                                            const std::string& addr_string) {
   std::string uid_key = uid.substr(uid.size() - kResourceSize);
   if (uid_map_.find(uid_key) != uid_map_.end()) {
-    PeerState peer_state = uid_map_[uid_key];
-    for (cricket::Candidates::iterator it = peer_state.candidates.begin();
-         it != peer_state.candidates.end(); ++it) {
-      if (addr_string.compare(it->address().ToString()) == 0) {
-        // TODO - add logging statement 
-        return;
-      }
+    std::set<std::string>& addresses = uid_map_[uid_key].addresses;
+    if (addresses.find(addr_string) != addresses.end()) {
+      // TODO - add logging statement 
+      return;
     }
 
     talk_base::SocketAddress address;
     address.FromString(addr_string);
-    cricket::Candidate candidate(
+    const cricket::Candidate candidate(
         uid, uid_map_[uid_key].peer_idx, kCandidateProtocolUdp, address,
-        kCandidatePriority, kIceUfrag, kIcePwd, cricket::LOCAL_PORT_TYPE, "",
-        kCandidateGeneration, kCandidateFoundation);
+        kCandidatePriority, kIceUfrag, kIcePwd, cricket::LOCAL_PORT_TYPE,
+        "", kCandidateGeneration, kCandidateFoundation);
     uid_map_[uid_key].channel->OnCandidate(candidate);
-    uid_map_[uid_key].candidates.push_back(candidate);
+    uid_map_[uid_key].addresses.insert(addr_string);
   }
 }
 
@@ -307,6 +308,10 @@ int main(int argc, char **argcv) {
   std::string password;
   std::cin >> password;
 
+  std::cout << "Uid: ";
+  std::string uid;
+  std::cin >> uid;
+
   talk_base::InsecureCryptStringImpl pass;
   pass.password() = password;
 
@@ -315,20 +320,19 @@ int main(int argc, char **argcv) {
   buzz::XmppClientSettings xcs;
   xcs.set_user(jid.node());
   xcs.set_host(jid.domain());
-  xcs.set_resource(resource + talk_base::CreateRandomString(
-                   sjingle::kResourceSize));
+  xcs.set_resource(resource + uid);
   xcs.set_use_tls(buzz::TLS_REQUIRED);
   xcs.set_pass(talk_base::CryptString(pass));
   xcs.set_server(talk_base::SocketAddress(sjingle::kXmppHost, 
                                           sjingle::kXmppPort));
   talk_base::AutoThread signaling_thread;
   talk_base::Thread worker_thread;
+  signaling_thread.WrapCurrent();
   worker_thread.Start();
 
   // TODO - create a third seperate thread for packet handling
   talk_base::SocketAddress local_address(sjingle::kLocalHost, 0);
-  talk_base::BasicPacketSocketFactory packet_factory(
-      talk_base::Thread::Current());
+  talk_base::BasicPacketSocketFactory packet_factory(&signaling_thread);
   talk_base::AsyncPacketSocket* udp_socket = packet_factory.CreateUdpSocket(
       local_address, sjingle::kNetworkPort, sjingle::kNetworkPort);
 
@@ -339,8 +343,7 @@ int main(int argc, char **argcv) {
                                          &signaling_thread, &worker_thread);
   network.sender()->HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
-
-  talk_base::Thread::Current()->Run();
+  signaling_thread.Run();
   return 0;
 }
 
