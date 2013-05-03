@@ -62,7 +62,7 @@ struct HandlePacketParams : public talk_base::MessageData {
       memcpy(data, param_data, param_len);
     }
     else {
-      // error
+      LOG(LERROR) << __FUNCTION__ << " len greater than kBuffersize " << len;
     }
   }
   char data[kBufferSize];
@@ -112,20 +112,18 @@ SvpnConnectionManager::SvpnConnectionManager(
 void SvpnConnectionManager::OnRequestSignaling(
     cricket::TransportChannelImpl* channel) {
   channel->OnSignalingReady();
-  std::cout << "REQUEST SIGNALING" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "SIGNALING";
 }
 
 void SvpnConnectionManager::OnCandidateReady(
     cricket::TransportChannelImpl* channel, 
     const cricket::Candidate& candidate) {
-  std::cout << "CANDIDATE READY" << std::endl;
-  std::cout << candidate.ToString() << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << candidate.ToString();
   addresses_.insert(candidate.address().ToString());
 }
 
 void SvpnConnectionManager::OnCandidatesAllocationDone(
     cricket::TransportChannelImpl* channel) {
-  std::cout << "ALLOCATION DONE" << std::endl;
   std::string data(kContentName);
   for (std::set<std::string>::iterator it = addresses_.begin();
        it != addresses_.end(); ++it) {
@@ -136,29 +134,48 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
   if (channel_map_.find(channel) != channel_map_.end()) {
     social_sender_->SendToPeer(channel_map_[channel].uid, data);
   }
+  LOG(INFO) << __FUNCTION__ << " " << data;
 }
 
 void SvpnConnectionManager::OnRoleConflict(
     cricket::TransportChannelImpl* channel) {
-  std::cout << "ROLE CONFLICT" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "CONFLICT";
+}
+
+void SvpnConnectionManager::DestroyChannel(
+    cricket::TransportChannel* channel) {
+  LOG(INFO) << __FUNCTION__ << " " << "DESTROYING";
+  std::string uid_key = get_key(channel_map_[channel].uid);
+  int peer_idx = channel_map_[channel].peer_idx;
+  transport_.DestroyChannel(peer_idx);
+  uid_map_.erase(uid_key);
+  channel_map_.erase(channel);
 }
 
 void SvpnConnectionManager::OnReadableState(
     cricket::TransportChannel* channel) {
-  std::cout << "READABLE STATE" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "R " << channel->readable()
+            << " W " << channel->writable();
+  if (!channel->readable() && !channel->writable()) {
+    DestroyChannel(channel);
+  }
 }
 
 void SvpnConnectionManager::OnWritableState(
     cricket::TransportChannel* channel) {
-  std::cout << "WRITABLE STATE" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "R " << channel->readable()
+            << " W " << channel->writable();
+  if (!channel->readable() && !channel->writable()) {
+    DestroyChannel(channel);
+  }
 }
 
 void SvpnConnectionManager::OnReadPacket(
     cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
-  std::cout << "READ PACKET SIZE " << len << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << len;
 
-  // TODO - set the real remote endpoint
+  // TODO - make this configurable
   talk_base::SocketAddress addr(kLocalHost, kSvpnPort);
   socket_->SendTo(data, len, addr);
 }
@@ -166,26 +183,22 @@ void SvpnConnectionManager::OnReadPacket(
 void SvpnConnectionManager::OnRouteChange(
     cricket::TransportChannel* channel, 
     const cricket::Candidate& candidate) {
-  std::cout << "ROUTE CHANGE" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "ROUTE";
 }
 
 void SvpnConnectionManager::OnDestroyed(
     cricket::TransportChannel* channel) {
-  std::cout << "DESTROYED" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "DESTROYED";
 }
 
 void SvpnConnectionManager::CreateConnection(const std::string& uid) {
-  std::string uid_key = uid.substr(uid.size() - kResourceSize);
-  std::cout << "UID KEY " << uid_key << std::endl;
-  cricket::TransportChannelImpl* channel;
+  std::string uid_key = get_key(uid);
+  LOG(INFO) << __FUNCTION__ << " " << uid_key;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
-    cricket::ConnectionInfos infos;
-    channel = uid_map_[uid_key].channel;
-    channel->GetStats(&infos);
-    std::cout << "CONNECTIONS NUMBER " << infos.size() << std::endl;
     return;
   }
 
+  cricket::TransportChannelImpl* channel;
   channel = transport_.CreateChannel(peer_idx_);
   channel->SignalRequestSignaling.connect(
       this, &SvpnConnectionManager::OnRequestSignaling);
@@ -220,7 +233,7 @@ void SvpnConnectionManager::DeleteConnection(const std::string& uid) {
 
 void SvpnConnectionManager::AddPeerAddress(const std::string& uid,
                                            const std::string& addr_string) {
-  std::string uid_key = uid.substr(uid.size() - kResourceSize);
+  std::string uid_key = get_key(uid);
   if (uid_map_.find(uid_key) != uid_map_.end()) {
     std::set<std::string>& addresses = uid_map_[uid_key].addresses;
     if (addresses.find(addr_string) != addresses.end()) {
@@ -258,7 +271,7 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
-  std::cout << "PACKET RCV SIZE " << len << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << len;
   HandlePacketParams* params = new HandlePacketParams(data, len, addr);
   transport_.worker_thread()->Post(this, MSG_HANDLEPACKET, params);
 }
@@ -267,7 +280,7 @@ void SvpnConnectionManager::HandlePacket_w(const char* data, size_t len,
     const talk_base::SocketAddress& addr) {
   const char* dest_id = data + kIdSize;
   std::string uid_key(dest_id, kResourceSize);
-  std::cout << "PACKET UID KEY " << uid_key << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << uid_key;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
     uid_map_[uid_key].channel->SendPacket(data, len, 0);
   }

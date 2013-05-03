@@ -8,6 +8,7 @@
 #include "talk/xmpp/xmppthread.h"
 #include "talk/xmpp/xmpppump.h"
 #include "talk/xmpp/jid.h"
+#include "talk/base/logging.h"
 
 #include "xmppnetwork.h"
 
@@ -30,12 +31,12 @@ void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
 }
 
 int SvpnTask::ProcessStart() {
-  std::cout << "PROCESS START" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "START";
   const buzz::XmlElement* stanza = NextStanza();
   if (stanza == NULL) {
     return STATE_BLOCKED;
   }
-  std::cout << "PROCESS DONE" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "PROCESSING";
 
   buzz::Jid from(stanza->Attr(buzz::QN_FROM));
   if (from.resource().compare(0, 4, kXmppPrefix) == 0 &&
@@ -47,7 +48,7 @@ int SvpnTask::ProcessStart() {
 }
 
 bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
-  std::cout << "HANDLE STANZA" << std::endl;
+  LOG(INFO) << __FUNCTION__ << " " << "START";
   std::cout << stanza->Str() << std::endl;
   if (!MatchRequestIq(stanza, buzz::STR_GET, QN_SVPN)) {
     return false;
@@ -80,17 +81,18 @@ void XmppNetwork::OnSignOn() {
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   switch (state) {
     case buzz::XmppEngine::STATE_START:
+      LOG(INFO) << __FUNCTION__ << " " << "START";
       std::cout << "START" << std::endl;
       break;
     case buzz::XmppEngine::STATE_OPENING:
-      std::cout << "OPENING" << std::endl;
+      LOG(INFO) << __FUNCTION__ << " " << "OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
-      std::cout << "OPEN" << std::endl;
+      LOG(INFO) << __FUNCTION__ << " " << "OPEN";
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
-      std::cout << "CLOSED" << std::endl;
+      LOG(INFO) << __FUNCTION__ << " " << "CLOSED";
       break;
   }
 }

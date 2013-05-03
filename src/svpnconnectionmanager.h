@@ -79,6 +79,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void CreateConnection(const std::string& uid);
   void DeleteConnection(const std::string& uid);
   void AddPeerAddress(const std::string& uid, const std::string& addr_string);
+  void DestroyChannel(cricket::TransportChannel* channel);
+
+  std::string get_key(const std::string& uid) {
+    return uid.substr(uid.size() - kResourceSize);
+  }
 };
 
 }  // namespace sjingle
