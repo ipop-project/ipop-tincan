@@ -12,11 +12,16 @@
 #include "talk/p2p/client/basicportallocator.h"
 #include "talk/p2p/base/transportdescription.h"
 #include "talk/p2p/base/transportchannelimpl.h"
+#include "talk/base/opensslidentity.h"
+#include "talk/p2p/base/dtlstransportchannel.h"
+#include "talk/p2p/base/dtlstransport.h"
+#include "talk/base/base64.h"
 
 #include "xmppnetwork.h"
 
 namespace sjingle {
 
+static const int kDigestSize = 64;
 
 class SvpnConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
@@ -25,7 +30,12 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
                         talk_base::AsyncPacketSocket* socket,
                         talk_base::Thread* signaling_thread,
-                        talk_base::Thread* worker_thread);
+                        talk_base::Thread* worker_thread,
+                        const std::string& uid);
+
+  const std::string fingerprint() const { 
+    return fingerprint_->GetRfc4752Fingerprint(); 
+  }
 
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
@@ -70,13 +80,19 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::SocketAddress stun_server_;
   talk_base::BasicNetworkManager network_manager_;
   cricket::BasicPortAllocator port_allocator_;
-  cricket::P2PTransport transport_;
-  cricket::TransportDescription transport_description_;
+  talk_base::OpenSSLIdentity* identity_;
+  talk_base::SSLFingerprint* fingerprint_;
+  cricket::DtlsTransport<cricket::P2PTransport> transport_;
+  cricket::TransportDescription* local_description_;
+  cricket::TransportDescription* remote_description_;
 
   void HandlePeer_w(const std::string& uid, const std::string& data);
   void HandlePacket_w(const char* data, size_t len,
                       const talk_base::SocketAddress& addr);
-  void CreateConnection(const std::string& uid);
+  void SetRemoteFingerprint(const std::string& uid, 
+                            const std::string& fingerprint);
+  void CreateConnection(const std::string& uid, 
+                        const std::string& fingerprint);
   void DeleteConnection(const std::string& uid);
   void AddPeerAddress(const std::string& uid, const std::string& addr_string);
   void DestroyChannel(cricket::TransportChannel* channel);

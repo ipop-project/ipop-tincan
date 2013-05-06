@@ -51,6 +51,10 @@ class XmppNetwork : public sigslot::has_slots<> {
   explicit XmppNetwork(buzz::XmppClient *client);
   SocialNetworkSenderInterface* sender() { return &svpn_task_; }
 
+  virtual void set_status(const std::string& status) {
+    my_status_.set_status(status);
+  }
+
  private:
   buzz::XmppClient* client_;
   buzz::PresenceStatus my_status_;

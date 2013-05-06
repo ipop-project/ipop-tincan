@@ -100,7 +100,7 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
   if (status.jid().resource().compare(0, 4, kXmppPrefix) == 0 && 
       status.jid() != client_->jid()) {
-    svpn_task_.HandlePeer(status.jid().Str(), std::string());
+    svpn_task_.HandlePeer(status.jid().Str(), status.status());
   }
 }
 
