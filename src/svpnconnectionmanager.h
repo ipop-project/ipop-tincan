@@ -16,6 +16,8 @@
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
+#include "talk/base/basicpacketsocketfactory.h"
+#include "talk/base/asyncpacketsocket.h"
 
 #include "xmppnetwork.h"
 
@@ -28,13 +30,12 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
  public:
   SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
-                        talk_base::AsyncPacketSocket* socket,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
                         const std::string& uid);
 
   const std::string fingerprint() const { 
-    return fingerprint_->GetRfc4752Fingerprint(); 
+    return local_fingerprint_->GetRfc4752Fingerprint(); 
   }
 
   // Inherited from MessageHandler
@@ -62,44 +63,44 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                              const cricket::Candidate& candidate);
   virtual void OnDestroyed(cricket::TransportChannel* channel);
 
+  typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
+
   struct PeerState {
-    int peer_idx;
     std::string uid;
-    cricket::TransportChannelImpl* channel;
     std::set<std::string> addresses;
+    DtlsP2PTransport* transport;
   };
 
  private:
-  int peer_idx_;
-  const std::string content_name_;
-  SocialNetworkSenderInterface* social_sender_;
-  talk_base::AsyncPacketSocket* socket_;
-  std::map<std::string, PeerState> uid_map_;
-  std::map<cricket::TransportChannel*, PeerState> channel_map_;
-  std::set<std::string> addresses_;
-  talk_base::SocketAddress stun_server_;
-  talk_base::BasicNetworkManager network_manager_;
-  cricket::BasicPortAllocator port_allocator_;
-  talk_base::OpenSSLIdentity* identity_;
-  talk_base::SSLFingerprint* fingerprint_;
-  cricket::DtlsTransport<cricket::P2PTransport> transport_;
-  cricket::TransportDescription* local_description_;
-  cricket::TransportDescription* remote_description_;
-
-  void HandlePeer_w(const std::string& uid, const std::string& data);
-  void HandlePacket_w(const char* data, size_t len,
-                      const talk_base::SocketAddress& addr);
-  void SetRemoteFingerprint(const std::string& uid, 
-                            const std::string& fingerprint);
+  void SetupTransport(cricket::P2PTransport* transport, 
+                      const std::string& uid, const std::string& fingerprint);
   void CreateConnection(const std::string& uid, 
                         const std::string& fingerprint);
   void DeleteConnection(const std::string& uid);
   void AddPeerAddress(const std::string& uid, const std::string& addr_string);
+  void AddPeerAddress_w(const std::string& uid, 
+                        const std::string& addr_string);
   void DestroyChannel(cricket::TransportChannel* channel);
+  void SetSocket_w();
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
   }
+
+  const std::string content_name_;
+  SocialNetworkSenderInterface* social_sender_;
+  talk_base::AsyncPacketSocket* socket_;
+  talk_base::BasicPacketSocketFactory packet_factory_;
+  std::map<std::string, PeerState> uid_map_;
+  std::map<cricket::TransportChannel*, PeerState> channel_map_;
+  std::set<std::string> addresses_;
+  talk_base::Thread* signaling_thread_;
+  talk_base::Thread* worker_thread_;
+  talk_base::SocketAddress stun_server_;
+  talk_base::BasicNetworkManager network_manager_;
+  cricket::BasicPortAllocator port_allocator_;
+  talk_base::OpenSSLIdentity* identity_;
+  talk_base::SSLFingerprint* local_fingerprint_;
 };
 
 }  // namespace sjingle
