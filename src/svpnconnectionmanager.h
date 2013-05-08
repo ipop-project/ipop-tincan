@@ -77,11 +77,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void CreateConnection(const std::string& uid, 
                         const std::string& fingerprint);
   void DeleteConnection(const std::string& uid);
-  void AddPeerAddress(const std::string& uid, const std::string& addr_string);
-  void AddPeerAddress_w(const std::string& uid, 
-                        const std::string& addr_string);
   void DestroyChannel(cricket::TransportChannel* channel);
   void SetSocket_w();
+  cricket::Candidate MakeCandidate(const std::string& uid, 
+                                   const std::string& addr_string);
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);

@@ -82,7 +82,6 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   switch (state) {
     case buzz::XmppEngine::STATE_START:
       LOG(INFO) << __FUNCTION__ << " " << "START";
-      std::cout << "START" << std::endl;
       break;
     case buzz::XmppEngine::STATE_OPENING:
       LOG(INFO) << __FUNCTION__ << " " << "OPENING";

@@ -42,17 +42,9 @@ const uint32 kFlags = cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG |
                       cricket::PORTALLOCATOR_ENABLE_BUNDLE;
 
 enum {
-  MSG_ADDPEER = 1,
-  MSG_SETSOCKET = 2
+  MSG_SETSOCKET = 1
 };
 
-struct AddPeerParams : public talk_base::MessageData {
-  AddPeerParams(const std::string& param_uid,
-                   const std::string& param_addr_string)
-      : uid(param_uid), addr_string(param_addr_string) {}
-  const std::string uid;
-  const std::string addr_string;
-};
 
 SvpnConnectionManager::SvpnConnectionManager(
     SocialNetworkSenderInterface* social_sender,
@@ -119,7 +111,8 @@ void SvpnConnectionManager::OnRoleConflict(
 void SvpnConnectionManager::DestroyChannel(
     cricket::TransportChannel* channel) {
   LOG(INFO) << __FUNCTION__ << " " << "DESTROYING";
-  channel_map_[channel].transport->DestroyAllChannels();
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+  channel_map_[channel].transport->DestroyChannel(component);
 }
 
 void SvpnConnectionManager::OnReadableState(
@@ -160,16 +153,10 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string dest(dest_id, kResourceSize);
   LOG(INFO) << __FUNCTION__ << " " << source << " " << dest;
   if (uid_map_.find(dest) != uid_map_.end()) {
-    /*
-    cricket::DtlsTransportChannelWrapper* channel =
-        static_cast<cricket::DtlsTransportChannelWrapper*>(
-        uid_map_[dest].transport->GetChannel(1));
-    int sent = channel->channel()->SendPacket(data, len, 0);
-    */
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-    int sent = uid_map_[dest].transport->GetChannel(
+    int count = uid_map_[dest].transport->GetChannel(
         component)->SendPacket(data, len, 0);
-    LOG(INFO) << __FUNCTION__ << " SENT " << sent;
+    LOG(INFO) << __FUNCTION__ << " SENT " << count;
   }
 }
 
@@ -192,11 +179,14 @@ void SvpnConnectionManager::SetupTransport(
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
                                                    fingerprint);
 
-  cricket::TransportDescription local_description_(
+  // TODO - Fix memory leaks as this is a prime example
+  cricket::TransportDescription* local_description =
+      new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag,
       kIcePwd, cricket::ICEMODE_FULL, local_fingerprint_, 
       cricket::Candidates());
-  cricket::TransportDescription remote_description(
+  cricket::TransportDescription* remote_description =
+      new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag, 
       kIcePwd, cricket::ICEMODE_FULL, remote_fingerprint, 
       cricket::Candidates());
@@ -204,21 +194,22 @@ void SvpnConnectionManager::SetupTransport(
   if (uid.compare(social_sender_->uid()) < 0) {
     transport->SetRole(cricket::ROLE_CONTROLLING);
     transport->SetTiebreaker(1);
-    transport->SetLocalTransportDescription(local_description_,
+    transport->SetLocalTransportDescription(*local_description,
                                             cricket::CA_OFFER);
-    transport->SetRemoteTransportDescription(remote_description,
+    transport->SetRemoteTransportDescription(*remote_description,
                                              cricket::CA_ANSWER);
   }
   else {
     transport->SetRole(cricket::ROLE_CONTROLLED);
     transport->SetTiebreaker(2);
-    transport->SetRemoteTransportDescription(remote_description,
+    transport->SetRemoteTransportDescription(*remote_description,
                                              cricket::CA_OFFER);
-    transport->SetLocalTransportDescription(local_description_,
+    transport->SetLocalTransportDescription(*local_description,
                                             cricket::CA_ANSWER);
   }
 
-  LOG(INFO) << __FUNCTION__ << " DIGEST SET " << fingerprint;
+  LOG(INFO) << __FUNCTION__ << " DIGEST SET " << fingerprint
+            << " " << fingerprint.size();
 }
 
 void SvpnConnectionManager::CreateConnection(
@@ -254,10 +245,6 @@ void SvpnConnectionManager::CreateConnection(
       this, &SvpnConnectionManager::OnReadableState);
   channel->SignalWritableState.connect(
       this, &SvpnConnectionManager::OnWritableState);
-  /*
-  channel->channel()->SignalReadPacket.connect(
-      this, &SvpnConnectionManager::OnReadPacket);
-  */
   channel->SignalReadPacket.connect(
       this, &SvpnConnectionManager::OnReadPacket);
   channel->SignalRouteChange.connect(
@@ -278,43 +265,8 @@ void SvpnConnectionManager::CreateConnection(
 void SvpnConnectionManager::DeleteConnection(const std::string& uid) {
 }
 
-void SvpnConnectionManager::AddPeerAddress(const std::string& uid,
-                                           const std::string& addr_string) {
-  std::string uid_key = get_key(uid);
-  if (uid_map_.find(uid_key) != uid_map_.end()) {
-    std::set<std::string>& addresses = uid_map_[uid_key].addresses;
-    if (addresses.find(addr_string) != addresses.end()) {
-      LOG(INFO) << __FUNCTION__ << " FOUND " << addr_string;
-      return;
-    }
-
-    uid_map_[uid_key].addresses.insert(addr_string);
-    AddPeerParams* params = new AddPeerParams(uid, addr_string);
-    worker_thread_->Post(this, MSG_ADDPEER, params);
-  }
-}
-
-void SvpnConnectionManager::AddPeerAddress_w(const std::string& uid,
-                                           const std::string& addr_string) {
-  std::string uid_key = get_key(uid);
-  talk_base::SocketAddress address;
-  address.FromString(addr_string);
-  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  const cricket::Candidate candidate(
-      uid, component, kCandidateProtocolUdp, address,
-      kCandidatePriority, kIceUfrag, kIcePwd, cricket::LOCAL_PORT_TYPE,
-      "", kCandidateGeneration, kCandidateFoundation);
-  uid_map_[uid_key].transport->GetChannel(component)->OnCandidate(candidate);
-}
-
 void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
-    case MSG_ADDPEER: {
-        AddPeerParams* params = static_cast<AddPeerParams*>(msg->pdata);
-        AddPeerAddress_w(params->uid, params->addr_string);
-        delete params;
-      }
-      break;
     case MSG_SETSOCKET: {
         SetSocket_w();
       }
@@ -330,6 +282,18 @@ void SvpnConnectionManager::SetSocket_w() {
       this, &sjingle::SvpnConnectionManager::HandlePacket);
 }
 
+cricket::Candidate SvpnConnectionManager::MakeCandidate(
+    const std::string& uid, const std::string& addr_string) {
+  talk_base::SocketAddress address;
+  address.FromString(addr_string);
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+  const cricket::Candidate candidate(
+      uid, component, kCandidateProtocolUdp, address,
+      kCandidatePriority, kIceUfrag, kIcePwd, cricket::LOCAL_PORT_TYPE,
+      "", kCandidateGeneration, kCandidateFoundation);
+  return candidate;
+}
+
 void SvpnConnectionManager::HandlePeer(const std::string& uid,
                                          const std::string& data) {
   LOG(INFO) << __FUNCTION__ << " " << uid << " " << data;
@@ -343,7 +307,9 @@ void SvpnConnectionManager::HandlePeer(const std::string& uid,
       std::string addr_string;
       iss >> addr_string;
       if (addr_string.size() > 8) {
-        AddPeerAddress(uid, addr_string);
+        cricket::Candidates candidates;
+        candidates.push_back(MakeCandidate(uid, addr_string));
+        uid_map_[get_key(uid)].transport->OnRemoteCandidates(candidates);
       }
     } while (iss);
   }
@@ -394,6 +360,7 @@ int main(int argc, char **argcv) {
   status += " ";
   status += manager.fingerprint();
   network.set_status(status);
+
   network.sender()->HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
   signaling_thread.Run();
