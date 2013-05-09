@@ -16,7 +16,7 @@
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
-#include "talk/base/basicpacketsocketfactory.h"
+#include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/asyncpacketsocket.h"
 
 #include "xmppnetwork.h"
@@ -32,6 +32,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
+                        talk_base::Thread* network_thread,
                         const std::string& uid);
 
   const std::string fingerprint() const { 
@@ -78,6 +79,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         const std::string& fingerprint);
   void DeleteConnection(const std::string& uid);
   void DestroyChannel(cricket::TransportChannel* channel);
+  virtual void HandlePacket_w(const char* data, size_t len, 
+                              const talk_base::SocketAddress& addr);
   void SetSocket_w();
   cricket::Candidate MakeCandidate(const std::string& uid, 
                                    const std::string& addr_string);
