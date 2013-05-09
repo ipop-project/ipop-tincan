@@ -31,8 +31,6 @@ static const int kMaxPort = 5820;
 static const char kLocalHost[] = "127.0.0.1";
 static const int kBufferSize = 1500;
 static const int kIdSize = 20;
-static const char AES_CM_128_HMAC_SHA1_80[] = "AES_CM_128_HMAC_SHA1_80";
-static const char AES_CM_128_HMAC_SHA1_32[] = "AES_CM_128_HMAC_SHA1_32";
 static const char kAddrPrefix[] = "cas";
 static const char kFprPrefix[] = "fpr";
 
@@ -44,36 +42,17 @@ const uint32 kFlags = cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG |
 
 enum {
   MSG_SETSOCKET = 1,
-  MSG_HANDLEPACKET = 2
 };
-
-struct HandlePacketParams : public talk_base::MessageData {
-  HandlePacketParams(const char* param_data, size_t param_len, 
-                     const talk_base::SocketAddress& param_addr)
-      : data(), len(param_len), addr(param_addr) {
-    if (len <= kBufferSize) {
-      memcpy(data, param_data, param_len);
-    }
-    else {
-      LOG(LERROR) << __FUNCTION__ << " len greater than kBuffersize " << len;
-    }
-  }
-  char data[kBufferSize];
-  const size_t len;
-  const talk_base::SocketAddress addr;
-};
-
 
 SvpnConnectionManager::SvpnConnectionManager(
     SocialNetworkSenderInterface* social_sender,
     talk_base::Thread* signaling_thread,
     talk_base::Thread* worker_thread,
-    talk_base::Thread* network_thread,
     const std::string& uid)
     : content_name_(kContentName),
       social_sender_(social_sender),
       socket_(0),
-      packet_factory_(network_thread),
+      packet_factory_(worker_thread),
       uid_map_(),
       channel_map_(),
       addresses_(),
@@ -89,9 +68,9 @@ SvpnConnectionManager::SvpnConnectionManager(
       local_fingerprint_(talk_base::SSLFingerprint::Create(
            talk_base::DIGEST_SHA_1, identity_)) {
   port_allocator_.set_flags(kFlags);
-  //port_allocator_.set_allow_tcp_listen(kAllowTcpListen);
+  port_allocator_.set_allow_tcp_listen(kAllowTcpListen);
   port_allocator_.SetPortRange(kMinPort, kMaxPort);
-  network_thread->Post(this, MSG_SETSOCKET, 0);
+  worker_thread->Post(this, MSG_SETSOCKET, 0);
 }
 
 void SvpnConnectionManager::OnRequestSignaling(
@@ -171,13 +150,6 @@ void SvpnConnectionManager::OnReadPacket(
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
-  LOG(INFO) << __FUNCTION__ << " " << len;
-  HandlePacketParams* params = new HandlePacketParams(data, len, addr);
-  worker_thread_->Post(this, MSG_HANDLEPACKET, params);
-}
-
-void SvpnConnectionManager::HandlePacket_w(const char* data, size_t len, 
-    const talk_base::SocketAddress& addr) {
   const char* dest_id = data + kIdSize;
   std::string source(data, kResourceSize);
   std::string dest(dest_id, kResourceSize);
@@ -281,10 +253,6 @@ void SvpnConnectionManager::CreateConnection(
   channel->SignalDestroyed.connect(
       this, &SvpnConnectionManager::OnDestroyed);
 
-  std::vector<std::string> ciphers;
-  ciphers.push_back(AES_CM_128_HMAC_SHA1_32);
-  channel->SetSrtpCiphers(ciphers);
-
   uid_map_[uid_key] = peer_state;
   channel_map_[channel] = peer_state;
   SetupTransport(peer_state.transport, uid, fingerprint);
@@ -298,13 +266,6 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_SETSOCKET: {
         SetSocket_w();
-      }
-      break;
-    case MSG_HANDLEPACKET: {
-        HandlePacketParams* params = 
-            static_cast<HandlePacketParams*>(msg->pdata);
-        HandlePacket_w(params->data, params->len, params->addr);
-        delete params;
       }
       break;
   }
@@ -389,17 +350,14 @@ int main(int argc, char **argcv) {
                                           sjingle::kXmppPort));
   talk_base::AutoThread signaling_thread;
   talk_base::Thread worker_thread;
-  talk_base::Thread network_thread;
   signaling_thread.WrapCurrent();
   worker_thread.Start();
-  network_thread.Start();
 
   buzz::XmppPump pump;
   pump.DoLogin(xcs, new buzz::XmppSocket(buzz::TLS_REQUIRED), 0);
   sjingle::XmppNetwork network(pump.client());
   sjingle::SvpnConnectionManager manager(network.sender(), &signaling_thread,
-                                         &worker_thread, &network_thread,
-                                         uid);
+                                         &worker_thread, uid);
   std::string status(sjingle::kFprPrefix);
   status += " ";
   status += manager.fingerprint();
