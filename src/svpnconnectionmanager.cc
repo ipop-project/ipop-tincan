@@ -42,6 +42,13 @@ const uint32 kFlags = cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG |
 
 enum {
   MSG_SETSOCKET = 1,
+  MSG_DESTROYTRANSPORT = 2
+};
+
+struct DestroyTransportParams : public talk_base::MessageData {
+  DestroyTransportParams(cricket::TransportChannel* param_channel)
+      : channel(param_channel) {}
+  cricket::TransportChannel* channel;
 };
 
 SvpnConnectionManager::SvpnConnectionManager(
@@ -110,42 +117,51 @@ void SvpnConnectionManager::OnRoleConflict(
   LOG(INFO) << __FUNCTION__ << " " << "CONFLICT";
 }
 
-void SvpnConnectionManager::DestroyChannel(
+void SvpnConnectionManager::DestroyTransport_s(
     cricket::TransportChannel* channel) {
   LOG(INFO) << __FUNCTION__ << " " << "DESTROYING";
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  channel_map_[channel].transport->DestroyChannel(component);
+  std::string uid = channel_map_[channel].uid;
+  cricket::Transport* transport = channel_map_[channel].transport;
+  transport->DestroyChannel(component);
+  channel_map_.erase(channel);
+  uid_map_.erase(get_key(uid));
+  delete transport;
 }
 
-void SvpnConnectionManager::OnReadableState(
+void SvpnConnectionManager::OnRWChangeState(
     cricket::TransportChannel* channel) {
   LOG(INFO) << __FUNCTION__ << " " << "R " << channel->readable()
             << " W " << channel->writable();
   if (!channel->readable() && !channel->writable()) {
-    DestroyChannel(channel);
+    DestroyTransportParams* params = new DestroyTransportParams(channel);
+    signaling_thread_->Post(this, MSG_DESTROYTRANSPORT, params);
   }
 }
 
-void SvpnConnectionManager::OnWritableState(
+void SvpnConnectionManager::OnDestroyed(
     cricket::TransportChannel* channel) {
-  LOG(INFO) << __FUNCTION__ << " " << "R " << channel->readable()
-            << " W " << channel->writable();
-  if (!channel->readable() && !channel->writable()) {
-    DestroyChannel(channel);
-  }
+  LOG(INFO) << __FUNCTION__ << " " << "DESTROYED";
 }
 
-void SvpnConnectionManager::OnReadPacket(
+void SvpnConnectionManager::OnRouteChange(
     cricket::TransportChannel* channel, 
+    const cricket::Candidate& candidate) {
+  LOG(INFO) << __FUNCTION__ << " " << "ROUTE";
+}
+
+void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
 
   const char* dest_id = data + kIdSize;
   std::string source(data, kResourceSize);
   std::string dest(dest_id, kResourceSize);
-  LOG(INFO) << __FUNCTION__ << " " << len << " " << source << " " << dest;
+
   // TODO - make this configurable
   talk_base::SocketAddress addr(kLocalHost, kSvpnPort);
   int count = socket_->SendTo(data, len, addr);
+  LOG(INFO) << __FUNCTION__ << " " << len << " " << source << " " 
+            << dest << " " << count;
 }
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
@@ -156,21 +172,18 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   LOG(INFO) << __FUNCTION__ << " " << source << " " << dest;
   if (uid_map_.find(dest) != uid_map_.end()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-    int count = uid_map_[dest].transport->GetChannel(
-        component)->SendPacket(data, len, 0);
+#ifndef NO_DTLS
+    cricket::TransportChannel* channel = 
+        uid_map_[dest].transport->GetChannel(component);
+    int count = channel->SendPacket(data, len, 0);
+#else
+    cricket::DtlsTransportChannelWrapper* channel =
+        static_cast<cricket::DtlsTransportChannelWrapper*>(
+            uid_map_[dest].transport->GetChannel(component));
+    int count = channel->channel()->SendPacket(data, len, 0);
+#endif
     LOG(INFO) << __FUNCTION__ << " SENT " << count;
   }
-}
-
-void SvpnConnectionManager::OnRouteChange(
-    cricket::TransportChannel* channel, 
-    const cricket::Candidate& candidate) {
-  LOG(INFO) << __FUNCTION__ << " " << "ROUTE";
-}
-
-void SvpnConnectionManager::OnDestroyed(
-    cricket::TransportChannel* channel) {
-  LOG(INFO) << __FUNCTION__ << " " << "DESTROYED";
 }
 
 void SvpnConnectionManager::SetupTransport(
@@ -184,12 +197,12 @@ void SvpnConnectionManager::SetupTransport(
   // TODO - Fix memory leaks as this is a prime example
   cricket::TransportDescription* local_description =
       new cricket::TransportDescription(
-      cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag,
+      cricket::NS_GINGLE_P2P, std::vector<std::string>(), kIceUfrag,
       kIcePwd, cricket::ICEMODE_FULL, local_fingerprint_, 
       cricket::Candidates());
   cricket::TransportDescription* remote_description =
       new cricket::TransportDescription(
-      cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag, 
+      cricket::NS_GINGLE_P2P, std::vector<std::string>(), kIceUfrag, 
       kIcePwd, cricket::ICEMODE_FULL, remote_fingerprint, 
       cricket::Candidates());
 
@@ -217,18 +230,16 @@ void SvpnConnectionManager::CreateConnection(
     const std::string& uid, const std::string& fingerprint) {
   std::string uid_key = get_key(uid);
   LOG(INFO) << __FUNCTION__ << " " << uid_key;
-  PeerState peer_state;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
-    peer_state = uid_map_[uid_key];
-  }
-  else {
-    peer_state.uid = uid;
-    peer_state.transport = new DtlsP2PTransport(
-        signaling_thread_, worker_thread_, content_name_, 
-        &port_allocator_, identity_);
+    LOG(INFO) << __FUNCTION__ << " EXISTING TRANSPORT" << uid_key;
+    return;
   }
 
-  if (peer_state.transport->HasChannels()) return;
+  PeerState peer_state;
+  peer_state.uid = uid;
+  peer_state.transport = new DtlsP2PTransport(
+      signaling_thread_, worker_thread_, content_name_, 
+      &port_allocator_, identity_);
 
   cricket::DtlsTransportChannelWrapper* channel =
       static_cast<cricket::DtlsTransportChannelWrapper*>(
@@ -243,15 +254,20 @@ void SvpnConnectionManager::CreateConnection(
   channel->SignalRoleConflict.connect(
       this, &SvpnConnectionManager::OnRoleConflict);
   channel->SignalReadableState.connect(
-      this, &SvpnConnectionManager::OnReadableState);
+      this, &SvpnConnectionManager::OnRWChangeState);
   channel->SignalWritableState.connect(
-      this, &SvpnConnectionManager::OnWritableState);
-  channel->SignalReadPacket.connect(
-      this, &SvpnConnectionManager::OnReadPacket);
+      this, &SvpnConnectionManager::OnRWChangeState);
   channel->SignalRouteChange.connect(
       this, &SvpnConnectionManager::OnRouteChange);
   channel->SignalDestroyed.connect(
       this, &SvpnConnectionManager::OnDestroyed);
+#ifndef NO_DTLS
+  channel->SignalReadPacket.connect(
+    this, &SvpnConnectionManager::OnReadPacket);
+#else
+  channel->channel()->SignalReadPacket.connect(
+    this, &SvpnConnectionManager::OnReadPacket);
+#endif
 
   uid_map_[uid_key] = peer_state;
   channel_map_[channel] = peer_state;
@@ -259,13 +275,17 @@ void SvpnConnectionManager::CreateConnection(
   peer_state.transport->ConnectChannels();
 }
 
-void SvpnConnectionManager::DeleteConnection(const std::string& uid) {
-}
-
 void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_SETSOCKET: {
         SetSocket_w();
+      }
+      break;
+    case MSG_DESTROYTRANSPORT: {
+        DestroyTransportParams* params = 
+            static_cast<DestroyTransportParams*>(msg->pdata);
+        DestroyTransport_s(params->channel);
+        delete params;
       }
       break;
   }

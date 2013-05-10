@@ -55,13 +55,12 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual void OnCandidatesAllocationDone(
       cricket::TransportChannelImpl* channel);
   virtual void OnRoleConflict(cricket::TransportChannelImpl* channel);
-  virtual void OnReadableState(cricket::TransportChannel* channel);
-  virtual void OnWritableState(cricket::TransportChannel* channel);
-  virtual void OnReadPacket(cricket::TransportChannel* channel, 
-                            const char* data, size_t len, int flags);
+  virtual void OnRWChangeState(cricket::TransportChannel* channel);
   virtual void OnRouteChange(cricket::TransportChannel* channel,
                              const cricket::Candidate& candidate);
   virtual void OnDestroyed(cricket::TransportChannel* channel);
+  virtual void OnReadPacket(cricket::TransportChannel* channel, 
+                            const char* data, size_t len, int flags);
 
   typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
 
@@ -76,8 +75,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                       const std::string& uid, const std::string& fingerprint);
   void CreateConnection(const std::string& uid, 
                         const std::string& fingerprint);
-  void DeleteConnection(const std::string& uid);
-  void DestroyChannel(cricket::TransportChannel* channel);
+  void DestroyTransport_s(cricket::TransportChannel* channel);
   void SetSocket_w();
   cricket::Candidate MakeCandidate(const std::string& uid, 
                                    const std::string& addr_string);
