@@ -104,6 +104,7 @@
       'dependencies': [
         '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
         'libjingle.gyp:libjingle_peerconnection',
+        '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
       ],
       'sources': [
         'examples/svpn-jingle/src/svpnconnectionmanager.cc',
