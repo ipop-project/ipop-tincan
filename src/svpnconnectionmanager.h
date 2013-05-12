@@ -54,11 +54,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                                 const cricket::Candidate& candidate);
   virtual void OnCandidatesAllocationDone(
       cricket::TransportChannelImpl* channel);
-  virtual void OnRoleConflict(cricket::TransportChannelImpl* channel);
   virtual void OnRWChangeState(cricket::TransportChannel* channel);
-  virtual void OnRouteChange(cricket::TransportChannel* channel,
-                             const cricket::Candidate& candidate);
-  virtual void OnDestroyed(cricket::TransportChannel* channel);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
 
