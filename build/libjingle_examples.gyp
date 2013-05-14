@@ -101,12 +101,25 @@
     {
       'target_name': 'svpn-jingle',
       'type': 'executable',
+      'cflags' : [
+        '-Wall',
+      ],
       'dependencies': [
         '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
         'libjingle.gyp:libjingle_peerconnection',
         '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
       ],
       'sources': [
+        'examples/svpn-core/src/headers.c',
+        'examples/svpn-core/src/packetio.c',
+        'examples/svpn-core/src/peerlist.c',
+        'examples/svpn-core/src/socket_utils.c',
+        'examples/svpn-core/src/tap.c',
+        'examples/svpn-core/src/translator.c',
+        'examples/svpn-core/lib/threadqueue/threadqueue.c',
+        'examples/svpn-core/lib/hsearch/hsearch.c',
+        'examples/svpn-core/lib/hsearch/hsearch_r.c',
+        'examples/svpn-jingle/src/svpnjingle.cc',
         'examples/svpn-jingle/src/svpnconnectionmanager.cc',
         'examples/svpn-jingle/src/xmppnetwork.cc',
       ],
