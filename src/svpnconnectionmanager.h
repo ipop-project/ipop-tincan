@@ -19,6 +19,12 @@
 #include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/asyncpacketsocket.h"
 
+#include "talk/examples/svpn-core/lib/threadqueue/threadqueue.h"
+#include "talk/examples/svpn-core/src/svpn.h"
+#include "talk/examples/svpn-core/src/tap.h"
+#include "talk/examples/svpn-core/src/peerlist.h"
+#include "talk/examples/svpn-core/src/packetio.h"
+
 #include "xmppnetwork.h"
 
 namespace sjingle {
@@ -32,11 +38,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
+                        struct threadqueue* send_queue,
+                        struct threadqueue* rcv_queue,
                         const std::string& uid);
 
   const std::string fingerprint() const { 
     return local_fingerprint_->GetRfc4752Fingerprint(); 
   }
+
+  talk_base::Thread* worker_thread() { return worker_thread_; }
+
+  static void HandleQueueSignal(struct threadqueue* queue);
 
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
@@ -73,9 +85,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         const std::string& fingerprint);
   void DestroyTransport_s(cricket::TransportChannel* channel);
   void SetSocket_w();
+  void HandleQueueSignal_w(struct threadqueue* queue);
   cricket::Candidate MakeCandidate(const std::string& uid, 
                                    const std::string& addr_string);
-
+  void AddIP(const std::string& uid_key);
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
   }
@@ -94,6 +107,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   cricket::BasicPortAllocator port_allocator_;
   talk_base::OpenSSLIdentity* identity_;
   talk_base::SSLFingerprint* local_fingerprint_;
+  struct threadqueue* send_queue_;
+  struct threadqueue* rcv_queue_;
+  int ip_idx_;
 };
 
 }  // namespace sjingle

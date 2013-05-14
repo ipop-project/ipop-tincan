@@ -1,6 +1,6 @@
 
-#include <iostream>
 #include <string>
+#include <iostream>
 
 #include "talk/base/thread.h"
 #include "talk/xmpp/constants.h"
@@ -31,12 +31,10 @@ void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
 }
 
 int SvpnTask::ProcessStart() {
-  LOG(INFO) << __FUNCTION__ << " " << "START";
   const buzz::XmlElement* stanza = NextStanza();
   if (stanza == NULL) {
     return STATE_BLOCKED;
   }
-  LOG(INFO) << __FUNCTION__ << " " << "PROCESSING";
 
   buzz::Jid from(stanza->Attr(buzz::QN_FROM));
   if (from.resource().compare(0, 4, kXmppPrefix) == 0 &&
@@ -48,8 +46,7 @@ int SvpnTask::ProcessStart() {
 }
 
 bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
-  LOG(INFO) << __FUNCTION__ << " " << "START";
-  std::cout << stanza->Str() << std::endl;
+  LOG(INFO) << __FUNCTION__ << " START " << stanza->Str();
   if (!MatchRequestIq(stanza, buzz::STR_GET, QN_SVPN)) {
     return false;
   }
@@ -81,17 +78,18 @@ void XmppNetwork::OnSignOn() {
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   switch (state) {
     case buzz::XmppEngine::STATE_START:
-      LOG(INFO) << __FUNCTION__ << " " << "START";
+      LOG(INFO) << __FUNCTION__ << " START";
       break;
     case buzz::XmppEngine::STATE_OPENING:
-      LOG(INFO) << __FUNCTION__ << " " << "OPENING";
+      LOG(INFO) << __FUNCTION__ << " OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
-      LOG(INFO) << __FUNCTION__ << " " << "OPEN";
+      LOG(INFO) << __FUNCTION__ << " OPEN";
+      std::cout << "\nXMPP Online\n" << std::endl;
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
-      LOG(INFO) << __FUNCTION__ << " " << "CLOSED";
+      LOG(INFO) << __FUNCTION__ << " CLOSED";
       break;
   }
 }
