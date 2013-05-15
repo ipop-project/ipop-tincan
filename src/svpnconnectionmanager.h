@@ -48,8 +48,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   talk_base::Thread* worker_thread() { return worker_thread_; }
 
-  static void HandleQueueSignal(struct threadqueue* queue);
-
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
@@ -70,25 +68,28 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
 
+  // Signal fired when packet inserted in recv_queue
+  static void HandleQueueSignal(struct threadqueue* queue);
+
   typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
 
   struct PeerState {
     std::string uid;
-    std::set<std::string> addresses;
     DtlsP2PTransport* transport;
   };
 
  private:
+  void AddIP(const std::string& uid_key);
   void SetupTransport(cricket::P2PTransport* transport, 
                       const std::string& uid, const std::string& fingerprint);
-  void CreateConnection(const std::string& uid, 
+  void CreateTransport(const std::string& uid, 
                         const std::string& fingerprint);
+  void CreateConnections(const std::string& uid, 
+                        const std::string& candidates_string);
   void DestroyTransport_s(cricket::TransportChannel* channel);
   void SetSocket_w();
   void HandleQueueSignal_w(struct threadqueue* queue);
-  cricket::Candidate MakeCandidate(const std::string& uid, 
-                                   const std::string& addr_string);
-  void AddIP(const std::string& uid_key);
+
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
   }
@@ -99,7 +100,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerState> uid_map_;
   std::map<cricket::TransportChannel*, PeerState> channel_map_;
-  std::set<std::string> addresses_;
+  std::set<std::string> candidates_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   talk_base::SocketAddress stun_server_;
