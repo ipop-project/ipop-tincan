@@ -73,7 +73,7 @@ int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr,
 }
 
 int main(int argc, char **argv) {
-  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  //talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   talk_base::InitializeSSL();
 
   std::cout << "User Name: ";
