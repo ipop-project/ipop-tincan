@@ -12,7 +12,6 @@
 #include "svpnconnectionmanager.h"
 
 static const int kXmppPort = 5222;
-static const char kFprPrefix[] = "fpr";
 
 class SendRunnable : public talk_base::Runnable {
  public:
@@ -73,7 +72,7 @@ int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr,
 }
 
 int main(int argc, char **argv) {
-  //talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   talk_base::InitializeSSL();
 
   std::cout << "User Name: ";
@@ -134,10 +133,7 @@ int main(int argc, char **argv) {
   sjingle::SvpnConnectionManager manager(network.sender(), &signaling_thread,
                                          &worker_thread, &send_queue,
                                          &rcv_queue, uid);
-  std::string status(kFprPrefix);
-  status += " ";
-  status += manager.fingerprint();
-  network.set_status(status);
+  network.set_status(manager.fingerprint());
 
   network.sender()->HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);

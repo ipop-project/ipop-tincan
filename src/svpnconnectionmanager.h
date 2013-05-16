@@ -42,8 +42,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         struct threadqueue* rcv_queue,
                         const std::string& uid);
 
-  const std::string fingerprint() const { 
-    return local_fingerprint_->GetRfc4752Fingerprint(); 
+  const std::string fingerprint() const {
+    return fingerprint_;
   }
 
   talk_base::Thread* worker_thread() { return worker_thread_; }
@@ -76,6 +76,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct PeerState {
     std::string uid;
     DtlsP2PTransport* transport;
+    uint32 creation_time;
+    std::string fingerprint;
   };
 
  private:
@@ -86,9 +88,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         const std::string& fingerprint);
   void CreateConnections(const std::string& uid, 
                         const std::string& candidates_string);
-  void DestroyTransport_s(cricket::TransportChannel* channel);
+  void DestroyTransport_s(std::string& uid);
   void SetSocket_w();
   void HandleQueueSignal_w(struct threadqueue* queue);
+  void HandleCheck_w();
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
@@ -108,9 +111,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   cricket::BasicPortAllocator port_allocator_;
   talk_base::OpenSSLIdentity* identity_;
   talk_base::SSLFingerprint* local_fingerprint_;
+  std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
-  int ip_idx_;
+  std::map<std::string, int> ip_map_;
 };
 
 }  // namespace sjingle
