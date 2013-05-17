@@ -162,6 +162,9 @@
         '<(DEPTH)/third_party/expat/expat.gyp:expat',
         '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
       ],
+      'include_dirs': [
+        '<(DEPTH)/third_party/openssl/openssl-1.0.1e/include',
+      ],
       'sources': [
         'base/asyncfile.cc',
         'base/asynchttprequest.cc',
@@ -315,10 +318,10 @@
           ],
           'link_settings': {
             'libraries': [
-              #'-lcrypto',
+              '-lssl',
+              '-lcrypto',
               '-ldl',
               '-lrt',
-              #'-lssl',
               '-lXext',
               '-lX11',
               '-lXcomposite',
@@ -331,6 +334,7 @@
           ],
           'ldflags': [
             '<!@(<(pkg-config) --libs-only-L --libs-only-other nss)',
+            '-Lthird_party/openssl/openssl-1.0.1e',
           ],
         }],
         ['OS=="mac"', {
@@ -398,11 +402,6 @@
             'base/unixfilesystem.cc',
           ],
           'conditions': [
-            ['OS=="linux"', {
-              'dependencies': [
-                '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
-              ],
-            }],
             ['OS=="android"', {
               'dependencies': [
                 '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',

@@ -104,10 +104,17 @@
       'cflags' : [
         '-Wall',
       ],
+      'ldflags': [
+        '-Lthird_party/openssl/openssl-1.0.1e',
+        '-lcrypto',
+        '-Lthird_party/openssl/openssl-1.0.1e',
+        '-lssl',
+      ],
       'dependencies': [
-        '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
-        'libjingle.gyp:libjingle_peerconnection',
-        '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
+        'libjingle.gyp:libjingle_p2p',
+      ],
+      'include_dirs': [
+        '<(DEPTH)/third_party/openssl/openssl-1.0.1e/include',
       ],
       'sources': [
         'examples/svpn-core/src/headers.c',
