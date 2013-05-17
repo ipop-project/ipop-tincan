@@ -23,29 +23,21 @@ static const int kMaxPort = 5820;
 static const char kLocalHost[] = "127.0.0.1";
 static const int kBufferSize = 1500;
 static const int kIdSize = 20;
-static const int kBufferLength = 2048;
-static const int kCheckInterval = 60000;
+static const int kCheckInterval = 30000;
 static const int kIpBase = 101;
 
 static SvpnConnectionManager* g_manager = 0;
 
 const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_RELAY |
                       cricket::PORTALLOCATOR_DISABLE_TCP |
-                      cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG;
-                      //cricket::PORTALLOCATOR_ENABLE_BUNDLE;
-                      //cricket::PORTALLOCATOR_ENABLE_SHARED_SOCKET;
+                      cricket::PORTALLOCATOR_ENABLE_SHARED_UFRAG | 
+                      cricket::PORTALLOCATOR_ENABLE_BUNDLE |
+                      cricket::PORTALLOCATOR_ENABLE_SHARED_SOCKET;
 
 enum {
   MSG_SETSOCKET = 1,
-  MSG_DESTROYTRANSPORT = 2,
-  MSG_QUEUESIGNAL = 3,
-  MSG_CHECK = 4
-};
-
-struct DestroyTransportParams : public talk_base::MessageData {
-  DestroyTransportParams(const std::string& param_uid)
-      : uid(param_uid) {}
-  std::string uid;
+  MSG_QUEUESIGNAL = 2,
+  MSG_CHECK = 3
 };
 
 SvpnConnectionManager::SvpnConnectionManager(
@@ -82,7 +74,7 @@ SvpnConnectionManager::SvpnConnectionManager(
 #else
   worker_thread->Post(this, MSG_SETSOCKET, 0);
 #endif
-  //worker_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
+  signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   fingerprint_ = local_fingerprint_->GetRfc4752Fingerprint();
 }
 
@@ -117,7 +109,6 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
     data += " ";
     data += *it;
   }
-
   if (channel_map_.find(channel) != channel_map_.end()) {
     social_sender_->SendToPeer(channel_map_[channel].uid, data);
     LOG(INFO) << __FUNCTION__ << " " << data;
@@ -142,7 +133,6 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 #ifndef EN_SOCK
   int count = thread_queue_bput(rcv_queue_, data, len);
 #else
-  // TODO - make this configurable
   talk_base::SocketAddress addr(kLocalHost, kSvpnPort);
   int count = socket_->SendTo(data, len, addr);
 #endif
@@ -231,9 +221,9 @@ void SvpnConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint) {
   std::string uid_key = get_key(uid);
   LOG(INFO) << __FUNCTION__ << " " << uid_key;
-  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
     LOG(INFO) << __FUNCTION__ << " EXISTING TRANSPORT " << uid_key;
+    return;
   }
 
   PeerState peer_state;
@@ -244,6 +234,7 @@ void SvpnConnectionManager::CreateTransport(
       signaling_thread_, worker_thread_, content_name_, 
       &port_allocator_, identity_);
 
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::DtlsTransportChannelWrapper* channel =
       static_cast<cricket::DtlsTransportChannelWrapper*>(
           peer_state.transport->CreateChannel(component));
@@ -293,20 +284,6 @@ void SvpnConnectionManager::CreateConnections(
   uid_map_[get_key(uid)].transport->OnRemoteCandidates(candidates);
 }
 
-void SvpnConnectionManager::DestroyTransport_s(std::string& uid) {
-  LOG(INFO) << __FUNCTION__ << " DESTROYING " << uid;
-  std::string uid_key = get_key(uid);
-  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  if (uid_map_.find(uid_key) != uid_map_.end()) {
-    cricket::Transport* transport = uid_map_[uid_key].transport;
-    cricket::TransportChannel* channel = transport->GetChannel(component);
-    transport->DestroyChannel(component);
-    channel_map_.erase(channel);
-    uid_map_.erase(uid_key);
-    delete transport;
-  }
-}
-
 void SvpnConnectionManager::SetSocket_w() {
   talk_base::SocketAddress local_address(kLocalHost, 0);
   socket_ = packet_factory_.CreateUdpSocket(local_address, kNetworkPort,
@@ -326,14 +303,7 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
       }
       break;
     case MSG_CHECK: {
-        HandleCheck_w();
-      }
-      break;
-    case MSG_DESTROYTRANSPORT: {
-        DestroyTransportParams* params = 
-            static_cast<DestroyTransportParams*>(msg->pdata);
-        DestroyTransport_s(params->uid);
-        delete params;
+        HandleCheck_s();
       }
       break;
   }
@@ -358,10 +328,6 @@ void SvpnConnectionManager::HandlePeer(const std::string& uid,
       CreateConnections(uid, data.substr(fingerprint().size()));
     }
   }
-  else if (data.compare("destroy") == 0) {
-    DestroyTransportParams* params = new DestroyTransportParams(uid);
-    signaling_thread_->Post(this, MSG_DESTROYTRANSPORT, params);
-  }
 }
 
 void SvpnConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
@@ -371,37 +337,32 @@ void SvpnConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
 }
 
 void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
-  char buf[kBufferLength];
+  char buf[kBufferSize];
   int len = thread_queue_bget(send_queue_, buf, sizeof(buf));
   if (len > 0) {
     HandlePacket(0, buf, len, talk_base::SocketAddress());
   }
 }
 
-void SvpnConnectionManager::HandleCheck_w() {
-  worker_thread_->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
-  std::map<std::string, DtlsP2PTransport*> dead_transports;
+void SvpnConnectionManager::HandleCheck_s() {
+  // TODO - Need a better way to detect back channels
+  // Put ping function in worker thread, if return -1 then set flag
+  int count = 0;
   for (std::map<std::string, PeerState>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {
     uint32 time_interval = talk_base::Time() - it->second.creation_time;
     DtlsP2PTransport* transport = it->second.transport;
-    if (time_interval > kCheckInterval && !transport->any_channels_readable()
-        && !transport->any_channels_writable()) {
-      dead_transports[it->second.uid] = transport;
+    int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+    cricket::DtlsTransportChannelWrapper* channel =
+        static_cast<cricket::DtlsTransportChannelWrapper*>(
+            transport->GetChannel(component));
+    std::cout << channel->ToString() << " ROLE " << channel->GetRole() << std::endl;
+    if (!channel->IsDtlsActive()) {
+      count++;
     }
   }
-  for (std::map<std::string, DtlsP2PTransport*>::iterator it = 
-       dead_transports.begin(); it != dead_transports.end(); ++it) {
-    // should trigger reconnection
-    social_sender_->SendToPeer(it->first, "destroy");
-    DestroyTransportParams* params = new DestroyTransportParams(it->first);
-    signaling_thread_->Post(this, MSG_DESTROYTRANSPORT, params);
-  }
-  LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORTS " << dead_transports.size();
-  for (std::map<std::string, int>::iterator it = ip_map_.begin();
-       it != ip_map_.end(); ++it) {
-    social_sender_->SendToPeer(it->first, fingerprint());
-  }
+  LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORTS " << count;
+  worker_thread_->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
 }
 
 }  // namespace sjingle

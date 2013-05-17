@@ -29,8 +29,6 @@
 
 namespace sjingle {
 
-static const int kDigestSize = 64;
-
 class SvpnConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
 
@@ -88,10 +86,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         const std::string& fingerprint);
   void CreateConnections(const std::string& uid, 
                         const std::string& candidates_string);
-  void DestroyTransport_s(std::string& uid);
+  void DestroyTransport(const std::string& uid);
   void SetSocket_w();
   void HandleQueueSignal_w(struct threadqueue* queue);
-  void HandleCheck_w();
+  void HandleCheck_s();
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);

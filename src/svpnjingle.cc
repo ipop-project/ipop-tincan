@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sys/types.h>
 #include <pwd.h>
+#include <unistd.h>
 
 #include "talk/base/ssladapter.h"
 #include "talk/xmpp/xmppsocket.h"
