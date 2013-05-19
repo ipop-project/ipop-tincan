@@ -57,12 +57,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
       const char* data, size_t len, const talk_base::SocketAddress& addr);
 
   // Signal handlers for TransportChannelImpl
-  virtual void OnRequestSignaling(cricket::TransportChannelImpl* channel);
-  virtual void OnCandidateReady(cricket::TransportChannelImpl* channel,
-                                const cricket::Candidate& candidate);
-  virtual void OnCandidatesAllocationDone(
-      cricket::TransportChannelImpl* channel);
-  virtual void OnRWChangeState(cricket::TransportChannel* channel);
+  virtual void OnRequestSignaling(cricket::Transport* transport);
+  virtual void OnCandidatesReady(cricket::Transport* transport,
+                                const cricket::Candidates& candidates);
+  virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
+  virtual void OnRWChangeState(cricket::Transport* transport);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
 
@@ -100,7 +99,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::AsyncPacketSocket* socket_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerState> uid_map_;
-  std::map<cricket::TransportChannel*, PeerState> channel_map_;
+  std::map<cricket::Transport*, PeerState> transport_map_;
   std::set<std::string> candidates_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
@@ -113,6 +112,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
   std::map<std::string, int> ip_map_;
+  uint64 tiebreaker_;
 };
 
 }  // namespace sjingle

@@ -6,6 +6,7 @@
 #include "talk/base/stringencode.h"
 #include "talk/base/timeutils.h"
 
+
 #include "svpnconnectionmanager.h"
 
 namespace sjingle {
@@ -52,7 +53,7 @@ SvpnConnectionManager::SvpnConnectionManager(
       socket_(0),
       packet_factory_(worker_thread),
       uid_map_(),
-      channel_map_(),
+      transport_map_(),
       candidates_(),
       signaling_thread_(signaling_thread),
       worker_thread_(worker_thread),
@@ -65,7 +66,10 @@ SvpnConnectionManager::SvpnConnectionManager(
       identity_(talk_base::OpenSSLIdentity::Generate(uid)),
       local_fingerprint_(talk_base::SSLFingerprint::Create(
            talk_base::DIGEST_SHA_1, identity_)),
-      send_queue_(send_queue), rcv_queue_(rcv_queue) {
+      fingerprint_(local_fingerprint_->GetRfc4752Fingerprint()),
+      send_queue_(send_queue),
+      rcv_queue_(rcv_queue),
+      tiebreaker_(talk_base::CreateRandomId64()) {
   port_allocator_.set_flags(kFlags);
   port_allocator_.set_allow_tcp_listen(kAllowTcpListen);
   port_allocator_.SetPortRange(kMinPort, kMaxPort);
@@ -75,52 +79,58 @@ SvpnConnectionManager::SvpnConnectionManager(
   worker_thread->Post(this, MSG_SETSOCKET, 0);
 #endif
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
-  fingerprint_ = local_fingerprint_->GetRfc4752Fingerprint();
 }
 
 void SvpnConnectionManager::OnRequestSignaling(
-    cricket::TransportChannelImpl* channel) {
-  channel->OnSignalingReady();
+    cricket::Transport* transport) {
+  transport->OnSignalingReady();
   LOG(INFO) << __FUNCTION__ << " SIGNALING";
 }
 
-void SvpnConnectionManager::OnCandidateReady(
-    cricket::TransportChannelImpl* channel, 
-    const cricket::Candidate& candidate) {
-  if (candidate.network_name().compare("svpn0") == 0) return;
-  std::ostringstream oss;
-  std::string ip_string = talk_base::SocketAddress::IPToString(
-      candidate.address().ip());
-  oss << candidate.id() << ":" << candidate.component() << ":"
-      << candidate.protocol() << ":" << ip_string << ":"
-      << candidate.address().port() << ":" << candidate.priority() << ":"
-      << candidate.username() << ":" << candidate.password() << ":"
-      << candidate.type() << ":" << candidate.network_name() << ":"
-      << candidate.generation() << ":" << candidate.foundation(); 
-  candidates_.insert(oss.str());
-  LOG(INFO) << __FUNCTION__ << " " << oss.str();
+void SvpnConnectionManager::OnCandidatesReady(
+    cricket::Transport* transport, 
+    const cricket::Candidates& candidates) {
+  for (int i = 0; i < candidates.size(); i++) {
+    if (candidates[i].network_name().compare("svpn0") == 0) return;
+    std::ostringstream oss;
+    std::string ip_string = talk_base::SocketAddress::IPToString(
+        candidates[i].address().ip());
+    oss << candidates[i].id() << ":" << candidates[i].component()
+        << ":" << candidates[i].protocol() << ":" << ip_string
+        << ":"<< candidates[i].address().port() 
+        << ":" << candidates[i].priority() 
+        << ":" << candidates[i].username() 
+        << ":" << candidates[i].password() 
+        << ":" << candidates[i].type() 
+        << ":" << candidates[i].network_name() 
+        << ":" << candidates[i].generation() 
+        << ":" << candidates[i].foundation(); 
+    candidates_.insert(oss.str());
+    LOG(INFO) << __FUNCTION__ << " " << oss.str();
+  }
 }
 
 void SvpnConnectionManager::OnCandidatesAllocationDone(
-    cricket::TransportChannelImpl* channel) {
+    cricket::Transport* transport) {
   std::string data(fingerprint());
   for (std::set<std::string>::iterator it = candidates_.begin();
        it != candidates_.end(); ++it) {
     data += " ";
     data += *it;
   }
-  if (channel_map_.find(channel) != channel_map_.end()) {
-    social_sender_->SendToPeer(channel_map_[channel].uid, data);
+  
+  if (transport_map_.find(transport) != transport_map_.end()) {
+    social_sender_->SendToPeer(transport_map_[transport].uid, data);
     LOG(INFO) << __FUNCTION__ << " " << data;
   }
 }
 
 void SvpnConnectionManager::OnRWChangeState(
-    cricket::TransportChannel* channel) {
-  LOG(INFO) << __FUNCTION__ << " " << "R " << channel->readable()
-            << " W " << channel->writable();
-  if (channel->readable() && channel->writable()) {
-    std::string uid = channel_map_[channel].uid;
+    cricket::Transport* transport) {
+  LOG(INFO) << __FUNCTION__ << " " << "R " << transport->readable()
+            << " W " << transport->writable();
+  if (transport->readable() && transport->writable()) {
+    std::string uid = transport_map_[transport].uid;
     std::cout << "Node " << uid << " online" << std::endl;
   }
 }
@@ -183,6 +193,7 @@ void SvpnConnectionManager::AddIP(const std::string& uid) {
 void SvpnConnectionManager::SetupTransport(
     cricket::P2PTransport* transport, const std::string& uid, 
     const std::string& fingerprint) {
+  transport->SetTiebreaker(tiebreaker_);
   talk_base::SSLFingerprint* remote_fingerprint =
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
                                                    fingerprint);
@@ -199,7 +210,6 @@ void SvpnConnectionManager::SetupTransport(
 
   if (uid.compare(social_sender_->uid()) < 0) {
     transport->SetRole(cricket::ROLE_CONTROLLING);
-    transport->SetTiebreaker(1);
     transport->SetLocalTransportDescription(*local_description,
                                             cricket::CA_OFFER);
     transport->SetRemoteTransportDescription(*remote_description,
@@ -207,7 +217,6 @@ void SvpnConnectionManager::SetupTransport(
   }
   else {
     transport->SetRole(cricket::ROLE_CONTROLLED);
-    transport->SetTiebreaker(2);
     transport->SetRemoteTransportDescription(*remote_description,
                                              cricket::CA_OFFER);
     transport->SetLocalTransportDescription(*local_description,
@@ -233,21 +242,13 @@ void SvpnConnectionManager::CreateTransport(
   peer_state.transport = new DtlsP2PTransport(
       signaling_thread_, worker_thread_, content_name_, 
       &port_allocator_, identity_);
+  DtlsP2PTransport* transport = peer_state.transport; 
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::DtlsTransportChannelWrapper* channel =
       static_cast<cricket::DtlsTransportChannelWrapper*>(
           peer_state.transport->CreateChannel(component));
-  channel->SignalRequestSignaling.connect(
-      this, &SvpnConnectionManager::OnRequestSignaling);
-  channel->SignalCandidateReady.connect(
-      this, &SvpnConnectionManager::OnCandidateReady);
-  channel->SignalCandidatesAllocationDone.connect(
-      this, &SvpnConnectionManager::OnCandidatesAllocationDone);
-  channel->SignalReadableState.connect(
-      this, &SvpnConnectionManager::OnRWChangeState);
-  channel->SignalWritableState.connect(
-      this, &SvpnConnectionManager::OnRWChangeState);
+
 #ifndef NO_DTLS
   channel->SignalReadPacket.connect(
     this, &SvpnConnectionManager::OnReadPacket);
@@ -256,10 +257,21 @@ void SvpnConnectionManager::CreateTransport(
     this, &SvpnConnectionManager::OnReadPacket);
 #endif
 
+  transport->SignalRequestSignaling.connect(
+      this, &SvpnConnectionManager::OnRequestSignaling);
+  transport->SignalCandidatesReady.connect(
+      this, &SvpnConnectionManager::OnCandidatesReady);
+  transport->SignalCandidatesAllocationDone.connect(
+      this, &SvpnConnectionManager::OnCandidatesAllocationDone);
+  transport->SignalReadableState.connect(
+      this, &SvpnConnectionManager::OnRWChangeState);
+  transport->SignalWritableState.connect(
+      this, &SvpnConnectionManager::OnRWChangeState);
+
+  SetupTransport(transport, uid, fingerprint);
+  transport->ConnectChannels();
   uid_map_[uid_key] = peer_state;
-  channel_map_[channel] = peer_state;
-  SetupTransport(peer_state.transport, uid, fingerprint);
-  peer_state.transport->ConnectChannels();
+  transport_map_[transport] = peer_state;
   AddIP(uid);
 }
 
