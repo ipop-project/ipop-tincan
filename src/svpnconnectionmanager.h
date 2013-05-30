@@ -18,6 +18,7 @@
 #include "talk/base/base64.h"
 #include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/asyncpacketsocket.h"
+#include "talk/base/fakenetwork.h"
 
 #include "talk/examples/svpn-core/lib/threadqueue/threadqueue.h"
 #include "talk/examples/svpn-core/src/svpn.h"
@@ -36,6 +37,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
+                        talk_base::FakeNetworkManager* network_manager,
                         struct threadqueue* send_queue,
                         struct threadqueue* rcv_queue,
                         const std::string& uid);
@@ -58,6 +60,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   // Signal handlers for TransportChannelImpl
   virtual void OnRequestSignaling(cricket::Transport* transport);
+  virtual void OnRoleConflict(cricket::TransportChannelImpl* channel);
   virtual void OnCandidatesReady(cricket::Transport* transport,
                                 const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
@@ -73,8 +76,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct PeerState {
     std::string uid;
     DtlsP2PTransport* transport;
+    cricket::BasicPortAllocator* port_allocator;
+    cricket::Candidates candidates;
     uint32 creation_time;
     std::string fingerprint;
+    int count;
   };
 
  private:
@@ -89,6 +95,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void SetSocket_w();
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleCheck_s();
+  void HandlePing_w();
+  void ProcessInput(const char* data, size_t len);
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
@@ -104,8 +112,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   talk_base::SocketAddress stun_server_;
-  talk_base::BasicNetworkManager network_manager_;
-  cricket::BasicPortAllocator port_allocator_;
+  talk_base::FakeNetworkManager* network_manager_;
   talk_base::OpenSSLIdentity* identity_;
   talk_base::SSLFingerprint* local_fingerprint_;
   std::string fingerprint_;
@@ -113,6 +120,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* rcv_queue_;
   std::map<std::string, int> ip_map_;
   uint64 tiebreaker_;
+  uint32 last_connect_time_;
 };
 
 }  // namespace sjingle

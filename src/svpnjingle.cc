@@ -131,9 +131,14 @@ int main(int argc, char **argv) {
   buzz::XmppPump pump;
   pump.DoLogin(xcs, new buzz::XmppSocket(buzz::TLS_REQUIRED), 0);
   sjingle::XmppNetwork network(pump.client());
+
+  std::string ip(argv[1]);
+  talk_base::SocketAddress address(ip, 0);
+  talk_base::FakeNetworkManager network_manager;
+  network_manager.AddInterface(address);
   sjingle::SvpnConnectionManager manager(network.sender(), &signaling_thread,
-                                         &worker_thread, &send_queue,
-                                         &rcv_queue, uid);
+                                         &worker_thread, &network_manager,
+                                         &send_queue, &rcv_queue, uid);
   network.set_status(manager.fingerprint());
 
   network.sender()->HandlePeer.connect(&manager,

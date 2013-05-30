@@ -46,7 +46,6 @@ int SvpnTask::ProcessStart() {
 }
 
 bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
-  LOG(INFO) << __FUNCTION__ << " START " << stanza->Str();
   if (!MatchRequestIq(stanza, buzz::STR_GET, QN_SVPN)) {
     return false;
   }
@@ -85,7 +84,8 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
       break;
     case buzz::XmppEngine::STATE_OPEN:
       LOG(INFO) << __FUNCTION__ << " OPEN";
-      std::cout << "\nXMPP Online\n" << std::endl;
+      LOG(INFO) << __FUNCTION__ << " " << client_->jid().Str() << " "
+                << my_status_.status();
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
