@@ -343,7 +343,7 @@ void SvpnConnectionManager::HandleCheck_s() {
     if (time_diff > 2 * kCheckInterval) {
       dead_transports.push_back(it->first);
     }
-    std::cout << "\nNode status " << it->first << " "
+    std::cout << "\nNode status " << it->second.get()->uid << " "
               << channel->ToString() << std::endl;
   }
   for (std::vector<std::string>::iterator it = dead_transports.begin();
