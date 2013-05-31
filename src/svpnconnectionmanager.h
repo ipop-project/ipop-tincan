@@ -18,6 +18,8 @@
 #include "talk/base/base64.h"
 #include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/asyncpacketsocket.h"
+#include "talk/base/scoped_ref_ptr.h"
+#include "talk/base/refcount.h"
 
 #include "talk/examples/svpn-core/lib/threadqueue/threadqueue.h"
 #include "talk/examples/svpn-core/src/svpn.h"
@@ -58,6 +60,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   // Signal handlers for TransportChannelImpl
   virtual void OnRequestSignaling(cricket::Transport* transport);
+  virtual void OnRWChangeState(cricket::Transport* transport);
   virtual void OnCandidatesReady(cricket::Transport* transport,
                                 const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
@@ -72,19 +75,22 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct PeerState {
     std::string uid;
     std::string fingerprint;
-    DtlsP2PTransport* transport;
-    cricket::BasicPortAllocator* port_allocator;
-    talk_base::SSLFingerprint* remote_fingerprint;
-    cricket::TransportDescription* local_description;
-    cricket::TransportDescription* remote_description;
+    talk_base::scoped_ptr<DtlsP2PTransport> transport;
+    talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
+    talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;
+    talk_base::scoped_ptr<cricket::TransportDescription> local_description;
+    talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
     uint32 last_ping_time;
   };
 
+  typedef talk_base::scoped_refptr<
+      talk_base::RefCountedObject<PeerState> > PeerStatePtr;
+
  private:
   void AddIP(const std::string& uid_key);
-  void SetupTransport(PeerState& peer_state);
+  void SetupTransport(PeerState* peer_state);
   void CreateTransport(const std::string& uid, 
                        const std::string& fingerprint);
   void CreateConnections(const std::string& uid, 
@@ -93,7 +99,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleCheck_s();
   void HandlePing_w();
-  void ProcessInput(const char* data, size_t len);
+  void UpdateTime(const char* data, size_t len);
 
   std::string get_key(const std::string& uid) {
     return uid.substr(uid.size() - kResourceSize);
@@ -102,7 +108,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   const std::string content_name_;
   SocialNetworkSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
-  std::map<std::string, PeerState> uid_map_;
+  std::map<std::string, PeerStatePtr> uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
   std::map<std::string, int> ip_map_;
   talk_base::Thread* signaling_thread_;

@@ -71,7 +71,7 @@ int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr,
 }
 
 int main(int argc, char **argv) {
-  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  //talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   talk_base::InitializeSSL();
 
   std::cout << "User Name: ";
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
 
   std::string tmp_uid = talk_base::CreateRandomString(sjingle::kResourceSize/2);
   std::string uid = talk_base::hex_encode(tmp_uid.c_str(), tmp_uid.size());
-  std::cout << "\nUID " << uid << "\n" << std::endl;
+  std::cout << "\nUID " << uid << std::endl;
 
   struct threadqueue send_queue, rcv_queue;
   thread_queue_init(&send_queue);

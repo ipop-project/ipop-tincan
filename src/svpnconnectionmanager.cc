@@ -18,6 +18,8 @@ static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const int kIdSize = 20;
 static const int kCheckInterval = 30000;
+static const char kIpNetwork[] = "172.31.0.";
+static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
 static const int kIpBase = 101;
 static SvpnConnectionManager* g_manager = 0;
 static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_RELAY |
@@ -63,15 +65,23 @@ void SvpnConnectionManager::OnRequestSignaling(
   transport->OnSignalingReady();
 }
 
+void SvpnConnectionManager::OnRWChangeState(
+    cricket::Transport* transport) {
+  if (transport->readable() && transport->writable()) {
+    std::string uid = transport_map_[transport];
+    LOG(INFO) << __FUNCTION__ << "ONLINE " << uid;
+  }
+}
+
 void SvpnConnectionManager::OnCandidatesReady(
     cricket::Transport* transport, const cricket::Candidates& candidates) {
   std::string uid_key = get_key(transport_map_[transport]);
-  std::set<std::string>& candidate_list = uid_map_[uid_key].candidate_list;
+  std::set<std::string>& candidate_list = uid_map_[uid_key]->candidate_list;
   for (int i = 0; i < candidates.size(); i++) {
     if (candidates[i].network_name().compare("svpn0") == 0) return;
     std::ostringstream oss;
-    std::string ip_string = talk_base::SocketAddress::IPToString(
-        candidates[i].address().ip());
+    std::string ip_string =
+        talk_base::SocketAddress::IPToString(candidates[i].address().ip());
     oss << candidates[i].id() << ":" << candidates[i].component()
         << ":" << candidates[i].protocol() << ":" << ip_string
         << ":"<< candidates[i].address().port() 
@@ -90,7 +100,7 @@ void SvpnConnectionManager::OnCandidatesReady(
 void SvpnConnectionManager::OnCandidatesAllocationDone(
     cricket::Transport* transport) {
   std::string uid_key = get_key(transport_map_[transport]);
-  std::set<std::string>& candidates = uid_map_[uid_key].candidate_list;
+  std::set<std::string>& candidates = uid_map_[uid_key]->candidate_list;
   std::string data(fingerprint());
   for (std::set<std::string>::iterator it = candidates.begin();
        it != candidates.end(); ++it) {
@@ -102,19 +112,26 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
   }
 }
 
+void SvpnConnectionManager::UpdateTime(const char* data, size_t len) {
+  std::string uid(data, len);
+  std::string uid_key = get_key(uid);
+  if (uid_map_.find(uid_key) != uid_map_.end()) {
+    uid_map_[uid_key]->last_ping_time = talk_base::Time();
+    LOG(INFO) << __FUNCTION__ << " PING FROM " << uid << " "
+              << uid_map_[uid_key]->last_ping_time;
+  }
+}
+
 void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
-  // TODO - Update last ping time
   if (len < (kIdSize * 2)) {
-    std::string uid(data, len);
-    uid_map_[get_key(uid)].last_ping_time = talk_base::Time();
-    return;
+    return UpdateTime(data, len);
   }
   const char* dest_id = data + kIdSize;
   std::string source(data, kResourceSize);
   std::string dest(dest_id, kResourceSize);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  if (uid_map_[source].transport->GetChannel(component) == channel) {
+  if (uid_map_[source]->transport.get()->GetChannel(component) == channel) {
     int count = thread_queue_bput(rcv_queue_, data, len);
     LOG(INFO) << __FUNCTION__ << " " << len << " " << source
               << " " << dest << " " << count;
@@ -132,7 +149,7 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::DtlsTransportChannelWrapper* channel =
         static_cast<cricket::DtlsTransportChannelWrapper*>(
-            uid_map_[dest].transport->GetChannel(component));
+            uid_map_[dest]->transport.get()->GetChannel(component));
 #ifndef NO_DTLS
     int count = channel->SendPacket(data, len, 0);
     LOG(INFO) << __FUNCTION__ << " SENT DTLS " << count;
@@ -151,43 +168,42 @@ void SvpnConnectionManager::AddIP(const std::string& uid) {
     ip_idx = ip_map_[uid];
   }
   ip_map_[uid] = ip_idx;
-  std::string ip("172.31.0.");
-  char ip_rem[3];
-  sprintf(ip_rem, "%d", ip_idx);
+  std::string ip(kIpNetwork);
+  char ip_rem[4] = { '\0' };
+  snprintf(ip_rem, sizeof(ip_rem), "%d", ip_idx);
   ip += ip_rem;
   // TODO - Generate real IPv6 addresses
-  char ipv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
-  peerlist_add_p(uid_key.c_str(), ip.c_str(), ipv6, 5800);
-  std::cout << "\nadding " << uid << " " << ip << "\n" << std::endl;
+  peerlist_add_p(uid_key.c_str(), ip.c_str(), kIpv6, 0);
+  std::cout << "\nAdding " << uid << " " << ip << std::endl;
 }
 
-void SvpnConnectionManager::SetupTransport(PeerState& peer_state) {
-  peer_state.transport->SetTiebreaker(tiebreaker_);
-  peer_state.remote_fingerprint =
+void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
+  peer_state->transport.get()->SetTiebreaker(tiebreaker_);
+  peer_state->remote_fingerprint.reset(
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
-                                                   peer_state.fingerprint);
-  peer_state.local_description = new cricket::TransportDescription(
+                                                   peer_state->fingerprint));
+  peer_state->local_description.reset(new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag,
       kIcePwd, cricket::ICEMODE_FULL, local_fingerprint_, 
-      peer_state.candidates);
-  peer_state.remote_description = new cricket::TransportDescription(
+      peer_state->candidates));
+  peer_state->remote_description.reset(new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag, 
-      kIcePwd, cricket::ICEMODE_FULL, peer_state.remote_fingerprint, 
-      peer_state.candidates);
+      kIcePwd, cricket::ICEMODE_FULL, peer_state->remote_fingerprint.get(), 
+      peer_state->candidates));
 
-  if (peer_state.uid.compare(social_sender_->uid()) < 0) {
-    peer_state.transport->SetRole(cricket::ROLE_CONTROLLING);
-    peer_state.transport->SetLocalTransportDescription(
-        *peer_state.local_description, cricket::CA_OFFER);
-    peer_state.transport->SetRemoteTransportDescription(
-        *peer_state.remote_description, cricket::CA_ANSWER);
+  if (peer_state->uid.compare(social_sender_->uid()) < 0) {
+    peer_state->transport.get()->SetRole(cricket::ROLE_CONTROLLING);
+    peer_state->transport.get()->SetLocalTransportDescription(
+        *peer_state->local_description, cricket::CA_OFFER);
+    peer_state->transport.get()->SetRemoteTransportDescription(
+        *peer_state->remote_description, cricket::CA_ANSWER);
   }
   else {
-    peer_state.transport->SetRole(cricket::ROLE_CONTROLLED);
-    peer_state.transport->SetRemoteTransportDescription(
-        *peer_state.remote_description, cricket::CA_OFFER);
-    peer_state.transport->SetLocalTransportDescription(
-        *peer_state.local_description, cricket::CA_ANSWER);
+    peer_state->transport.get()->SetRole(cricket::ROLE_CONTROLLED);
+    peer_state->transport.get()->SetRemoteTransportDescription(
+        *peer_state->remote_description, cricket::CA_OFFER);
+    peer_state->transport.get()->SetLocalTransportDescription(
+        *peer_state->local_description, cricket::CA_ANSWER);
   }
 }
 
@@ -200,22 +216,22 @@ void SvpnConnectionManager::CreateTransport(
     return;
   }
 
-  PeerState peer_state;
-  peer_state.uid = uid;
-  peer_state.fingerprint = fingerprint;
-  peer_state.last_ping_time = talk_base::Time();
-  peer_state.port_allocator = new cricket::BasicPortAllocator(
-      &network_manager_, &packet_factory_, stun_server_);
-  peer_state.port_allocator->set_flags(kFlags);
-  peer_state.port_allocator->set_allow_tcp_listen(kAllowTcpListen);
-  peer_state.transport = new DtlsP2PTransport(
+  PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
+  peer_state->uid = uid;
+  peer_state->fingerprint = fingerprint;
+  peer_state->last_ping_time = talk_base::Time();
+  peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
+      &network_manager_, &packet_factory_, stun_server_));
+  peer_state->port_allocator->set_flags(kFlags);
+  peer_state->port_allocator->set_allow_tcp_listen(kAllowTcpListen);
+  peer_state->transport.reset(new DtlsP2PTransport(
       signaling_thread_, worker_thread_, content_name_, 
-      peer_state.port_allocator, identity_);
+      peer_state->port_allocator.get(), identity_));
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::DtlsTransportChannelWrapper* channel =
       static_cast<cricket::DtlsTransportChannelWrapper*>(
-          peer_state.transport->CreateChannel(component));
+          peer_state->transport.get()->CreateChannel(component));
 
 #ifndef NO_DTLS
   channel->SignalReadPacket.connect(
@@ -225,24 +241,28 @@ void SvpnConnectionManager::CreateTransport(
     this, &SvpnConnectionManager::OnReadPacket);
 #endif
 
-  peer_state.transport->SignalRequestSignaling.connect(
+  peer_state->transport.get()->SignalRequestSignaling.connect(
       this, &SvpnConnectionManager::OnRequestSignaling);
-  peer_state.transport->SignalCandidatesReady.connect(
+  peer_state->transport.get()->SignalCandidatesReady.connect(
       this, &SvpnConnectionManager::OnCandidatesReady);
-  peer_state.transport->SignalCandidatesAllocationDone.connect(
+  peer_state->transport.get()->SignalCandidatesAllocationDone.connect(
       this, &SvpnConnectionManager::OnCandidatesAllocationDone);
+  peer_state->transport.get()->SignalReadableState.connect(
+      this, &SvpnConnectionManager::OnRWChangeState);
+  peer_state->transport.get()->SignalWritableState.connect(
+      this, &SvpnConnectionManager::OnRWChangeState);
 
-  SetupTransport(peer_state);
-  peer_state.transport->ConnectChannels();
+  SetupTransport(peer_state.get());
+  peer_state->transport.get()->ConnectChannels();
   uid_map_[uid_key] = peer_state;
-  transport_map_[peer_state.transport] = uid;
+  transport_map_[peer_state->transport.get()] = uid;
   AddIP(uid);
 }
 
 void SvpnConnectionManager::CreateConnections(
     const std::string& uid, const std::string& candidates_string) {
   std::string uid_key = get_key(uid);
-  cricket::Candidates& candidates = uid_map_[uid_key].candidates;
+  cricket::Candidates& candidates = uid_map_[uid_key]->candidates;
   if (candidates.size() > 0) return;
   std::istringstream iss(candidates_string);
   do {
@@ -259,7 +279,7 @@ void SvpnConnectionManager::CreateConnections(
       candidates.push_back(candidate);
     }
   } while (iss);
-  uid_map_[uid_key].transport->OnRemoteCandidates(candidates);
+  uid_map_[uid_key]->transport.get()->OnRemoteCandidates(candidates);
 }
 
 void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
@@ -314,25 +334,20 @@ void SvpnConnectionManager::HandleCheck_s() {
 
   std::vector<std::string> dead_transports;
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  for (std::map<std::string, PeerState>::iterator it = uid_map_.begin();
+  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {
     cricket::DtlsTransportChannelWrapper* channel =
         static_cast<cricket::DtlsTransportChannelWrapper*>(
-            it->second.transport->GetChannel(component));
-    std::cout << channel->channel()->ToString() << std::endl;
-    uint32 time_diff = talk_base::Time() - it->second.last_ping_time;
+            it->second->transport.get()->GetChannel(component));
+    uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
     if (time_diff > 2 * kCheckInterval) {
       dead_transports.push_back(it->first);
     }
+    std::cout << "\nNode status " << it->first << " "
+              << channel->ToString() << std::endl;
   }
   for (std::vector<std::string>::iterator it = dead_transports.begin();
        it != dead_transports.end(); ++it) {
-    // TODO - Use scoped_ptr to avoid using delete
-    delete uid_map_[*it].transport;
-    delete uid_map_[*it].port_allocator;
-    delete uid_map_[*it].remote_fingerprint;
-    delete uid_map_[*it].local_description;
-    delete uid_map_[*it].remote_description;
     uid_map_.erase(*it);
     LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << *it;
   }
@@ -341,10 +356,10 @@ void SvpnConnectionManager::HandleCheck_s() {
 
 void SvpnConnectionManager::HandlePing_w() {
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  for (std::map<std::string, PeerState>::iterator it = uid_map_.begin();
+  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {
     cricket::TransportChannelImpl* channel = 
-        it->second.transport->GetChannel(component);
+        it->second->transport->GetChannel(component);
     int count = channel->SendPacket(social_sender_->uid().c_str(), 
                                     social_sender_->uid().size(), 0);
   }
