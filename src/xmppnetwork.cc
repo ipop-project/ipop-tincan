@@ -16,10 +16,6 @@ namespace sjingle {
 
 static const buzz::StaticQName QN_SVPN = { "svpn:webrtc", "data" };
 
-const std::string SvpnTask::uid() {
-  return GetClient()->jid().Str();
-}
-
 void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
   const buzz::Jid to(uid);
   talk_base::scoped_ptr<buzz::XmlElement> get(
@@ -53,25 +49,37 @@ bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
   return true;
 }
 
-XmppNetwork::XmppNetwork(buzz::XmppClient *client)
-                         : client_(client),
-                           presence_receive_(client),
-                           presence_out_(client),
-                           svpn_task_(client) {
-  my_status_.set_jid(client->jid());
-  my_status_.set_available(true);
-  my_status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
-  my_status_.set_priority(0);
-  client_->SignalStateChange.connect(this, &XmppNetwork::OnStateChange);
-  presence_receive_.PresenceUpdate.connect(this,
+void XmppNetwork::Init() {
+  xmpp_socket_ = new buzz::XmppSocket(buzz::TLS_REQUIRED);
+  xmpp_socket_->SignalCloseEvent.connect(this, 
+      &XmppNetwork::OnCloseEvent);
+
+  pump_ = new buzz::XmppPump();
+  pump_->DoLogin(xcs_, xmpp_socket_, 0);
+  pump_->client()->SignalStateChange.connect(this, 
+      &XmppNetwork::OnStateChange);
+
+  my_status_ = new buzz::PresenceStatus();
+  my_status_->set_jid(pump_->client()->jid());
+  my_status_->set_available(true);
+  my_status_->set_show(buzz::PresenceStatus::SHOW_ONLINE);
+  my_status_->set_priority(0);
+
+  presence_receive_ = new buzz::PresenceReceiveTask(pump_->client());
+  presence_receive_->PresenceUpdate.connect(this,
       &XmppNetwork::OnPresenceMessage);
+
+  presence_out_ = new buzz::PresenceOutTask(pump_->client());
+  svpn_task_ = new SvpnTask(pump_->client());
+  LOG(INFO) << __FUNCTION__ << " XMPP CONNECTING ";
 }
 
 void XmppNetwork::OnSignOn() {
-  presence_receive_.Start();
-  presence_out_.Send(my_status_);
-  presence_out_.Start();
-  svpn_task_.Start();
+  presence_receive_->Start();
+  presence_out_->Send(*my_status_);
+  presence_out_->Start();
+  svpn_task_->HandlePeer = HandlePeer;
+  svpn_task_->Start();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
@@ -84,8 +92,6 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
       break;
     case buzz::XmppEngine::STATE_OPEN:
       LOG(INFO) << __FUNCTION__ << " OPEN";
-      LOG(INFO) << __FUNCTION__ << " " << client_->jid().Str() << " "
-                << my_status_.status();
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
@@ -96,9 +102,16 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
   if (status.jid().resource().compare(0, 4, kXmppPrefix) == 0 && 
-      status.jid() != client_->jid()) {
-    svpn_task_.HandlePeer(status.jid().Str(), status.status());
+      status.jid() != pump_->client()->jid()) {
+    svpn_task_->HandlePeer(status.jid().Str(), status.status());
   }
+}
+
+void XmppNetwork::OnCloseEvent(int error) {
+  // TODO - need to figure out proper way to kill pump and client
+  //pump_->DoDisconnect();
+  //delete pump_;
+  Init();
 }
 
 }  // namespace sjingle

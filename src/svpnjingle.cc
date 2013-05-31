@@ -5,8 +5,6 @@
 #include <unistd.h>
 
 #include "talk/base/ssladapter.h"
-#include "talk/xmpp/xmppsocket.h"
-#include "talk/xmpp/xmpppump.h"
 #include "talk/base/physicalsocketserver.h"
 #include "talk/base/host.h"
 
@@ -43,11 +41,11 @@ int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr,
                char *ipv6_addr, const char *client_id) {
   opts->tap = tap_open(tap_device_name, opts->mac);
   opts->local_ip4 = ipv4_addr;
-  opts->local_ip6 = ipv6_addr;
+  //opts->local_ip6 = ipv6_addr;
 
   // configure the tap device
   tap_set_ipv4_addr(ipv4_addr, 24);
-  //tap_set_ipv6_addr(ipv6_addr, 64);
+  tap_set_ipv6_addr(ipv6_addr, 64);
   tap_set_mtu(MTU);
   tap_set_base_flags();
   tap_set_up();
@@ -128,16 +126,13 @@ int main(int argc, char **argv) {
   signaling_thread.WrapCurrent();
   worker_thread.Start();
 
-  buzz::XmppPump pump;
-  pump.DoLogin(xcs, new buzz::XmppSocket(buzz::TLS_REQUIRED), 0);
-  sjingle::XmppNetwork network(pump.client());
-
-  sjingle::SvpnConnectionManager manager(network.sender(), &signaling_thread,
+  sjingle::XmppNetwork network(xcs);
+  sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue, uid);
 
   network.set_status(manager.fingerprint());
-  network.sender()->HandlePeer.connect(&manager,
+  network.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
   signaling_thread.Run();
   return 0;

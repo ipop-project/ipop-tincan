@@ -71,21 +71,24 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   struct PeerState {
     std::string uid;
+    std::string fingerprint;
     DtlsP2PTransport* transport;
     cricket::BasicPortAllocator* port_allocator;
+    talk_base::SSLFingerprint* remote_fingerprint;
+    cricket::TransportDescription* local_description;
+    cricket::TransportDescription* remote_description;
     cricket::Candidates candidates;
-    uint32 creation_time;
-    std::string fingerprint;
+    std::set<std::string> candidate_list;
+    uint32 last_ping_time;
   };
 
  private:
   void AddIP(const std::string& uid_key);
-  void SetupTransport(cricket::P2PTransport* transport, 
-                      const std::string& uid, const std::string& fingerprint);
+  void SetupTransport(PeerState& peer_state);
   void CreateTransport(const std::string& uid, 
-                        const std::string& fingerprint);
+                       const std::string& fingerprint);
   void CreateConnections(const std::string& uid, 
-                        const std::string& candidates_string);
+                         const std::string& candidates_string);
   void DestroyTransport(const std::string& uid);
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleCheck_s();
@@ -98,11 +101,10 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   const std::string content_name_;
   SocialNetworkSenderInterface* social_sender_;
-  talk_base::AsyncPacketSocket* socket_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerState> uid_map_;
-  std::map<cricket::Transport*, PeerState> transport_map_;
-  std::set<std::string> candidates_;
+  std::map<cricket::Transport*, std::string> transport_map_;
+  std::map<std::string, int> ip_map_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   talk_base::SocketAddress stun_server_;
@@ -112,7 +114,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
-  std::map<std::string, int> ip_map_;
   uint64 tiebreaker_;
   uint32 last_connect_time_;
 };

@@ -11,6 +11,8 @@
 #include "talk/xmpp/presencereceivetask.h"
 #include "talk/xmpp/presenceouttask.h"
 #include "talk/xmpp/xmppclient.h"
+#include "talk/xmpp/xmppsocket.h"
+#include "talk/xmpp/xmpppump.h"
 #include "talk/base/sigslot.h"
 
 namespace sjingle {
@@ -34,37 +36,54 @@ class SvpnTask
     : public SocialNetworkSenderInterface,
       public buzz::XmppTask {
  public:
-  explicit SvpnTask(buzz::XmppTaskParentInterface* parent)
-      : XmppTask(parent, buzz::XmppEngine::HL_SINGLE) {}
+  explicit SvpnTask(buzz::XmppClient* client)
+      : XmppTask(client, buzz::XmppEngine::HL_SINGLE) {}
 
   // inherited from SocialSenderInterface
-  virtual const std::string uid();
-  virtual void SendToPeer(const std::string& uid, const std::string& sdp);
+  virtual const std::string uid() { return GetClient()->jid().Str(); }
+
+  virtual void SendToPeer(const std::string& uid, const std::string& data);
 
  protected:
   virtual int ProcessStart();
   virtual bool HandleStanza(const buzz::XmlElement* stanza);
 };
 
-class XmppNetwork : public sigslot::has_slots<> {
+class XmppNetwork 
+    : public SocialNetworkSenderInterface,
+      public sigslot::has_slots<> {
  public:
-  explicit XmppNetwork(buzz::XmppClient *client);
-  SocialNetworkSenderInterface* sender() { return &svpn_task_; }
+  explicit XmppNetwork(buzz::XmppClientSettings& xcs)
+      : xcs_(xcs) { Init(); }
+
+  // Slot for message callbacks
+  sigslot::signal2<const std::string&, const std::string&> HandlePeer;
+
+  // inherited from SocialSenderInterface
+  virtual const std::string uid() { return svpn_task_->uid(); }
+
+  virtual void SendToPeer(const std::string& uid, const std::string& data) {
+    svpn_task_->SendToPeer(uid, data);
+  }
 
   virtual void set_status(const std::string& status) {
-    my_status_.set_status(status);
+    my_status_->set_status(status);
   }
 
  private:
-  buzz::XmppClient* client_;
-  buzz::PresenceStatus my_status_;
-  buzz::PresenceReceiveTask presence_receive_;
-  buzz::PresenceOutTask presence_out_;
-  SvpnTask svpn_task_;
+  buzz::XmppClientSettings& xcs_;
+  buzz::XmppPump* pump_;
+  buzz::XmppSocket* xmpp_socket_;
+  buzz::PresenceStatus* my_status_;
+  buzz::PresenceReceiveTask* presence_receive_;
+  buzz::PresenceOutTask* presence_out_;
+  SvpnTask* svpn_task_;
 
+  void Init();
   void OnSignOn();
   void OnStateChange(buzz::XmppEngine::State state);
   void OnPresenceMessage(const buzz::PresenceStatus &status);
+  void OnCloseEvent(int error);
 
 };
 
