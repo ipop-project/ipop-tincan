@@ -112,12 +112,11 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
 }
 
 void SvpnConnectionManager::UpdateTime(const char* data, size_t len) {
-  std::string uid(data, len);
-  std::string uid_key = get_key(uid);
+  std::string uid_key(data, len);
   if (uid_map_.find(uid_key) != uid_map_.end()) {
     uid_map_[uid_key]->last_ping_time = talk_base::Time();
-    LOG(INFO) << __FUNCTION__ << " PING FROM " << uid << " "
-              << uid_map_[uid_key]->last_ping_time;
+    LOG(INFO) << __FUNCTION__ << " PING FROM " << uid_map_[uid_key]->uid 
+              << " " << uid_map_[uid_key]->last_ping_time;
   }
 }
 
@@ -360,8 +359,9 @@ void SvpnConnectionManager::HandlePing_w() {
        it != uid_map_.end(); ++it) {
     cricket::TransportChannelImpl* channel = 
         it->second->transport->GetChannel(component);
-    int count = channel->SendPacket(social_sender_->uid().c_str(), 
-                                    social_sender_->uid().size(), 0);
+    std::string uid_key = get_key(social_sender_->uid());
+    int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
+    LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);
 }
