@@ -1,8 +1,10 @@
 
 #include <iostream>
+#include <algorithm>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "talk/base/ssladapter.h"
 #include "talk/base/physicalsocketserver.h"
@@ -71,7 +73,7 @@ int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr,
 }
 
 int main(int argc, char **argv) {
-  //talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   talk_base::InitializeSSL();
 
   std::cout << "User Name: ";
@@ -86,9 +88,13 @@ int main(int argc, char **argv) {
   std::string host;
   std::cin >> host;
 
-  std::string tmp_uid = talk_base::CreateRandomString(sjingle::kResourceSize/2);
-  std::string uid = talk_base::hex_encode(tmp_uid.c_str(), tmp_uid.size());
-  std::cout << "\nUID " << uid << std::endl;
+  size_t id_size = sjingle::kIdSize / 2; // NOTE : hex_encode doubles size
+  char tmp_uid[10] = { '0' };
+  int len = std::min(id_size, strlen(argv[1]));
+  strncpy(tmp_uid, argv[1], len);
+
+  // hex_encode seems requires, I'm not sure why
+  std::string uid = talk_base::hex_encode(tmp_uid, id_size);
 
   struct threadqueue send_queue, rcv_queue;
   thread_queue_init(&send_queue);
@@ -113,11 +119,13 @@ int main(int argc, char **argv) {
   pass.password() = password;
 
   std::string resource(sjingle::kXmppPrefix);
+  resource += uid;
+  std::cout << "\nUid " << resource << std::endl;
   buzz::Jid jid(username);
   buzz::XmppClientSettings xcs;
   xcs.set_user(jid.node());
   xcs.set_host(jid.domain());
-  xcs.set_resource(resource + uid);
+  xcs.set_resource(resource);
   xcs.set_use_tls(buzz::TLS_REQUIRED);
   xcs.set_pass(talk_base::CryptString(pass));
   xcs.set_server(talk_base::SocketAddress(host, kXmppPort));

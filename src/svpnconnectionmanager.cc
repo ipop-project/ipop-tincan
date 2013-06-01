@@ -16,7 +16,6 @@ static const bool kAllowTcpListen = false;
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
-static const int kIdSize = 20;
 static const int kCheckInterval = 30000;
 static const char kIpNetwork[] = "172.31.0.";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
@@ -124,14 +123,15 @@ void SvpnConnectionManager::UpdateTime(const char* data, size_t len) {
 
 void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
-  if (len < (kIdSize * 2)) {
+  if (len < (kHeaderSize)) {
     return UpdateTime(data, len);
   }
-  const char* dest_id = data + kIdSize;
-  std::string source(data, kResourceSize);
-  std::string dest(dest_id, kResourceSize);
+  const char* dest_id = data + kIdSize + 2;
+  std::string source(data, kIdSize);
+  std::string dest(dest_id, kIdSize);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  if (uid_map_[source]->transport.get()->GetChannel(component) == channel) {
+  if (uid_map_.find(source) != uid_map_.end() && 
+      uid_map_[source]->transport.get()->GetChannel(component) == channel) {
     int count = thread_queue_bput(rcv_queue_, data, len);
     LOG(INFO) << __FUNCTION__ << " " << len << " " << source
               << " " << dest << " " << count;
@@ -140,10 +140,10 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
-  if (len < (kIdSize * 2)) return;
-  const char* dest_id = data + kIdSize;
-  std::string source(data, kResourceSize);
-  std::string dest(dest_id, kResourceSize);
+  if (len < (kHeaderSize)) return;
+  const char* dest_id = data + kIdSize + 2;
+  std::string source(data, kIdSize);
+  std::string dest(dest_id, kIdSize);
   LOG(INFO) << __FUNCTION__ << " " << source << " " << dest;
   if (uid_map_.find(dest) != uid_map_.end()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;

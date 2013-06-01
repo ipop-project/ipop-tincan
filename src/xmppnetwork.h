@@ -17,8 +17,9 @@
 
 namespace sjingle {
 
-const char kXmppPrefix[] = "svpn";
-const int kResourceSize = 10;
+static const char kXmppPrefix[] = "svpn";
+static const int kHeaderSize = 40;
+static const int kIdSize = 18;
 
 class SocialNetworkSenderInterface {
  public:
