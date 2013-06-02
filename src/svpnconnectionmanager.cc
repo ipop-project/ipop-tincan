@@ -84,7 +84,7 @@ void SvpnConnectionManager::OnCandidatesReady(
         talk_base::SocketAddress::IPToString(candidates[i].address().ip());
     oss << candidates[i].id() << ":" << candidates[i].component()
         << ":" << candidates[i].protocol() << ":" << ip_string
-        << ":"<< candidates[i].address().port() 
+        << ":" << candidates[i].address().port() 
         << ":" << candidates[i].priority() 
         << ":" << candidates[i].username() 
         << ":" << candidates[i].password() 
