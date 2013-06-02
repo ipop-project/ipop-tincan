@@ -53,7 +53,8 @@ SvpnConnectionManager::SvpnConnectionManager(
       send_queue_(send_queue),
       rcv_queue_(rcv_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
-      last_connect_time_(talk_base::Time()) {
+      last_connect_time_(talk_base::Time()),
+      check_counter_(0) {
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
   g_manager = this;
@@ -161,11 +162,12 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
 
 void SvpnConnectionManager::AddIP(const std::string& uid) {
   // TODO - Cleanup this function
+  if (ip_map_.find(uid) != ip_map_.end()) {
+    return;
+  }
+
   int ip_idx = kIpBase + ip_map_.size();
   std::string uid_key = get_key(uid);
-  if (ip_map_.find(uid) != ip_map_.end()) {
-    ip_idx = ip_map_[uid];
-  }
   ip_map_[uid] = ip_idx;
   std::string ip(kIpNetwork);
   char ip_rem[4] = { '\0' };
@@ -326,9 +328,12 @@ void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
 }
 
 void SvpnConnectionManager::HandleCheck_s() {
-  for (std::map<std::string, int>::iterator it = ip_map_.begin();
-       it != ip_map_.end(); ++it) {
-    social_sender_->SendToPeer(it->first, fingerprint());
+  if (++check_counter_ % 8 == 0) {
+    for (std::map<std::string, int>::iterator it = ip_map_.begin();
+         it != ip_map_.end(); ++it) {
+        social_sender_->SendToPeer(it->first, fingerprint());
+        LOG(INFO) << __FUNCTION__ << " SOCIAL REQUEST TO " << it->first;
+    }
   }
 
   std::vector<std::string> dead_transports;
@@ -340,6 +345,9 @@ void SvpnConnectionManager::HandleCheck_s() {
             it->second->transport.get()->GetChannel(component));
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
     if (time_diff > 2 * kCheckInterval) {
+      if (!it->second->transport->was_writable()) {
+        it->second->port_allocator.release();
+      }
       dead_transports.push_back(it->first);
     }
     std::cout << "\nNode status " << it->second.get()->uid << " "
@@ -350,7 +358,7 @@ void SvpnConnectionManager::HandleCheck_s() {
     uid_map_.erase(*it);
     LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << *it;
   }
-  signaling_thread_->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
+  signaling_thread_->PostDelayed(kCheckInterval/2, this, MSG_CHECK, 0);
 }
 
 void SvpnConnectionManager::HandlePing_w() {

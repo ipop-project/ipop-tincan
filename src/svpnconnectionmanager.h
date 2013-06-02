@@ -122,6 +122,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* rcv_queue_;
   uint64 tiebreaker_;
   uint32 last_connect_time_;
+  uint32 check_counter_;
 };
 
 }  // namespace sjingle
