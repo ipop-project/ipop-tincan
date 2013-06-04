@@ -102,7 +102,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void UpdateTime(const char* data, size_t len);
 
   std::string get_key(const std::string& uid) {
-    return uid.substr(uid.size() - kIdSize);
+    int idx = uid.find('/') + sizeof(kXmppPrefix);
+    if ((idx + kIdSize) <= uid.size()) {
+      return uid.substr(idx, kIdSize);
+    }
+    return uid;
   }
 
   const std::string content_name_;
