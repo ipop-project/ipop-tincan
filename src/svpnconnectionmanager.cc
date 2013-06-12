@@ -1,9 +1,9 @@
 
 #include <sstream>
-#include <iostream>
 
 #include "talk/base/logging.h"
 #include "talk/base/timeutils.h"
+#include "talk/base/json.h"
 
 #include "svpnconnectionmanager.h"
 
@@ -17,9 +17,11 @@ static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const int kCheckInterval = 30000;
-static const char kIpNetwork[] = "172.31.0.";
+static const char kIpNetwork[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
 static const int kIpBase = 101;
+static const char kTapName[] = "svpn";
+
 static SvpnConnectionManager* g_manager = 0;
 static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_RELAY |
                              cricket::PORTALLOCATOR_DISABLE_TCP;
@@ -35,8 +37,7 @@ SvpnConnectionManager::SvpnConnectionManager(
     talk_base::Thread* signaling_thread,
     talk_base::Thread* worker_thread,
     struct threadqueue* send_queue,
-    struct threadqueue* rcv_queue,
-    const std::string& uid)
+    struct threadqueue* rcv_queue)
     : content_name_(kContentName),
       social_sender_(social_sender),
       packet_factory_(worker_thread),
@@ -46,19 +47,24 @@ SvpnConnectionManager::SvpnConnectionManager(
       worker_thread_(worker_thread),
       stun_server_(kStunServer, kStunPort),
       network_manager_(),
-      identity_(talk_base::OpenSSLIdentity::Generate(uid)),
+      svpn_id_(talk_base::hex_encode(
+          talk_base::CreateRandomString(kIdSize/2).c_str(), kIdSize/2)),
+      identity_(talk_base::OpenSSLIdentity::Generate(svpn_id_)),
       local_fingerprint_(talk_base::SSLFingerprint::Create(
            talk_base::DIGEST_SHA_1, identity_)),
       fingerprint_(local_fingerprint_->GetRfc4572Fingerprint()),
       send_queue_(send_queue),
       rcv_queue_(rcv_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
-      last_connect_time_(talk_base::Time()),
-      check_counter_(0) {
+      check_counter_(0),
+      svpn_ip_(kIpNetwork),
+      svpn_ip6_(kIpv6),
+      tap_name_(kTapName) {
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
   g_manager = this;
 }
+
 
 void SvpnConnectionManager::OnRequestSignaling(
     cricket::Transport* transport) {
@@ -161,21 +167,15 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
 }
 
 void SvpnConnectionManager::AddIP(const std::string& uid) {
-  // TODO - Cleanup this function
-  if (ip_map_.find(uid) != ip_map_.end()) {
-    return;
-  }
-
+  if (ip_map_.find(uid) != ip_map_.end())  return; 
   int ip_idx = kIpBase + ip_map_.size();
   std::string uid_key = get_key(uid);
   ip_map_[uid] = ip_idx;
-  std::string ip(kIpNetwork);
-  char ip_rem[4] = { '\0' };
-  snprintf(ip_rem, sizeof(ip_rem), "%d", ip_idx);
-  ip += ip_rem;
-  // TODO - Generate real IPv6 addresses
-  peerlist_add_p(uid_key.c_str(), ip.c_str(), kIpv6, 0);
-  std::cout << "\nAdding " << uid << " " << ip << std::endl;
+  char ip[sizeof(kIpNetwork)] = {'0'};
+  strncpy(ip, svpn_ip_.c_str(), sizeof(kIpNetwork));
+  snprintf(ip + 9, 4, "%d", ip_idx);
+  peerlist_add_p(uid_key.c_str(), ip, kIpv6, 0);
+  uid_map_[uid_key]->ip = ip;
 }
 
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
@@ -350,8 +350,6 @@ void SvpnConnectionManager::HandleCheck_s() {
       }
       dead_transports.push_back(it->first);
     }
-    std::cout << "\nNode status " << it->second.get()->uid << " "
-              << channel->ToString() << std::endl;
   }
   for (std::vector<std::string>::iterator it = dead_transports.begin();
        it != dead_transports.end(); ++it) {
@@ -372,6 +370,25 @@ void SvpnConnectionManager::HandlePing_w() {
     LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);
+}
+
+std::string SvpnConnectionManager::GetState() {
+  Json::Value state(Json::objectValue);
+  Json::Value peers(Json::arrayValue);
+  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
+       it != uid_map_.end(); ++it) {
+    Json::Value peer(Json::objectValue);
+    peer["uid"] = it->second->uid;
+    peer["ip"] = it->second->ip;
+    peer["fpr"] = it->second->fingerprint;
+    peer["ping"] = (talk_base::Time() - it->second->last_ping_time)/1000;
+    peers.append(peer);
+  }
+  state["uid"] = social_sender_->uid();
+  state["fpr"] = fingerprint_;
+  state["ip"] = svpn_ip_;
+  state["peers"] = peers;
+  return state.toStyledString();
 }
 
 }  // namespace sjingle

@@ -39,12 +39,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
                         struct threadqueue* send_queue,
-                        struct threadqueue* rcv_queue,
-                        const std::string& uid);
+                        struct threadqueue* rcv_queue);
 
-  const std::string fingerprint() const {
-    return fingerprint_;
-  }
+  const std::string fingerprint() const { return fingerprint_; }
+
+  const std::string uid() const { return svpn_id_; }
+
+  const std::string ipv4() const { return svpn_ip_; }
+
+  const std::string ipv6() const { return svpn_ip6_; }
+
+  const std::string tap_name() const { return tap_name_; }
 
   talk_base::Thread* worker_thread() { return worker_thread_; }
 
@@ -67,6 +72,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
 
+  virtual std::string GetState();
+
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);
 
@@ -74,6 +81,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   struct PeerState {
     std::string uid;
+    std::string ip;
     std::string fingerprint;
     talk_base::scoped_ptr<DtlsP2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
@@ -119,14 +127,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::Thread* worker_thread_;
   talk_base::SocketAddress stun_server_;
   talk_base::BasicNetworkManager network_manager_;
+  std::string svpn_id_;
   talk_base::OpenSSLIdentity* identity_;
   talk_base::SSLFingerprint* local_fingerprint_;
   std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
   uint64 tiebreaker_;
-  uint32 last_connect_time_;
   uint32 check_counter_;
+  std::string svpn_ip_;
+  std::string svpn_ip6_;
+  std::string tap_name_;
 };
 
 }  // namespace sjingle

@@ -54,37 +54,43 @@ class XmppNetwork
     : public SocialNetworkSenderInterface,
       public sigslot::has_slots<> {
  public:
-  explicit XmppNetwork(buzz::XmppClientSettings& xcs)
-      : xcs_(xcs) { Init(); }
+  explicit XmppNetwork() : state_(), xcs_(), online_(false){};
 
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
+  void Login(std::string username, std::string password,
+             std::string pcid, std::string host);
+
   // inherited from SocialSenderInterface
-  virtual const std::string uid() { return state_->svpn_task->uid(); }
+  virtual const std::string uid() { 
+    if (online_) return state_->svpn_task->uid();
+    else return "offline"; 
+  }
 
   virtual void SendToPeer(const std::string& uid, const std::string& data) {
     state_->svpn_task->SendToPeer(uid, data);
   }
 
   virtual void set_status(const std::string& status) {
-    state_->status->set_status(status);
+    status_.set_status(status);
   }
 
   struct XmppState {
     talk_base::scoped_ptr<buzz::XmppPump> pump;
     talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket;
-    talk_base::scoped_ptr<buzz::PresenceStatus> status;
     talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive;
     talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out;
     talk_base::scoped_ptr<SvpnTask> svpn_task;
   };
 
  private:
-  buzz::XmppClientSettings& xcs_;
   talk_base::scoped_ptr<XmppState> state_;
+  buzz::XmppClientSettings xcs_;
+  buzz::PresenceStatus status_;
+  bool online_;
 
-  void Init();
+  void Connect();
   void OnSignOn();
   void OnStateChange(buzz::XmppEngine::State state);
   void OnPresenceMessage(const buzz::PresenceStatus &status);

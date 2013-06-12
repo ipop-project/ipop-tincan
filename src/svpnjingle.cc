@@ -1,5 +1,4 @@
 
-#include <iostream>
 #include <algorithm>
 #include <sys/types.h>
 #include <pwd.h>
@@ -7,12 +6,9 @@
 #include <string.h>
 
 #include "talk/base/ssladapter.h"
-#include "talk/base/physicalsocketserver.h"
-#include "talk/base/host.h"
 
 #include "svpnconnectionmanager.h"
-
-static const int kXmppPort = 5222;
+#include "httpui.h"
 
 class SendRunnable : public talk_base::Runnable {
  public:
@@ -39,8 +35,9 @@ class RecvRunnable : public talk_base::Runnable {
 };
 
 // essential parts of svpn-core svpn.c main function
-int setup_svpn(thread_opts_t *opts, char *tap_device_name, char *ipv4_addr, 
-               char *ipv6_addr, const char *client_id) {
+int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
+               const char *ipv4_addr, const char *ipv6_addr, 
+               const char *client_id) {
   opts->tap = tap_open(tap_device_name, opts->mac);
   opts->local_ip4 = ipv4_addr;
   //opts->local_ip6 = ipv6_addr;
@@ -76,74 +73,41 @@ int main(int argc, char **argv) {
   talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   talk_base::InitializeSSL();
 
-  std::cout << "User Name: ";
-  std::string username;
-  std::cin >> username;
-
-  std::cout << "Password: ";
-  std::string password;
-  std::cin >> password;
-
-  std::cout << "Xmpp Host: ";
-  std::string host;
-  std::cin >> host;
-
-  size_t id_size = sjingle::kIdSize / 2; // NOTE : hex_encode doubles size
-  char tmp_uid[10] = { '0' };
-  int len = std::min(id_size, strlen(argv[1]));
-  strncpy(tmp_uid, argv[1], len);
-
-  // hex_encode seems requires, I'm not sure why
-  std::string uid = talk_base::hex_encode(tmp_uid, id_size);
-
   struct threadqueue send_queue, rcv_queue;
   thread_queue_init(&send_queue);
   thread_queue_init(&rcv_queue);
 
-  char tap_name[] = "svpn0";
-  char ipv4[] = "172.31.0.100";
-  char ipv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
+  talk_base::Thread worker_thread, send_thread, recv_thread;
+  talk_base::AutoThread signaling_thread;
+  signaling_thread.WrapCurrent();
+
+  sjingle::XmppNetwork network;
+  sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
+                                         &worker_thread, &send_queue, 
+                                         &rcv_queue);
+  network.set_status(manager.fingerprint());
+  network.HandlePeer.connect(&manager,
+      &sjingle::SvpnConnectionManager::HandlePeer);
+
+  // TODO - Use BasicNetworkManager to determine available network
   thread_opts_t opts;
   opts.send_queue = &send_queue;
   opts.rcv_queue = &rcv_queue;
   opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
-  setup_svpn(&opts, tap_name, ipv4, ipv6, uid.c_str());
+  setup_svpn(&opts, manager.tap_name().c_str(), manager.ipv4().c_str(), 
+             manager.ipv6().c_str(), manager.uid().c_str());
 
+  sjingle::HttpUI httpui(manager, network);
+
+  // Setup/run threads
   SendRunnable send_runnable(&opts);
   RecvRunnable recv_runnable(&opts);
-  talk_base::Thread send_thread, recv_thread;
+
   send_thread.Start(&send_runnable);
   recv_thread.Start(&recv_runnable);
-
-  talk_base::InsecureCryptStringImpl pass;
-  pass.password() = password;
-
-  std::string resource(sjingle::kXmppPrefix);
-  resource += uid;
-  std::cout << "\nUid " << resource << std::endl;
-  buzz::Jid jid(username);
-  buzz::XmppClientSettings xcs;
-  xcs.set_user(jid.node());
-  xcs.set_host(jid.domain());
-  xcs.set_resource(resource);
-  xcs.set_use_tls(buzz::TLS_REQUIRED);
-  xcs.set_pass(talk_base::CryptString(pass));
-  xcs.set_server(talk_base::SocketAddress(host, kXmppPort));
-  talk_base::AutoThread signaling_thread;
-  talk_base::Thread worker_thread;
-  signaling_thread.WrapCurrent();
   worker_thread.Start();
-
-  sjingle::XmppNetwork network(xcs);
-  sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
-                                         &worker_thread, &send_queue, 
-                                         &rcv_queue, uid);
-
-  network.set_status(manager.fingerprint());
-  network.HandlePeer.connect(&manager,
-      &sjingle::SvpnConnectionManager::HandlePeer);
   signaling_thread.Run();
+  
   return 0;
 }
-
 

@@ -129,6 +129,7 @@
         'examples/svpn-jingle/src/svpnjingle.cc',
         'examples/svpn-jingle/src/svpnconnectionmanager.cc',
         'examples/svpn-jingle/src/xmppnetwork.cc',
+        'examples/svpn-jingle/src/httpui.cc',
       ],
     },  # target svpn-jingle
     {

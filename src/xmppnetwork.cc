@@ -1,6 +1,5 @@
 
 #include <string>
-#include <iostream>
 
 #include "talk/base/thread.h"
 #include "talk/xmpp/constants.h"
@@ -13,6 +12,8 @@
 #include "xmppnetwork.h"
 
 namespace sjingle {
+
+static const int kXmppPort = 5222;
 
 static const buzz::StaticQName QN_SVPN = { "svpn:webrtc", "data" };
 
@@ -33,7 +34,7 @@ int SvpnTask::ProcessStart() {
   }
 
   buzz::Jid from(stanza->Attr(buzz::QN_FROM));
-  if (from.resource().compare(0, 4, kXmppPrefix) == 0 &&
+  if (from.resource().compare(0, sizeof(kXmppPrefix)-1 , kXmppPrefix) == 0 &&
       from != GetClient()->jid()) {
     HandlePeer(stanza->Attr(buzz::QN_FROM),
                stanza->FirstNamed(QN_SVPN)->BodyText());
@@ -49,7 +50,24 @@ bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
   return true;
 }
 
-void XmppNetwork::Init() {
+void XmppNetwork::Login(std::string username, std::string password,
+                        std::string pcid, std::string host) {
+  if (online_) return;
+  talk_base::InsecureCryptStringImpl pass;
+  pass.password() = password;
+  std::string resource(kXmppPrefix);
+  resource += pcid;
+  buzz::Jid jid(username);
+  xcs_.set_user(jid.node());
+  xcs_.set_host(jid.domain());
+  xcs_.set_resource(resource);
+  xcs_.set_use_tls(buzz::TLS_REQUIRED);
+  xcs_.set_pass(talk_base::CryptString(pass));
+  xcs_.set_server(talk_base::SocketAddress(host, kXmppPort));
+  Connect();
+}
+
+void XmppNetwork::Connect() {
   state_.reset(new XmppState);
   state_->xmpp_socket.reset(new buzz::XmppSocket(buzz::TLS_REQUIRED));
   state_->xmpp_socket->SignalCloseEvent.connect(this, 
@@ -60,11 +78,10 @@ void XmppNetwork::Init() {
   state_->pump->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
 
-  state_->status.reset(new buzz::PresenceStatus());
-  state_->status->set_jid(state_->pump->client()->jid());
-  state_->status->set_available(true);
-  state_->status->set_show(buzz::PresenceStatus::SHOW_ONLINE);
-  state_->status->set_priority(0);
+  status_.set_jid(state_->pump->client()->jid());
+  status_.set_available(true);
+  status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
+  status_.set_priority(0);
 
   state_->presence_receive.reset(
       new buzz::PresenceReceiveTask(state_->pump->client()));
@@ -79,11 +96,12 @@ void XmppNetwork::Init() {
 
 void XmppNetwork::OnSignOn() {
   state_->presence_receive->Start();
-  state_->presence_out->Send(*state_->status);
+  state_->presence_out->Send(status_);
   state_->presence_out->Start();
   state_->svpn_task->HandlePeer = HandlePeer;
   state_->svpn_task->Start();
-  std::cout << "XMPP Online " << state_->pump->client()->jid().Str();
+  online_ = true;
+  LOG(INFO) << "XMPP ONLINE " << state_->pump->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
@@ -118,7 +136,8 @@ void XmppNetwork::OnCloseEvent(int error) {
   state_->presence_receive.release();
   state_->presence_out.release();
   state_->svpn_task.release();
-  Init();
+  online_ = false;
+  Connect();
 }
 
 }  // namespace sjingle
