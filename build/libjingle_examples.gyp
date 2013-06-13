@@ -112,6 +112,7 @@
       ],
       'dependencies': [
         'libjingle.gyp:libjingle_p2p',
+        '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
       ],
       'include_dirs': [
         '<(DEPTH)/third_party/openssl/openssl-1.0.1e/include',

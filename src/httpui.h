@@ -23,7 +23,6 @@ class HttpUI : public sigslot::has_slots<> {
   void HandleRequest();
 
   talk_base::HttpListenServer http_server_;
-  talk_base::SocketAddress server_address_;
   SvpnConnectionManager& manager_;
   XmppNetwork& network_;
 

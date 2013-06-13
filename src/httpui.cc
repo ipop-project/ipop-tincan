@@ -1,7 +1,6 @@
 
 #include "talk/base/stream.h"
 #include "talk/base/json.h"
-#include "talk/base/physicalsocketserver.h"
 #include "talk/base/host.h"
 
 #include "httpui.h"
@@ -14,16 +13,15 @@ static const int kBufferSize = 1024;
 static const char kJsonMimeType[] = "application/json";
 
 enum HttpMethods {
-  MSG_LOGIN = 1
+  HTTP_LOGIN = 1
 };
 
 HttpUI::HttpUI(SvpnConnectionManager& manager, XmppNetwork& network) 
     : http_server_(),
-      server_address_(kLocalHost, kHttpPort),
       manager_(manager),
       network_(network) {
   http_server_.SignalHttpRequest.connect(this, &HttpUI::OnHttpRequest);
-  http_server_.Listen(server_address_);
+  http_server_.Listen(talk_base::SocketAddress(kLocalHost, kHttpPort));
 }
 
 void HttpUI::OnHttpRequest(talk_base::HttpServer* server,
@@ -43,7 +41,7 @@ void HttpUI::OnHttpRequest(talk_base::HttpServer* server,
 
     int method = root.get("m", 0).asInt();
     switch (method) {
-      case MSG_LOGIN: {
+      case HTTP_LOGIN: {
           std::string user = root["u"].asString();
           std::string pass = root["p"].asString();
           std::string host = root["h"].asString();

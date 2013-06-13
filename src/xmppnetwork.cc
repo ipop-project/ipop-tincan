@@ -101,7 +101,8 @@ void XmppNetwork::OnSignOn() {
   state_->svpn_task->HandlePeer = HandlePeer;
   state_->svpn_task->Start();
   online_ = true;
-  LOG(INFO) << "XMPP ONLINE " << state_->pump->client()->jid().Str();
+  LOG(INFO) << __FUNCTION__ << "XMPP ONLINE " 
+            << state_->pump->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
@@ -130,14 +131,16 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
 }
 
 void XmppNetwork::OnCloseEvent(int error) {
-  // We release bc they are assumed to be deleted elsewhere, need to verify|
-  state_->pump.release();
-  state_->xmpp_socket.release();
-  state_->presence_receive.release();
-  state_->presence_out.release();
-  state_->svpn_task.release();
-  online_ = false;
-  Connect();
+  LOG(INFO) << __FUNCTION__ << " CLOSE " << error;
+  if (state_->pump->client()->GetState() == buzz::XmppEngine::STATE_OPEN) {
+    state_->pump.release();
+    state_->xmpp_socket.release();
+    state_->presence_receive.release();
+    state_->presence_out.release();
+    state_->svpn_task.release();
+    online_ = false;
+    Connect();
+  }
 }
 
 }  // namespace sjingle

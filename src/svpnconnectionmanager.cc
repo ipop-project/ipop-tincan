@@ -175,7 +175,6 @@ void SvpnConnectionManager::AddIP(const std::string& uid) {
   strncpy(ip, svpn_ip_.c_str(), sizeof(kIpNetwork));
   snprintf(ip + 9, 4, "%d", ip_idx);
   peerlist_add_p(uid_key.c_str(), ip, kIpv6, 0);
-  uid_map_[uid_key]->ip = ip;
 }
 
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
@@ -379,9 +378,11 @@ std::string SvpnConnectionManager::GetState() {
        it != uid_map_.end(); ++it) {
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->second->uid;
-    peer["ip"] = it->second->ip;
+    peer["ip"] = ip_map_[it->second->uid];
     peer["fpr"] = it->second->fingerprint;
     peer["ping"] = (talk_base::Time() - it->second->last_ping_time)/1000;
+    peer["rx"] = it->second->transport->all_channels_readable();
+    peer["tx"] = it->second->transport->all_channels_writable();
     peers.append(peer);
   }
   state["uid"] = social_sender_->uid();

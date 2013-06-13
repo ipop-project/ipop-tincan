@@ -81,7 +81,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   struct PeerState {
     std::string uid;
-    std::string ip;
     std::string fingerprint;
     talk_base::scoped_ptr<DtlsP2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
