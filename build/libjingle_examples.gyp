@@ -40,6 +40,7 @@
       ],
       'sources': [
         'xmpp/jingleinfotask.cc',
+        'xmpp/jingleinfotask.h',
       ],
     },  # target libjingle_xmpphelp
     {
@@ -104,11 +105,20 @@
       'cflags' : [
         '-Wall',
       ],
-      'ldflags': [
-        '-Lthird_party/openssl/openssl-1.0.1e',
-        '-lcrypto',
-        '-Lthird_party/openssl/openssl-1.0.1e',
-        '-lssl',
+      'conditions': [
+        ['OS=="android"', {
+          'defines': [
+            'DROID_BUILD',
+          ],
+        }],
+        ['OS=="linux"', {
+          'ldflags': [
+            '-Lthird_party/openssl/openssl-1.0.1e',
+            '-lcrypto',
+            '-Lthird_party/openssl/openssl-1.0.1e',
+            '-lssl',
+          ],
+        }],
       ],
       'dependencies': [
         'libjingle.gyp:libjingle_p2p',
@@ -166,12 +176,20 @@
     #       'sources': [
     #         'examples/call/call_main.cc',
     #         'examples/call/callclient.cc',
+    #         'examples/call/callclient.h',
     #         'examples/call/console.cc',
+    #         'examples/call/console.h',
     #         'examples/call/friendinvitesendtask.cc',
+    #         'examples/call/friendinvitesendtask.h',
     #         'examples/call/mediaenginefactory.cc',
+    #         'examples/call/mediaenginefactory.h',
+    #         'examples/call/muc.h',
     #         'examples/call/mucinviterecvtask.cc',
+    #         'examples/call/mucinviterecvtask.h',
     #         'examples/call/mucinvitesendtask.cc',
+    #         'examples/call/mucinvitesendtask.h',
     #         'examples/call/presencepushtask.cc',
+    #         'examples/call/presencepushtask.h',
     #       ],
     #       'conditions': [
     #         ['OS=="linux"', {
@@ -217,6 +235,7 @@
             # can be excluded automatically.
             ['OS=="win"', {
               'sources': [
+                'examples/peerconnection/client/flagdefs.h',
                 'examples/peerconnection/client/main.cc',
                 'examples/peerconnection/client/main_wnd.cc',
                 'examples/peerconnection/client/main_wnd.h',
@@ -255,5 +274,58 @@
         },  # target peerconnection_client
       ], # targets
     }],  # OS=="linux" or OS=="win"
+
+    ['OS=="android"', {
+      'targets': [
+        {
+          'target_name': 'AppRTCDemo',
+          'type': 'none',
+          'dependencies': [
+            'libjingle.gyp:libjingle_peerconnection_jar',
+          ],
+          'actions': [
+            {
+              # TODO(fischman): convert from a custom script to a standard gyp
+              # apk build once chromium's apk-building gyp machinery can be used
+              # (http://crbug.com/225101)
+              'action_name': 'build_apprtcdemo_apk',
+              'inputs' : [
+                '<(PRODUCT_DIR)/libjingle_peerconnection_so.so',
+                'examples/android/AndroidManifest.xml',
+                'examples/android/README',
+                'examples/android/ant.properties',
+                'examples/android/build.xml',
+                'examples/android/jni/Android.mk',
+                'examples/android/project.properties',
+                'examples/android/res/drawable-hdpi/ic_launcher.png',
+                'examples/android/res/drawable-ldpi/ic_launcher.png',
+                'examples/android/res/drawable-mdpi/ic_launcher.png',
+                'examples/android/res/drawable-xhdpi/ic_launcher.png',
+                'examples/android/res/values/strings.xml',
+                'examples/android/src/org/appspot/apprtc/AppRTCClient.java',
+                'examples/android/src/org/appspot/apprtc/AppRTCDemoActivity.java',
+                'examples/android/src/org/appspot/apprtc/FramePool.java',
+                'examples/android/src/org/appspot/apprtc/GAEChannelClient.java',
+                'examples/android/src/org/appspot/apprtc/VideoStreamsView.java',
+              ],
+              'outputs': [
+                '<(PRODUCT_DIR)/AppRTCDemo-debug.apk',
+              ],
+              'action': [
+                'bash', '-ec',
+                'rm -f <(_outputs) && '
+                'mkdir -p examples/android/libs/armeabi-v7a && '
+                'cp <(PRODUCT_DIR)/libjingle_peerconnection.jar examples/android/libs/ &&'
+                '../third_party/android_tools/ndk/toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86_64/bin/arm-linux-androideabi-strip -o examples/android/libs/armeabi-v7a/libjingle_peerconnection_so.so  <(PRODUCT_DIR)/libjingle_peerconnection_so.so &&'
+                'cd examples/android && '
+                'ant debug && '
+                'cd - && '
+                'cp examples/android/bin/AppRTCDemo-debug.apk <(_outputs)'
+              ],
+            },
+          ],
+        },  # target AppRTCDemo
+      ],  # targets
+    }],  # OS=="android"
   ],
 }
