@@ -40,7 +40,7 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
                const char *client_id) {
   opts->tap = tap_open(tap_device_name, opts->mac);
   opts->local_ip4 = ipv4_addr;
-  //opts->local_ip6 = ipv6_addr;
+  opts->local_ip6 = ipv6_addr;
 
   // configure the tap device
   tap_set_ipv4_addr(ipv4_addr, 24);
@@ -52,7 +52,8 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
   peerlist_init(TABLE_SIZE);
   peerlist_set_local_p(client_id, ipv4_addr, ipv6_addr);
 
-  // drop root privileges and set to nobody
+#ifndef DROID_BUILD
+  // drop root privileges and set to nobody, causes Android issues
   struct passwd * pwd = getpwnam("nobody");
   if (getuid() == 0) {
     if (setgid(pwd->pw_uid) < 0) {
@@ -66,6 +67,7 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
       return -1;
     }
   }
+#endif
   return 0;
 }
 
@@ -88,16 +90,17 @@ int main(int argc, char **argv) {
   network.set_status(manager.fingerprint());
   network.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
+  sjingle::HttpUI httpui(manager, network);
 
   // TODO - Use BasicNetworkManager to determine available network
   thread_opts_t opts;
   opts.send_queue = &send_queue;
   opts.rcv_queue = &rcv_queue;
   opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
+
+  // need to make sure we get all handles because we become nobody
   setup_svpn(&opts, manager.tap_name().c_str(), manager.ipv4().c_str(), 
              manager.ipv6().c_str(), manager.uid().c_str());
-
-  sjingle::HttpUI httpui(manager, network);
 
   // Setup/run threads
   SendRunnable send_runnable(&opts);

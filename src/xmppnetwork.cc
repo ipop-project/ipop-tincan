@@ -52,7 +52,9 @@ bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
 
 void XmppNetwork::Login(std::string username, std::string password,
                         std::string pcid, std::string host) {
-  if (online_) return;
+  if (online_ || username.empty() || password.empty() || 
+      pcid.empty() || host.empty()) return;
+
   talk_base::InsecureCryptStringImpl pass;
   pass.password() = password;
   std::string resource(kXmppPrefix);
