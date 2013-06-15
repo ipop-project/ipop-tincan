@@ -45,43 +45,40 @@ Download and run Android SocialVPN
 
     platform-tools/adb shell mkdir data/svpn
 
-2. Download socialvpn for android::
+2. Download socialvpn for android (curl as well for http management)::
 
     wget http://www.acis.ufl.edu/~ptony82/svpn-jingle-android
-
-3. Download curl for android needed to communicate with socialvpn over http::
-
     wget http://www.acis.ufl.edu/~ptony82/curl-android
 
-4. Use *adb push* to copy downloaded files to AVD::
+3. Use *adb push* to copy downloaded files to AVD::
 
     platform-tools/adb push svpn-jingle-android /data/svpn
     platform-tools/adb push curl-android /data/svpn
 
-5. Access the AVD shell and go to svpn directory::
+4. Access the AVD shell and go to svpn directory::
 
     platform-tools/adb shell
     cd /data/svpn
 
-6. Launch socialvpn::
+5. Launch socialvpn::
 
     chmod 755 svpn-jingle-android curl-android
     ./svpn-jingle-android &> log.txt &
 
-7. Log into XMPP (Google Chat or Jabber.org) using credentials::
+6. Log into XMPP (Google Chat or Jabber.org) using credentials::
 
     ./curl-android http://127.0.0.1:5800/ -d \
     '{"m":1,"u":"username@gmail.com","p":"password","h":"talk.google.com"}'
 
-8. Check on status, including showing list of connected friends [1,2]::
+7. Check on status, including showing list of connected friends::
 
     ./curl-android http://127.0.0.1:5800/
 
-9. Check the network devices and ip address for your device [3]::
+8. Check the network devices and ip address for your device::
 
     netcfg
 
-10. Kill socialvpn process and terminate the AVD::
+9. Kill socialvpn process and terminate the AVD::
 
     pkill svpn-jingle-android
     exit
