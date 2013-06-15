@@ -162,9 +162,6 @@
         '<(DEPTH)/third_party/expat/expat.gyp:expat',
         '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
       ],
-      'include_dirs': [
-        '<(DEPTH)/third_party/openssl/openssl-1.0.1e/include',
-      ],
       'sources': [
         'base/asyncfile.cc',
         'base/asyncfile.h',
@@ -487,10 +484,10 @@
           ],
           'link_settings': {
             'libraries': [
-              '-lssl',
-              '-lcrypto',
+              #'-lcrypto',
               '-ldl',
               '-lrt',
+              #'-lssl',
               '-lXext',
               '-lX11',
               '-lXcomposite',
@@ -503,7 +500,6 @@
           ],
           'ldflags': [
             '<!@(<(pkg-config) --libs-only-L --libs-only-other nss)',
-            '-Lthird_party/openssl/openssl-1.0.1e',
           ],
         }],
         ['OS=="mac"', {
@@ -594,7 +590,7 @@
             'base/unixfilesystem.h',
           ],
           'conditions': [
-            ['OS=="android"', {
+            ['OS=="android" or OS=="linux"', {
               'dependencies': [
                 '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
               ],
@@ -820,9 +816,9 @@
       'target_name': 'libjingle_p2p',
       'type': 'static_library',
       'dependencies': [
-        #'<(DEPTH)/third_party/libsrtp/libsrtp.gyp:libsrtp',
+        '<(DEPTH)/third_party/libsrtp/libsrtp.gyp:libsrtp',
         'libjingle',
-        #'libjingle_media',
+        'libjingle_media',
       ],
       'include_dirs': [
         '<(DEPTH)/third_party/gtest/include',
@@ -951,8 +947,8 @@
         'session/media/rtcpmuxfilter.h',
         'session/media/soundclip.cc',
         'session/media/soundclip.h',
-        #'session/media/srtpfilter.cc',
-        #'session/media/srtpfilter.h',
+        'session/media/srtpfilter.cc',
+        'session/media/srtpfilter.h',
         'session/media/ssrcmuxfilter.cc',
         'session/media/ssrcmuxfilter.h',
         'session/media/typingmonitor.cc',
@@ -965,7 +961,7 @@
       'type': 'static_library',
       'dependencies': [
         'libjingle',
-        #'libjingle_media',
+        'libjingle_media',
         'libjingle_p2p',
       ],
       'sources': [

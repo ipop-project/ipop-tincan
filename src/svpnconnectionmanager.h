@@ -21,11 +21,11 @@
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
 
-#include "talk/examples/svpn-core/lib/threadqueue/threadqueue.h"
-#include "talk/examples/svpn-core/src/svpn.h"
-#include "talk/examples/svpn-core/src/tap.h"
-#include "talk/examples/svpn-core/src/peerlist.h"
-#include "talk/examples/svpn-core/src/packetio.h"
+#include "talk/socialvpn/svpn-core/lib/threadqueue/threadqueue.h"
+#include "talk/socialvpn/svpn-core/src/svpn.h"
+#include "talk/socialvpn/svpn-core/src/tap.h"
+#include "talk/socialvpn/svpn-core/src/peerlist.h"
+#include "talk/socialvpn/svpn-core/src/packetio.h"
 
 #include "xmppnetwork.h"
 
