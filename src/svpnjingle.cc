@@ -72,7 +72,13 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
 }
 
 int main(int argc, char **argv) {
-  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+
+  if (argc > 1) {
+    if (strncmp(argv[1], "-v", 2) == 0) {
+      talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+    }
+  }
+
   talk_base::InitializeSSL();
 
   struct threadqueue send_queue, rcv_queue;
