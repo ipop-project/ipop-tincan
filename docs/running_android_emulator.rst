@@ -73,16 +73,13 @@ Download and run Android SocialVPN
     ./curl-android http://127.0.0.1:5800/ -d \
     '{"m":1,"u":"username@gmail.com","p":"password","h":"talk.google.com"}'
 
-8. Check on status, including showing list of connected friends[1,2]::
+8. Check on status, including showing list of connected friends [1,2]::
 
     ./curl-android http://127.0.0.1:5800/
 
-9. Check the network devices and ip address for your device::
+9. Check the network devices and ip address for your device [3]::
 
     netcfg
-
-9. Run socialvpn on another machine using same credentials and they will
-   connect with each other.
 
 10. Kill socialvpn process and terminate the AVD::
 
@@ -93,3 +90,6 @@ Download and run Android SocialVPN
 
 .. [#] *rx : true* means the connection is readable, *tx : true* means writable
 .. [#] *ip : 101* means the peer's ip address is 172.31.0.101 (will fix later)
+.. [#] Run socialvpn on another machine using same credentials and they will
+   connect with each other.
+
