@@ -22,7 +22,7 @@ Download and run SocialVPN
     ./curl-android http://127.0.0.1:5800/ -d \
     '{"m":1,"u":"username@gmail.com","p":"password","h":"talk.google.com"}'
 
-4. Check on status, including showing list of connected friends[#]::
+4. Check on status, including showing list of connected friends[1,2]::
 
     curl http://127.0.0.1:5800/
 
