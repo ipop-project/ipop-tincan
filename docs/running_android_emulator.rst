@@ -38,7 +38,8 @@ Instantiate Android Virtual Device
 
     tools/emulator64-arm -avd svpn-android-4.1 -no-window -no-audio &> log.txt &
 
-3. Wait about one minute and test emulator is running with following command::
+3. Wait about one minute and test emulator is running with following command
+   (a list of network devices along with ip addresses should appear)::
 
     platform-tools/adb shell netcfg
 
@@ -64,7 +65,7 @@ Download and run Android SocialVPN
     platform-tools/adb shell
     cd /data/svpn
 
-5. Launch socialvpn::
+5. Launch socialvpn (use -v flag to enable logging)::
 
     chmod 755 svpn-jingle-android curl-android
     ./svpn-jingle-android &> log.txt &

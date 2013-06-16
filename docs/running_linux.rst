@@ -12,7 +12,7 @@ Download and run SocialVPN
 
     wget http://www.acis.ufl.edu/~ptony82/svpn-jingle
 
-2. Launch socialvpn::
+2. Launch socialvpn (use -v flag to enable logging)::
 
     chmod 755 svpn-jingle
     ./svpn-jingle &> log.txt &
