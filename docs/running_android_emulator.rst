@@ -5,6 +5,10 @@ Running Android SocialVPN on the Cloud
 
 These instructions are for Ubuntu 12.04. Your VM should have 1GB RAM or more.
 
+Your can create such a VM on FutureGrid as described in the following link
+
+https://portal.futuregrid.org/manual/openstack/grizzly
+
 Install necessary packages
 --------------------------
 
