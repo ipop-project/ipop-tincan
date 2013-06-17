@@ -73,7 +73,7 @@ Download and run Android SocialVPN
 6. Log into XMPP (Google Chat or Jabber.org) using credentials::
 
     ./curl-android http://127.0.0.1:5800/ -d \
-    '{"m":1,"u":"username@gmail.com","p":"password","h":"talk.google.com"}'
+    '{"m":"login","u":"username@gmail.com","p":"password","h":"talk.google.com"}'
 
 7. Check on status, including showing list of connected friends::
 
