@@ -60,7 +60,8 @@ SvpnConnectionManager::SvpnConnectionManager(
       check_counter_(0),
       svpn_ip_(kIpNetwork),
       svpn_ip6_(kIpv6),
-      tap_name_(kTapName) {
+      tap_name_(kTapName),
+      sec_enabled_(true) {
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
   g_manager = this;
@@ -139,8 +140,6 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
   if (uid_map_.find(source) != uid_map_.end() && 
       uid_map_[source]->transport.get()->GetChannel(component) == channel) {
     int count = thread_queue_bput(rcv_queue_, data, len);
-    LOG(INFO) << __FUNCTION__ << " " << len << " " << source
-              << " " << dest << " " << count;
   }
 }
 
@@ -150,19 +149,11 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   const char* dest_id = data + kIdSize + 2;
   std::string source(data, kIdSize);
   std::string dest(dest_id, kIdSize);
-  LOG(INFO) << __FUNCTION__ << " " << source << " " << dest;
   if (uid_map_.find(dest) != uid_map_.end()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-    cricket::DtlsTransportChannelWrapper* channel =
-        static_cast<cricket::DtlsTransportChannelWrapper*>(
-            uid_map_[dest]->transport.get()->GetChannel(component));
-#ifndef NO_DTLS
+    cricket::TransportChannelImpl* channel = 
+        uid_map_[dest]->transport.get()->GetChannel(component);
     int count = channel->SendPacket(data, len, 0);
-    LOG(INFO) << __FUNCTION__ << " SENT DTLS " << count;
-#else
-    int count = channel->channel()->SendPacket(data, len, 0);
-    LOG(INFO) << __FUNCTION__ << " SENT NODTLS " << count;
-#endif
   }
 }
 
@@ -225,22 +216,25 @@ bool SvpnConnectionManager::CreateTransport(
       &network_manager_, &packet_factory_, stun_server_));
   peer_state->port_allocator->set_flags(kFlags);
   peer_state->port_allocator->set_allow_tcp_listen(kAllowTcpListen);
-  peer_state->transport.reset(new DtlsP2PTransport(
-      signaling_thread_, worker_thread_, content_name_, 
-      peer_state->port_allocator.get(), identity_));
 
+  cricket::TransportChannelImpl* channel;
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  cricket::DtlsTransportChannelWrapper* channel =
-      static_cast<cricket::DtlsTransportChannelWrapper*>(
-          peer_state->transport.get()->CreateChannel(component));
+  if (sec_enabled_) {
+    peer_state->transport.reset(new DtlsP2PTransport(
+        signaling_thread_, worker_thread_, content_name_, 
+        peer_state->port_allocator.get(), identity_));
+    channel = static_cast<cricket::DtlsTransportChannelWrapper*>(
+        peer_state->transport.get()->CreateChannel(component));
+  }
+  else {
+    peer_state->transport.reset(new cricket::P2PTransport(
+        signaling_thread_, worker_thread_, content_name_, 
+        peer_state->port_allocator.get()));
+    channel = peer_state->transport.get()->CreateChannel(component);
+  }
 
-#ifndef NO_DTLS
   channel->SignalReadPacket.connect(
     this, &SvpnConnectionManager::OnReadPacket);
-#else
-  channel->channel()->SignalReadPacket.connect(
-    this, &SvpnConnectionManager::OnReadPacket);
-#endif
 
   peer_state->transport.get()->SignalRequestSignaling.connect(
       this, &SvpnConnectionManager::OnRequestSignaling);
@@ -341,9 +335,8 @@ void SvpnConnectionManager::HandleCheck_s() {
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {
-    cricket::DtlsTransportChannelWrapper* channel =
-        static_cast<cricket::DtlsTransportChannelWrapper*>(
-            it->second->transport.get()->GetChannel(component));
+    cricket::TransportChannelImpl* channel =
+        it->second->transport.get()->GetChannel(component);
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
     if (time_diff > 2 * kCheckInterval) {
       if (!it->second->transport->was_writable()) {

@@ -56,6 +56,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   void set_ip(const char* ip) { svpn_ip_ = ip; }
 
+  void set_security(bool enable_sec) { sec_enabled_ = enable_sec; }
+
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
@@ -85,7 +87,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct PeerState {
     std::string uid;
     std::string fingerprint;
-    talk_base::scoped_ptr<DtlsP2PTransport> transport;
+    talk_base::scoped_ptr<cricket::P2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
     talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;
     talk_base::scoped_ptr<cricket::TransportDescription> local_description;
@@ -139,6 +141,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string svpn_ip_;
   std::string svpn_ip6_;
   std::string tap_name_;
+  bool sec_enabled_;
 };
 
 }  // namespace sjingle

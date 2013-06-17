@@ -110,8 +110,14 @@ int get_free_network_ip(char *ip_addr, size_t len) {
 }
 
 int main(int argc, char **argv) {
-  if (argc > 1 && (strncmp(argv[1], "-v", 2) == 0)) {
-    talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  bool enable_sec = true;
+  for (int i = argc - 1; i > 0; i--) {
+    if (strncmp(argv[i], "-v", 2) == 0) {
+      talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+    }
+    else if (strncmp(argv[i], "--no-sec", 8) == 0) {
+      enable_sec = false;
+    }
   }
   talk_base::InitializeSSL();
 
@@ -127,6 +133,7 @@ int main(int argc, char **argv) {
   sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue);
+  manager.set_security(enable_sec);
   network.set_status(manager.fingerprint());
   network.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
