@@ -41,6 +41,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         struct threadqueue* send_queue,
                         struct threadqueue* rcv_queue);
 
+  // Accessors
   const std::string fingerprint() const { return fingerprint_; }
 
   const std::string uid() const { return svpn_id_; }
@@ -51,7 +52,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   const std::string tap_name() const { return tap_name_; }
 
-  talk_base::Thread* worker_thread() { return worker_thread_; }
+  talk_base::Thread* worker_thread() const { return worker_thread_; }
+
+  void set_ip(const char* ip) { svpn_ip_ = ip; }
 
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
@@ -96,13 +99,12 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
-  void AddIP(const std::string& uid_key);
+  bool AddIP(const std::string& uid_key);
   void SetupTransport(PeerState* peer_state);
-  void CreateTransport(const std::string& uid, 
+  bool CreateTransport(const std::string& uid, 
                        const std::string& fingerprint);
-  void CreateConnections(const std::string& uid, 
+  bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);
-  void DestroyTransport(const std::string& uid);
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleCheck_s();
   void HandlePing_w();
@@ -124,15 +126,15 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::map<std::string, int> ip_map_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
-  talk_base::SocketAddress stun_server_;
+  const talk_base::SocketAddress stun_server_;
   talk_base::BasicNetworkManager network_manager_;
   std::string svpn_id_;
   talk_base::OpenSSLIdentity* identity_;
-  talk_base::SSLFingerprint* local_fingerprint_;
-  std::string fingerprint_;
+  const talk_base::SSLFingerprint* local_fingerprint_;
+  const std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
-  uint64 tiebreaker_;
+  const uint64 tiebreaker_;
   uint32 check_counter_;
   std::string svpn_ip_;
   std::string svpn_ip6_;

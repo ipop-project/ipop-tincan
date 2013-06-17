@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <sstream>
 
 #include "talk/base/logging.h"
@@ -65,7 +66,6 @@ SvpnConnectionManager::SvpnConnectionManager(
   g_manager = this;
 }
 
-
 void SvpnConnectionManager::OnRequestSignaling(
     cricket::Transport* transport) {
   transport->OnSignalingReady();
@@ -84,7 +84,7 @@ void SvpnConnectionManager::OnCandidatesReady(
   std::string uid_key = get_key(transport_map_[transport]);
   std::set<std::string>& candidate_list = uid_map_[uid_key]->candidate_list;
   for (int i = 0; i < candidates.size(); i++) {
-    if (candidates[i].network_name().compare("svpn0") == 0) return;
+    if (candidates[i].network_name().compare("svpn0") == 0) continue;
     std::ostringstream oss;
     std::string ip_string =
         talk_base::SocketAddress::IPToString(candidates[i].address().ip());
@@ -166,15 +166,16 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
 }
 
-void SvpnConnectionManager::AddIP(const std::string& uid) {
-  if (ip_map_.find(uid) != ip_map_.end())  return; 
+bool SvpnConnectionManager::AddIP(const std::string& uid) {
+  if (ip_map_.find(uid) != ip_map_.end())  return false;
   int ip_idx = kIpBase + ip_map_.size();
   std::string uid_key = get_key(uid);
   ip_map_[uid] = ip_idx;
   char ip[sizeof(kIpNetwork)] = {'0'};
-  strncpy(ip, svpn_ip_.c_str(), sizeof(kIpNetwork));
+  svpn_ip_.copy(ip, sizeof(kIpNetwork));
   snprintf(ip + 9, 4, "%d", ip_idx);
   peerlist_add_p(uid_key.c_str(), ip, kIpv6, 0);
+  return true;
 }
 
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
@@ -207,13 +208,13 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
   }
 }
 
-void SvpnConnectionManager::CreateTransport(
+bool SvpnConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint) {
   std::string uid_key = get_key(uid);
   LOG(INFO) << __FUNCTION__ << " " << uid_key;
   if (uid_map_.find(uid_key) != uid_map_.end()) {
     LOG(INFO) << __FUNCTION__ << " EXISTING TRANSPORT " << uid_key;
-    return;
+    return false;
   }
 
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
@@ -256,14 +257,14 @@ void SvpnConnectionManager::CreateTransport(
   peer_state->transport.get()->ConnectChannels();
   uid_map_[uid_key] = peer_state;
   transport_map_[peer_state->transport.get()] = uid;
-  AddIP(uid);
+  return AddIP(uid);
 }
 
-void SvpnConnectionManager::CreateConnections(
+bool SvpnConnectionManager::CreateConnections(
     const std::string& uid, const std::string& candidates_string) {
   std::string uid_key = get_key(uid);
   cricket::Candidates& candidates = uid_map_[uid_key]->candidates;
-  if (candidates.size() > 0) return;
+  if (candidates.size() > 0) return false;
   std::istringstream iss(candidates_string);
   do {
     std::string candidate_string;
@@ -280,6 +281,7 @@ void SvpnConnectionManager::CreateConnections(
     }
   } while (iss);
   uid_map_[uid_key]->transport.get()->OnRemoteCandidates(candidates);
+  return true;
 }
 
 void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
@@ -376,18 +378,25 @@ std::string SvpnConnectionManager::GetState() {
   Json::Value peers(Json::arrayValue);
   for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {
+    std::ostringstream oss;
+    oss << svpn_ip_.substr(0 ,svpn_ip_.size()-3) << ip_map_[it->second->uid];
+
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->second->uid;
-    peer["ip"] = ip_map_[it->second->uid];
+    peer["ip"] = oss.str();
     peer["fpr"] = it->second->fingerprint;
     peer["ping"] = (talk_base::Time() - it->second->last_ping_time)/1000;
-    peer["rx"] = it->second->transport->all_channels_readable();
-    peer["tx"] = it->second->transport->all_channels_writable();
+    peer["status"] = "offline";
+
+    if (it->second->transport->all_channels_readable() &&
+        it->second->transport->all_channels_writable()) {
+      peer["status"] = "online";
+    }
     peers.append(peer);
   }
-  state["uid"] = social_sender_->uid();
-  state["fpr"] = fingerprint_;
-  state["ip"] = svpn_ip_;
+  state["local_uid"] = social_sender_->uid();
+  state["local_fpr"] = fingerprint_;
+  state["local_ip"] = svpn_ip_;
   state["peers"] = peers;
   return state.toStyledString();
 }

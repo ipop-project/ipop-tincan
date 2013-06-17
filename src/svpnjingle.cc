@@ -4,11 +4,23 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+#ifdef DROID_BUILD
+#include "talk/base/ifaddrs-android.h"
+#else
+#include <ifaddrs.h>
+#endif
 
 #include "talk/base/ssladapter.h"
 
 #include "svpnconnectionmanager.h"
 #include "httpui.h"
+
+#define SEGMENT_SIZE 3
+#define SEGMENT_OFFSET 4
+#define CMP_SIZE 7
 
 class SendRunnable : public talk_base::Runnable {
  public:
@@ -71,14 +83,36 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
   return 0;
 }
 
-int main(int argc, char **argv) {
+int get_free_network_ip(char *ip_addr, size_t len) {
+  struct ifaddrs* interfaces;
+  if (getifaddrs(&interfaces) != 0)  return -1;
 
-  if (argc > 1) {
-    if (strncmp(argv[1], "-v", 2) == 0) {
-      talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  // TODO - we should loop again whenever ip address changes
+  char tmp_addr[NI_MAXHOST];
+  for (struct ifaddrs* ifa = interfaces; ifa != 0; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr != 0 && ifa->ifa_addr->sa_family == AF_INET) {
+      int error = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in),
+                              tmp_addr, sizeof(tmp_addr), NULL, 0, 
+                              NI_NUMERICHOST);
+      if (error == 0) {
+        if (strncmp(ip_addr, tmp_addr, CMP_SIZE) == 0) {
+          char segment[SEGMENT_SIZE] = { '\0' };
+          memcpy(segment, ip_addr + SEGMENT_OFFSET, sizeof(segment) - 1);
+          int i = atoi(segment) - 1;
+          snprintf(ip_addr + SEGMENT_OFFSET, sizeof(segment), "%d", i);
+          ip_addr[CMP_SIZE - 1] = '.';  // snprintf adds extra null
+        }
+      }
     }
   }
+  freeifaddrs(interfaces);
+  return 0;
+}
 
+int main(int argc, char **argv) {
+  if (argc > 1 && (strncmp(argv[1], "-v", 2) == 0)) {
+    talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  }
   talk_base::InitializeSSL();
 
   struct threadqueue send_queue, rcv_queue;
@@ -98,7 +132,13 @@ int main(int argc, char **argv) {
       &sjingle::SvpnConnectionManager::HandlePeer);
   sjingle::HttpUI httpui(manager, network);
 
-  // TODO - Use BasicNetworkManager to determine available network
+  // Checks to see if network is available, changes IP if not
+  char ip_addr[NI_MAXHOST] = { '\0' };
+  manager.ipv4().copy(ip_addr, sizeof(ip_addr));
+  if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
+    manager.set_ip(ip_addr);
+  }
+
   thread_opts_t opts;
   opts.send_queue = &send_queue;
   opts.rcv_queue = &rcv_queue;

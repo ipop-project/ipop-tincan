@@ -91,8 +91,6 @@ Download and run Android SocialVPN
     platform-tools/adb shell emu kill
 
 
-.. [#] *rx : true* means the connection is readable, *tx : true* means writable
-.. [#] *ip : 101* means the peer's ip address is 172.31.0.101 (will fix later)
 .. [#] It is important to kill svpn-jingle-android process in order to exit shell
 .. [#] Run socialvpn on another machine using same credentials and they will
    connect with each other.

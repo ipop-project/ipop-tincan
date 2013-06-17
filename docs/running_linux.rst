@@ -34,7 +34,5 @@ Download and run SocialVPN
 
     pkill svpn-jingle
 
-.. [#] *rx : true* means the connection is readable, *tx : true* means writable
-.. [#] *ip : 101* means the peer's ip address is 172.31.0.101 (will fix later)
 .. [#] Run socialvpn on another machine using same credentials and they will
    connect with each other.
