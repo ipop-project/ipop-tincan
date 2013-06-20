@@ -71,48 +71,42 @@ bool XmppNetwork::Login(std::string username, std::string password,
 }
 
 bool XmppNetwork::Connect() {
-  LOG(INFO) << "DEBUG 1";
+  // TODO - Need to figure out which ones to release or not (memleak)
   xmpp_socket_.release();
-  presence_receive_.release();
-  presence_out_.release();
-  LOG(INFO) << "DEBUG 2";
 
   xmpp_socket_.reset(new buzz::XmppSocket(buzz::TLS_REQUIRED));
-  LOG(INFO) << "DEBUG 3";
+  xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
   pump_.reset(new buzz::XmppPump());
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);
-  LOG(INFO) << "DEBUG 4";
 
-  status_.set_jid(pump_->client()->jid());
-  status_.set_available(true);
-  status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
-  status_.set_priority(0);
-  LOG(INFO) << "DEBUG 5";
-
-  presence_receive_.reset(new buzz::PresenceReceiveTask(pump_->client()));
-  presence_receive_->PresenceUpdate.connect(this,
-      &XmppNetwork::OnPresenceMessage);
-  LOG(INFO) << "DEBUG 6";
-
-  presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-  LOG(INFO) << "DEBUG 7";
-  svpn_task_.reset(new SvpnTask(pump_->client()));
   LOG(INFO) << __FUNCTION__ << " XMPP CONNECTING ";
-  main_thread_->Clear(this);
-  main_thread_->PostDelayed(kInterval, this, 0, 0);
   return true;
 }
 
 void XmppNetwork::OnSignOn() {
+  status_.set_jid(pump_->client()->jid());
+  status_.set_available(true);
+  status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
+  status_.set_priority(0);
+
+  presence_receive_.reset(new buzz::PresenceReceiveTask(pump_->client()));
+  presence_receive_->PresenceUpdate.connect(this,
+      &XmppNetwork::OnPresenceMessage);
+
+  presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
+  svpn_task_.reset(new SvpnTask(pump_->client()));
+
   presence_receive_->Start();
   presence_out_->Send(status_);
   presence_out_->Start();
   svpn_task_->HandlePeer = HandlePeer;
   svpn_task_->Start();
-  LOG(INFO) << __FUNCTION__ << "XMPP ONLINE " << pump_->client()->jid().Str();
+  main_thread_->Clear(this);
+  main_thread_->PostDelayed(kInterval, this, 0, 0);
+  LOG(INFO) << __FUNCTION__ << " ONLINE " << pump_->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
@@ -129,6 +123,7 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
       break;
     case buzz::XmppEngine::STATE_CLOSED:
       LOG(INFO) << __FUNCTION__ << " CLOSED";
+      OnCloseEvent(0);
       break;
   }
 }
@@ -140,11 +135,26 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
   }
 }
 
+void XmppNetwork::OnCloseEvent(int error) {
+  // TODO - Find definitions for error codes
+  switch (error) {
+    case -5:
+      main_thread_->Clear(this);
+      pump_.reset();
+      break;
+    case 0:
+      main_thread_->Clear(this);
+      pump_.reset();
+      break;
+    case 111:
+      break;
+  }
+}
+
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (xmpp_socket_.get()) {
     LOG(INFO) << __FUNCTION__ << " STATE " << xmpp_socket_->state();
     if(xmpp_socket_->state() == buzz::AsyncSocket::STATE_CLOSED) {
-      pump_.reset();
       Connect();
     }
   }

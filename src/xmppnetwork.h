@@ -37,6 +37,7 @@ class SvpnTask
  public:
   explicit SvpnTask(buzz::XmppClient* client)
       : XmppTask(client, buzz::XmppEngine::HL_SINGLE) {}
+  virtual ~SvpnTask() {}
 
   // inherited from SocialSenderInterface
   virtual const std::string uid() { return GetClient()->jid().Str(); }
@@ -59,25 +60,25 @@ class XmppNetwork
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  bool Login(std::string username, std::string password,
-             std::string pcid, std::string host);
-
   // inherited from SocialSenderInterface
   virtual const std::string uid() { 
-    if (pump_->client()) return pump_->client()->jid().Str();
+    if (pump_.get()) return pump_->client()->jid().Str();
+    else return "";
   }
-
-  // Inherited from MessageHandler
-  virtual void OnMessage(talk_base::Message* msg);
 
   virtual void SendToPeer(const std::string& uid, const std::string& data) {
     svpn_task_->SendToPeer(uid, data);
   }
 
+  // Inherited from MessageHandler
+  virtual void OnMessage(talk_base::Message* msg);
+
   virtual void set_status(const std::string& status) {
     status_.set_status(status);
   }
 
+  bool Login(std::string username, std::string password,
+             std::string pcid, std::string host);
 
  private:
   talk_base::Thread* main_thread_;
@@ -93,6 +94,7 @@ class XmppNetwork
   void OnSignOn();
   void OnStateChange(buzz::XmppEngine::State state);
   void OnPresenceMessage(const buzz::PresenceStatus &status);
+  void OnCloseEvent(int error);
 };
 
 }  // namespace sjingle

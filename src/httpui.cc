@@ -17,7 +17,9 @@ HttpUI::HttpUI(SvpnConnectionManager& manager, XmppNetwork& network)
       manager_(manager),
       network_(network) {
   http_server_.SignalHttpRequest.connect(this, &HttpUI::OnHttpRequest);
-  http_server_.Listen(talk_base::SocketAddress(kLocalHost, kHttpPort));
+  int error = http_server_.Listen(talk_base::SocketAddress(kLocalHost,
+                                                           kHttpPort));
+  ASSERT(error == 0);
 }
 
 void HttpUI::OnHttpRequest(talk_base::HttpServer* server,
