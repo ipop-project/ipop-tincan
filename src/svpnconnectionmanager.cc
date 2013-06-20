@@ -149,6 +149,7 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string source(data, kIdSize);
   std::string dest(dest_id, kIdSize);
   if (uid_map_.find(dest) != uid_map_.end()) {
+    talk_base::CritScope cs(&crit_);
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         uid_map_[dest]->transport->GetChannel(component);
@@ -342,7 +343,8 @@ void SvpnConnectionManager::HandleCheck_s() {
       }
       dead_transports.push_back(it->first);
     }
-  }
+  } 
+  talk_base::CritScope cs(&crit_);
   for (std::vector<std::string>::iterator it = dead_transports.begin();
        it != dead_transports.end(); ++it) {
     uid_map_.erase(*it);
@@ -352,6 +354,7 @@ void SvpnConnectionManager::HandleCheck_s() {
 }
 
 void SvpnConnectionManager::HandlePing_w() {
+  talk_base::CritScope cs(&crit_);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
        it != uid_map_.end(); ++it) {

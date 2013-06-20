@@ -71,9 +71,6 @@ bool XmppNetwork::Login(std::string username, std::string password,
 }
 
 bool XmppNetwork::Connect() {
-  // TODO - Need to figure out which ones to release or not (memleak)
-  xmpp_socket_.release();
-
   xmpp_socket_.reset(new buzz::XmppSocket(buzz::TLS_REQUIRED));
   xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
@@ -81,7 +78,6 @@ bool XmppNetwork::Connect() {
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);
-
   LOG(INFO) << __FUNCTION__ << " XMPP CONNECTING ";
   return true;
 }
@@ -140,24 +136,18 @@ void XmppNetwork::OnCloseEvent(int error) {
   switch (error) {
     case -5:
       main_thread_->Clear(this);
-      pump_.reset();
       break;
     case 0:
       main_thread_->Clear(this);
-      pump_.reset();
-      break;
-    case 111:
       break;
   }
+  pump_.reset();
+  xmpp_socket_.release();
+  LOG(INFO) << __FUNCTION__ << " PUMP RESET " << error;
 }
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
-  if (xmpp_socket_.get()) {
-    LOG(INFO) << __FUNCTION__ << " STATE " << xmpp_socket_->state();
-    if(xmpp_socket_->state() == buzz::AsyncSocket::STATE_CLOSED) {
-      Connect();
-    }
-  }
+  if (!pump_.get()) Connect();
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }
 
