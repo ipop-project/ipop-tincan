@@ -3,8 +3,6 @@
 #define SJINGLE_XMPPNETWORK_H_
 #pragma once
 
-#include <string>
-
 #include "talk/xmpp/xmpptask.h"
 #include "talk/xmpp/xmppengine.h"
 #include "talk/xmpp/presencestatus.h"
@@ -52,50 +50,49 @@ class SvpnTask
 
 class XmppNetwork 
     : public SocialNetworkSenderInterface,
+      public talk_base::MessageHandler,
       public sigslot::has_slots<> {
  public:
-  explicit XmppNetwork() : state_(), xcs_(), online_(false){};
+  explicit XmppNetwork(talk_base::Thread* main_thread) 
+      : main_thread_(main_thread){};
 
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  void Login(std::string username, std::string password,
+  bool Login(std::string username, std::string password,
              std::string pcid, std::string host);
 
   // inherited from SocialSenderInterface
   virtual const std::string uid() { 
-    if (online_) return state_->svpn_task->uid();
-    else return "offline"; 
+    if (pump_->client()) return pump_->client()->jid().Str();
   }
 
+  // Inherited from MessageHandler
+  virtual void OnMessage(talk_base::Message* msg);
+
   virtual void SendToPeer(const std::string& uid, const std::string& data) {
-    state_->svpn_task->SendToPeer(uid, data);
+    svpn_task_->SendToPeer(uid, data);
   }
 
   virtual void set_status(const std::string& status) {
     status_.set_status(status);
   }
 
-  struct XmppState {
-    talk_base::scoped_ptr<buzz::XmppPump> pump;
-    talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket;
-    talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive;
-    talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out;
-    talk_base::scoped_ptr<SvpnTask> svpn_task;
-  };
 
  private:
-  talk_base::scoped_ptr<XmppState> state_;
+  talk_base::Thread* main_thread_;
   buzz::XmppClientSettings xcs_;
   buzz::PresenceStatus status_;
-  bool online_;
+  talk_base::scoped_ptr<buzz::XmppPump> pump_;
+  talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
+  talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
+  talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
+  talk_base::scoped_ptr<SvpnTask> svpn_task_;
 
-  void Connect();
+  bool Connect();
   void OnSignOn();
   void OnStateChange(buzz::XmppEngine::State state);
   void OnPresenceMessage(const buzz::PresenceStatus &status);
-  void OnCloseEvent(int error);
-
 };
 
 }  // namespace sjingle

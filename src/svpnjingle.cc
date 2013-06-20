@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
   talk_base::AutoThread signaling_thread;
   signaling_thread.WrapCurrent();
 
-  sjingle::XmppNetwork network;
+  sjingle::XmppNetwork network(&signaling_thread);
   sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue);
