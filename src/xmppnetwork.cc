@@ -141,8 +141,12 @@ void XmppNetwork::OnCloseEvent(int error) {
       main_thread_->Clear(this);
       break;
   }
-  pump_.reset();
+  // Release all assuming they are deleted by XmppClient
   xmpp_socket_.release();
+  presence_receive_.release();
+  presence_out_.release();
+  svpn_task_.release();
+  pump_.release();
   LOG(INFO) << __FUNCTION__ << " PUMP RESET " << error;
 }
 
