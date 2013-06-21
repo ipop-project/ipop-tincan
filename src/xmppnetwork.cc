@@ -132,15 +132,6 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
 }
 
 void XmppNetwork::OnCloseEvent(int error) {
-  // TODO - Find definitions for error codes
-  switch (error) {
-    case -5:
-      main_thread_->Clear(this);
-      break;
-    case 0:
-      main_thread_->Clear(this);
-      break;
-  }
   // Release all assuming they are deleted by XmppClient
   xmpp_socket_.release();
   presence_receive_.release();

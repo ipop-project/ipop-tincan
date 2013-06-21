@@ -67,7 +67,7 @@ class XmppNetwork
   }
 
   virtual void SendToPeer(const std::string& uid, const std::string& data) {
-    svpn_task_->SendToPeer(uid, data);
+    if (svpn_task_.get()) svpn_task_->SendToPeer(uid, data);
   }
 
   // Inherited from MessageHandler
