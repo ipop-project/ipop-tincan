@@ -370,21 +370,23 @@ void SvpnConnectionManager::HandlePing_w() {
 std::string SvpnConnectionManager::GetState() {
   Json::Value state(Json::objectValue);
   Json::Value peers(Json::arrayValue);
-  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
-       it != uid_map_.end(); ++it) {
+  for (std::map<std::string, int>::iterator it = ip_map_.begin();
+       it != ip_map_.end(); ++it) {
+    std::string uid_key = get_key(it->first);
     std::ostringstream oss;
-    oss << svpn_ip_.substr(0 ,svpn_ip_.size()-3) << ip_map_[it->second->uid];
-
+    oss << svpn_ip_.substr(0 ,svpn_ip_.size() - 3) << it->second;
     Json::Value peer(Json::objectValue);
-    peer["uid"] = it->second->uid;
+    peer["uid"] = it->first;
     peer["ip"] = oss.str();
-    peer["fpr"] = it->second->fingerprint;
-    peer["ping"] = (talk_base::Time() - it->second->last_ping_time)/1000;
     peer["status"] = "offline";
-
-    if (it->second->transport->all_channels_readable() &&
-        it->second->transport->all_channels_writable()) {
-      peer["status"] = "online";
+    if (uid_map_.find(uid_key) != uid_map_.end()) {
+      peer["fpr"] = uid_map_[uid_key]->fingerprint;
+      peer["ping"] = (talk_base::Time() - 
+                      uid_map_[uid_key]->last_ping_time)/1000;
+      if (uid_map_[uid_key]->transport->all_channels_readable() &&
+          uid_map_[uid_key]->transport->all_channels_writable()) {
+        peer["status"] = "online";
+      }
     }
     peers.append(peer);
   }
