@@ -19,7 +19,7 @@ static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const int kCheckInterval = 30000;
 static const char kIpNetwork[] = "172.31.0.100";
-static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:b683:19a7:63b4:f736";
+static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const int kIpBase = 101;
 static const char kTapName[] = "svpn";
 
@@ -85,7 +85,7 @@ void SvpnConnectionManager::OnCandidatesReady(
   std::string uid_key = get_key(transport_map_[transport]);
   std::set<std::string>& candidate_list = uid_map_[uid_key]->candidate_list;
   for (int i = 0; i < candidates.size(); i++) {
-    if (candidates[i].network_name().compare("svpn0") == 0) continue;
+    if (candidates[i].network_name().compare(kTapName) == 0) continue;
     std::ostringstream oss;
     std::string ip_string =
         talk_base::SocketAddress::IPToString(candidates[i].address().ip());

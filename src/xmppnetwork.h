@@ -62,8 +62,7 @@ class XmppNetwork
 
   // inherited from SocialSenderInterface
   virtual const std::string uid() { 
-    if (pump_.get()) return pump_->client()->jid().Str();
-    else return "";
+    return uid_;
   }
 
   virtual void SendToPeer(const std::string& uid, const std::string& data) {
@@ -89,6 +88,7 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
   talk_base::scoped_ptr<SvpnTask> svpn_task_;
+  std::string uid_;
 
   bool Connect();
   void OnSignOn();
