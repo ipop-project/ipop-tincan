@@ -149,7 +149,6 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string source(data, kIdSize);
   std::string dest(dest_id, kIdSize);
   if (uid_map_.find(dest) != uid_map_.end()) {
-    talk_base::CritScope cs(&crit_);
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         uid_map_[dest]->transport->GetChannel(component);
@@ -342,28 +341,27 @@ void SvpnConnectionManager::HandleCheck_s() {
         it->second->port_allocator.release();
       }
       dead_transports.push_back(it->first);
+      LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << it->second->uid;
     }
   } 
-  talk_base::CritScope cs(&crit_);
-  {
-    for (std::vector<std::string>::iterator it = dead_transports.begin();
-         it != dead_transports.end(); ++it) {
-      uid_map_.erase(*it);
-      LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << *it;
-    }
+  for (std::vector<std::string>::iterator it = dead_transports.begin();
+       it != dead_transports.end(); ++it) {
+    uid_map_.erase(*it);
   }
   signaling_thread_->PostDelayed(kCheckInterval/2, this, MSG_CHECK, 0);
 }
 
 void SvpnConnectionManager::HandlePing_w() {
-  talk_base::CritScope cs(&crit_);
-  {
-    int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-    for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
-         it != uid_map_.end(); ++it) {
+  std::string uid = social_sender_->uid();
+  if (uid.size() < kIdSize) return;
+  std::string uid_key = get_key(uid);
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
+       it != uid_map_.end(); ++it) {
+    uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
+    if (time_diff < 2 * kCheckInterval) {
       cricket::TransportChannelImpl* channel = 
           it->second->transport->GetChannel(component);
-      std::string uid_key = get_key(social_sender_->uid());
       int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
       LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
     }

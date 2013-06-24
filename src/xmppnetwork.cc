@@ -83,6 +83,7 @@ bool XmppNetwork::Connect() {
 }
 
 void XmppNetwork::OnSignOn() {
+  if (!pump_.get()) return;
   status_.set_jid(pump_->client()->jid());
   status_.set_available(true);
   status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
@@ -125,6 +126,7 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 }
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
+  if (!pump_.get() || !svpn_task_.get()) return;
   if (status.jid().resource().compare(0, 4, kXmppPrefix) == 0 && 
       status.jid() != pump_->client()->jid()) {
     svpn_task_->HandlePeer(status.jid().Str(), status.status());

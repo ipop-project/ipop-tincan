@@ -20,7 +20,6 @@
 #include "talk/base/asyncpacketsocket.h"
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
-#include "talk/base/criticalsection.h"
 
 #include "talk/socialvpn/svpn-core/lib/threadqueue/threadqueue.h"
 #include "talk/socialvpn/svpn-core/src/svpn.h"
@@ -143,7 +142,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string svpn_ip6_;
   std::string tap_name_;
   bool sec_enabled_;
-  talk_base::CriticalSection crit_;
 };
 
 }  // namespace sjingle
