@@ -18,7 +18,7 @@ static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const int kCheckInterval = 30000;
-static const char kIpNetwork[] = "172.31.0.100";
+static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const int kIpBase = 101;
 static const char kTapName[] = "svpn";
@@ -58,12 +58,13 @@ SvpnConnectionManager::SvpnConnectionManager(
       rcv_queue_(rcv_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
       check_counter_(0),
-      svpn_ip_(kIpNetwork),
+      svpn_ip4_(kIpv4),
       svpn_ip6_(kIpv6),
       tap_name_(kTapName),
       sec_enabled_(true) {
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
+  svpn_ip6_ = gen_ip6(svpn_id_);
   g_manager = this;
 }
 
@@ -161,10 +162,11 @@ bool SvpnConnectionManager::AddIP(const std::string& uid) {
   int ip_idx = kIpBase + ip_map_.size();
   std::string uid_key = get_key(uid);
   ip_map_[uid] = ip_idx;
-  char ip[sizeof(kIpNetwork)] = {'0'};
-  svpn_ip_.copy(ip, sizeof(kIpNetwork));
-  snprintf(ip + 9, 4, "%d", ip_idx);
-  peerlist_add_p(uid_key.c_str(), ip, kIpv6, 0);
+  char ip4[sizeof(kIpv4)] = { '0' };
+  svpn_ip4_.copy(ip4, sizeof(kIpv4));
+  snprintf(ip4 + 9, 4, "%d", ip_idx);
+  std::string ip6 = gen_ip6(uid_key);
+  peerlist_add_p(uid_key.c_str(), ip4, ip6.c_str(), 0);
   return true;
 }
 
@@ -376,10 +378,11 @@ std::string SvpnConnectionManager::GetState() {
        it != ip_map_.end(); ++it) {
     std::string uid_key = get_key(it->first);
     std::ostringstream oss;
-    oss << svpn_ip_.substr(0 ,svpn_ip_.size() - 3) << it->second;
+    oss << svpn_ip4_.substr(0 ,svpn_ip4_.size() - 3) << it->second;
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->first;
-    peer["ip"] = oss.str();
+    peer["ipv4"] = oss.str();
+    peer["ipv6"] = gen_ip6(uid_key);
     peer["status"] = "offline";
     if (uid_map_.find(uid_key) != uid_map_.end()) {
       peer["fpr"] = uid_map_[uid_key]->fingerprint;
@@ -392,10 +395,11 @@ std::string SvpnConnectionManager::GetState() {
     }
     peers.append(peer);
   }
-  state["local_uid"] = social_sender_->uid();
-  state["local_fpr"] = fingerprint_;
-  state["local_ip"] = svpn_ip_;
-  state["peers"] = peers;
+  state["_uid"] = social_sender_->uid();
+  state["_fpr"] = fingerprint_;
+  state["_ipv4"] = svpn_ip4_;
+  state["_ipv6"] = svpn_ip6_;
+  state["_peers"] = peers;
   return state.toStyledString();
 }
 

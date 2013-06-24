@@ -46,7 +46,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   const std::string uid() const { return svpn_id_; }
 
-  const std::string ipv4() const { return svpn_ip_; }
+  const std::string ipv4() const { return svpn_ip4_; }
 
   const std::string ipv6() const { return svpn_ip6_; }
 
@@ -54,7 +54,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   talk_base::Thread* worker_thread() const { return worker_thread_; }
 
-  void set_ip(const char* ip) { svpn_ip_ = ip; }
+  void set_ip(const char* ip) { svpn_ip4_ = ip; }
 
   void set_security(bool enable_sec) { sec_enabled_ = enable_sec; }
 
@@ -120,6 +120,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     return uid;
   }
 
+  std::string gen_ip6(const std::string& uid_key) {
+    int len = (svpn_ip6_.size() - 7) / 2;  // len should be 16
+    if (uid_key.size() < len) return "";
+    std::string result = svpn_ip6_.substr(0, len + 3);
+    for (int i = 0; i < len/4; i++) {
+      result += ":";
+      result += uid_key.substr(i * 4, 4);
+    }
+    return result;
+  }
+
   const std::string content_name_;
   SocialNetworkSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
@@ -138,7 +149,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* rcv_queue_;
   const uint64 tiebreaker_;
   uint32 check_counter_;
-  std::string svpn_ip_;
+  std::string svpn_ip4_;
   std::string svpn_ip6_;
   std::string tap_name_;
   bool sec_enabled_;
