@@ -345,24 +345,28 @@ void SvpnConnectionManager::HandleCheck_s() {
     }
   } 
   talk_base::CritScope cs(&crit_);
-  for (std::vector<std::string>::iterator it = dead_transports.begin();
-       it != dead_transports.end(); ++it) {
-    uid_map_.erase(*it);
-    LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << *it;
+  {
+    for (std::vector<std::string>::iterator it = dead_transports.begin();
+         it != dead_transports.end(); ++it) {
+      uid_map_.erase(*it);
+      LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << *it;
+    }
   }
   signaling_thread_->PostDelayed(kCheckInterval/2, this, MSG_CHECK, 0);
 }
 
 void SvpnConnectionManager::HandlePing_w() {
   talk_base::CritScope cs(&crit_);
-  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
-       it != uid_map_.end(); ++it) {
-    cricket::TransportChannelImpl* channel = 
-        it->second->transport->GetChannel(component);
-    std::string uid_key = get_key(social_sender_->uid());
-    int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
-    LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
+  {
+    int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+    for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
+         it != uid_map_.end(); ++it) {
+      cricket::TransportChannelImpl* channel = 
+          it->second->transport->GetChannel(component);
+      std::string uid_key = get_key(social_sender_->uid());
+      int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
+      LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
+    }
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);
 }
