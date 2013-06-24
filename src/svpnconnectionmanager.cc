@@ -109,7 +109,7 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
   std::string uid_key = get_key(transport_map_[transport]);
   std::set<std::string>& candidates = uid_map_[uid_key]->candidate_list;
   std::string data(fingerprint());
-  for (std::set<std::string>::iterator it = candidates.begin();
+  for (std::set<std::string>::const_iterator it = candidates.begin();
        it != candidates.end(); ++it) {
     data += " ";
     data += *it;
@@ -324,7 +324,7 @@ void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
 
 void SvpnConnectionManager::HandleCheck_s() {
   if (++check_counter_ % 8 == 0) {
-    for (std::map<std::string, int>::iterator it = ip_map_.begin();
+    for (std::map<std::string, int>::const_iterator it = ip_map_.begin();
          it != ip_map_.end(); ++it) {
         social_sender_->SendToPeer(it->first, fingerprint());
         LOG(INFO) << __FUNCTION__ << " SOCIAL REQUEST TO " << it->first;
@@ -333,8 +333,8 @@ void SvpnConnectionManager::HandleCheck_s() {
 
   std::vector<std::string> dead_transports;
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
-       it != uid_map_.end(); ++it) {
+  for (std::map<std::string, PeerStatePtr>::const_iterator it = 
+       uid_map_.begin(); it != uid_map_.end(); ++it) {
     cricket::TransportChannelImpl* channel =
         it->second->transport->GetChannel(component);
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
@@ -346,7 +346,7 @@ void SvpnConnectionManager::HandleCheck_s() {
       LOG(INFO) << __FUNCTION__ << " DEAD TRANSPORT " << it->second->uid;
     }
   } 
-  for (std::vector<std::string>::iterator it = dead_transports.begin();
+  for (std::vector<std::string>::const_iterator it = dead_transports.begin();
        it != dead_transports.end(); ++it) {
     uid_map_.erase(*it);
   }
@@ -358,8 +358,8 @@ void SvpnConnectionManager::HandlePing_w() {
   if (uid.size() < kIdSize) return;
   std::string uid_key = get_key(uid);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  for (std::map<std::string, PeerStatePtr>::iterator it = uid_map_.begin();
-       it != uid_map_.end(); ++it) {
+  for (std::map<std::string, PeerStatePtr>::const_iterator it =
+       uid_map_.begin(); it != uid_map_.end(); ++it) {
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
     if (time_diff < 2 * kCheckInterval) {
       cricket::TransportChannelImpl* channel = 
@@ -374,7 +374,7 @@ void SvpnConnectionManager::HandlePing_w() {
 std::string SvpnConnectionManager::GetState() {
   Json::Value state(Json::objectValue);
   Json::Value peers(Json::arrayValue);
-  for (std::map<std::string, int>::iterator it = ip_map_.begin();
+  for (std::map<std::string, int>::const_iterator it = ip_map_.begin();
        it != ip_map_.end(); ++it) {
     std::string uid_key = get_key(it->first);
     std::ostringstream oss;
