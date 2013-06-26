@@ -69,6 +69,10 @@ class XmppNetwork
     if (svpn_task_.get()) svpn_task_->SendToPeer(uid, data);
   }
 
+  void OnLogging(const char* data, int len) {
+    LOG(LS_VERBOSE) << __FUNCTION__ << std::string(data, len);
+  }
+
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 

@@ -109,17 +109,29 @@ int get_free_network_ip(char *ip_addr, size_t len) {
   return 0;
 }
 
+// TODO - Implement some kind of verification mechanism
+bool SSLVerificationCallback(void* cert) {
+  return true;
+}
+
 int main(int argc, char **argv) {
+  char* stun_server = 0;
   bool enable_sec = true;
   for (int i = argc - 1; i > 0; i--) {
-    if (strncmp(argv[i], "-v", 2) == 0) {
+    if (strncmp(argv[i], "-vi", 3) == 0) {
       talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+    }
+    else if (strncmp(argv[i], "-vv", 3) == 0) {
+      talk_base::LogMessage::LogToDebug(talk_base::LS_VERBOSE);
     }
     else if (strncmp(argv[i], "--no-sec", 8) == 0) {
       enable_sec = false;
     }
+    else if (strncmp(argv[i], "--stun=", 7) == 0) {
+      stun_server = argv[i] + 7;
+    }
   }
-  talk_base::InitializeSSL();
+  talk_base::InitializeSSL(SSLVerificationCallback);
 
   struct threadqueue send_queue, rcv_queue;
   thread_queue_init(&send_queue);
@@ -144,6 +156,9 @@ int main(int argc, char **argv) {
   manager.ipv4().copy(ip_addr, sizeof(ip_addr));
   if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
     manager.set_ip(ip_addr);
+  }
+  if (stun_server != 0) {
+    manager.set_stun(stun_server);
   }
 
   thread_opts_t opts;

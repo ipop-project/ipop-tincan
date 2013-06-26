@@ -8,6 +8,7 @@
 #include "talk/xmpp/xmpppump.h"
 #include "talk/xmpp/jid.h"
 #include "talk/base/logging.h"
+#include "talk/xmpp/constants.h"
 
 #include "xmppnetwork.h"
 
@@ -15,15 +16,20 @@ namespace sjingle {
 
 static const int kXmppPort = 5222;
 static const int kInterval = 60000;
-static const buzz::StaticQName QN_SVPN = { "svpn:webrtc", "data" };
+static const buzz::StaticQName QN_SVPN = { "jabber:iq:svpn", "query" };
+static const char kTemplate[] = "<query xmlns=\"jabber:iq:svpn\" />";
 
 void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
   const buzz::Jid to(uid);
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));
-  buzz::XmlElement* element = new buzz::XmlElement(QN_SVPN);
+  // TODO - Figure out how to build from QN_SVPN instead of template
+  std::string templ(kTemplate);
+  buzz::XmlElement* element = buzz::XmlElement::ForStr(templ);
+  //buzz::XmlElement* element = new buzz::XmlElement(QN_SVPN);
   element->SetBodyText(data);
   get->AddElement(element);
+  get->AddAttr(buzz::QN_FROM, GetClient()->jid().Str());
   SendStanza(get.get());
 }
 
@@ -75,6 +81,8 @@ bool XmppNetwork::Connect() {
   xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
   pump_.reset(new buzz::XmppPump());
+  pump_->client()->SignalLogInput.connect(this, &XmppNetwork::OnLogging);
+  pump_->client()->SignalLogOutput.connect(this, &XmppNetwork::OnLogging);
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);

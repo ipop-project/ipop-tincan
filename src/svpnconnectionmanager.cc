@@ -10,7 +10,8 @@
 
 namespace sjingle {
 
-static const char kStunServer[] = "stun.l.google.com";
+//static const char kStunServer[] = "stun.l.google.com";
+static const char kStunServer[] = "0.0.0.0";
 static const int kStunPort = 19302;
 static const char kContentName[] = "svpn-jingle";
 static const bool kAllowTcpListen = false;
@@ -208,6 +209,8 @@ bool SvpnConnectionManager::CreateTransport(
     LOG(INFO) << __FUNCTION__ << " EXISTING TRANSPORT " << uid_key;
     return false;
   }
+
+  LOG(INFO) << __FUNCTION__ << " STUN " << stun_server_.ToString();
 
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
   peer_state->uid = uid;
