@@ -115,7 +115,7 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
-  char* stun_server = 0;
+  char* turn_server = 0;
   bool enable_sec = true;
   for (int i = argc - 1; i > 0; i--) {
     if (strncmp(argv[i], "-vi", 3) == 0) {
@@ -127,8 +127,8 @@ int main(int argc, char **argv) {
     else if (strncmp(argv[i], "--no-sec", 8) == 0) {
       enable_sec = false;
     }
-    else if (strncmp(argv[i], "--stun=", 7) == 0) {
-      stun_server = argv[i] + 7;
+    else if (strncmp(argv[i], "--turn=", 7) == 0) {
+      turn_server = argv[i] + 7;
     }
   }
   talk_base::InitializeSSL(SSLVerificationCallback);
@@ -157,8 +157,8 @@ int main(int argc, char **argv) {
   if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
     manager.set_ip(ip_addr);
   }
-  if (stun_server != 0) {
-    manager.set_stun(stun_server);
+  if (turn_server != 0) {
+    manager.SetRelay(turn_server, "svpnjingle", "1234567890");
   }
 
   thread_opts_t opts;

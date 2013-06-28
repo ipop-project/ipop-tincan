@@ -58,10 +58,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   void set_security(bool enable_sec) { sec_enabled_ = enable_sec; }
 
-  void set_stun(const char* stun_server) {
-    stun_server_.FromString(std::string(stun_server)); 
-  }
-
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
@@ -82,6 +78,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                             const char* data, size_t len, int flags);
 
   virtual std::string GetState();
+  virtual void SetRelay(const char* turn_server, const char* username,
+                        const char* password);
+
 
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);
@@ -143,7 +142,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::map<std::string, int> ip_map_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
-  talk_base::SocketAddress stun_server_;
+  talk_base::SocketAddress turn_server_;
+  cricket::RelayServerConfig relay_config_udp_;
+  cricket::RelayServerConfig relay_config_tcp_;
   talk_base::BasicNetworkManager network_manager_;
   std::string svpn_id_;
   talk_base::OpenSSLIdentity* identity_;

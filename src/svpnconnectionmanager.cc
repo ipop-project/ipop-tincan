@@ -10,8 +10,7 @@
 
 namespace sjingle {
 
-//static const char kStunServer[] = "stun.l.google.com";
-static const char kStunServer[] = "0.0.0.0";
+static const char kTurnServer[] = "stun.l.google.com";
 static const int kStunPort = 19302;
 static const char kContentName[] = "svpn-jingle";
 static const bool kAllowTcpListen = false;
@@ -23,10 +22,8 @@ static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const int kIpBase = 101;
 static const char kTapName[] = "svpn";
-
+static const uint32 kFlags = 0;
 static SvpnConnectionManager* g_manager = 0;
-static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_RELAY |
-                             cricket::PORTALLOCATOR_DISABLE_TCP;
 
 enum {
   MSG_QUEUESIGNAL = 1,
@@ -47,7 +44,9 @@ SvpnConnectionManager::SvpnConnectionManager(
       transport_map_(),
       signaling_thread_(signaling_thread),
       worker_thread_(worker_thread),
-      stun_server_(kStunServer, kStunPort),
+      turn_server_(kTurnServer, kStunPort),
+      relay_config_udp_(cricket::RELAY_TURN),
+      relay_config_tcp_(cricket::RELAY_TURN),
       network_manager_(),
       svpn_id_(talk_base::hex_encode(
           talk_base::CreateRandomString(kIdSize/2).c_str(), kIdSize/2)),
@@ -201,6 +200,21 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
   }
 }
 
+void SvpnConnectionManager::SetRelay(const char* turn_server,
+                                     const char* username, 
+                                     const char* password) {
+  turn_server_.FromString(turn_server);
+  relay_config_udp_.ports.push_back(cricket::ProtocolAddress(
+      turn_server_, cricket::PROTO_UDP));
+  relay_config_udp_.credentials.username = username;
+  relay_config_udp_.credentials.password = password;
+  relay_config_tcp_.ports.push_back(cricket::ProtocolAddress(
+      turn_server_, cricket::PROTO_TCP));
+  relay_config_tcp_.credentials.username = username;
+  relay_config_tcp_.credentials.password = password;
+  LOG(INFO) << __FUNCTION__ << " TURN " << turn_server_.ToString();
+}
+
 bool SvpnConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint) {
   std::string uid_key = get_key(uid);
@@ -210,16 +224,18 @@ bool SvpnConnectionManager::CreateTransport(
     return false;
   }
 
-  LOG(INFO) << __FUNCTION__ << " STUN " << stun_server_.ToString();
-
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
   peer_state->uid = uid;
   peer_state->fingerprint = fingerprint;
   peer_state->last_ping_time = talk_base::Time();
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
-      &network_manager_, &packet_factory_, stun_server_));
+      &network_manager_, &packet_factory_, turn_server_));
   peer_state->port_allocator->set_flags(kFlags);
   peer_state->port_allocator->set_allow_tcp_listen(kAllowTcpListen);
+  if (!relay_config_udp_.credentials.username.empty()) {
+    peer_state->port_allocator->AddRelay(relay_config_udp_);
+    peer_state->port_allocator->AddRelay(relay_config_tcp_);
+  }
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::TransportChannelImpl* channel;
