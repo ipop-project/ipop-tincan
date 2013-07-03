@@ -418,7 +418,7 @@ std::string SvpnConnectionManager::GetState() {
   state["_fpr"] = fingerprint_;
   state["_ipv4"] = svpn_ip4_;
   state["_ipv6"] = svpn_ip6_;
-  state["_peers"] = peers;
+  state["peers"] = peers;
   return state.toStyledString();
 }
 

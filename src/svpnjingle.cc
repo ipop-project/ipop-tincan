@@ -55,11 +55,10 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
   opts->local_ip6 = ipv6_addr;
 
   // configure the tap device
-  tap_set_ipv4_addr(ipv4_addr, 24);
-  tap_set_ipv6_addr(ipv6_addr, 64);
-  tap_set_mtu(MTU);
-  tap_set_base_flags();
-  tap_set_up();
+  if ((tap_set_ipv4_addr(ipv4_addr, 24) | tap_set_ipv6_addr(ipv6_addr, 64) |
+      tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up()) != 0) {
+    return -1;
+  }
 
   peerlist_init(TABLE_SIZE);
   peerlist_set_local_p(client_id, ipv4_addr, ipv6_addr);
@@ -167,8 +166,11 @@ int main(int argc, char **argv) {
   opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
 
   // need to make sure we get all handles because we become nobody
-  setup_svpn(&opts, manager.tap_name().c_str(), manager.ipv4().c_str(), 
-             manager.ipv6().c_str(), manager.uid().c_str());
+  if (setup_svpn(&opts, manager.tap_name().c_str(), manager.ipv4().c_str(), 
+             manager.ipv6().c_str(), manager.uid().c_str()) != 0) {
+    fprintf(stderr, "setup failed\n");
+    return -1;
+  }
 
   // Setup/run threads
   SendRunnable send_runnable(&opts);
