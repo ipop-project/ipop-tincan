@@ -22,7 +22,7 @@ static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const int kIpBase = 101;
 static const char kTapName[] = "svpn";
-static const uint32 kFlags = 0;
+static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_TCP;
 static SvpnConnectionManager* g_manager = 0;
 
 enum {
@@ -234,7 +234,7 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->port_allocator->set_allow_tcp_listen(kAllowTcpListen);
   if (!relay_config_udp_.credentials.username.empty()) {
     peer_state->port_allocator->AddRelay(relay_config_udp_);
-    peer_state->port_allocator->AddRelay(relay_config_tcp_);
+    //peer_state->port_allocator->AddRelay(relay_config_tcp_);
   }
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
@@ -384,7 +384,7 @@ void SvpnConnectionManager::HandlePing_w() {
       cricket::TransportChannelImpl* channel = 
           it->second->transport->GetChannel(component);
       int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
-      LOG(INFO) << __FUNCTION__ << " PINGING " << " with " << uid_key;
+      LOG(INFO) << __FUNCTION__ << " PINGING " << uid_key;
     }
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);
