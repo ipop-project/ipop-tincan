@@ -62,10 +62,25 @@ SvpnConnectionManager::SvpnConnectionManager(
       svpn_ip6_(kIpv6),
       tap_name_(kTapName),
       sec_enabled_(true) {
+  network_manager_.SignalNetworksChanged.connect(
+      this, &SvpnConnectionManager::OnNetworksChanged);
   signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
   worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
   svpn_ip6_ = gen_ip6(svpn_id_);
   g_manager = this;
+}
+
+void SvpnConnectionManager::OnNetworksChanged() {
+  talk_base::NetworkManager::NetworkList networks;
+  talk_base::SocketAddress ip6_addr(svpn_ip6_, 0);
+  network_manager_.GetNetworks(&networks);
+  for (uint32 i = 0; i < networks.size(); ++i) {
+    if (networks[i]->name().compare(kTapName) == 0) {
+      networks[i]->ClearIPs();
+      // Set to a random ipv6 address in order to disable
+      networks[i]->AddIP(ip6_addr.ipaddr());
+    }
+  }
 }
 
 void SvpnConnectionManager::OnRequestSignaling(

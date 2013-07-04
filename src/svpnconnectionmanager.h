@@ -58,15 +58,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   void set_security(bool enable_sec) { sec_enabled_ = enable_sec; }
 
-  // Inherited from MessageHandler
-  virtual void OnMessage(talk_base::Message* msg);
-
-  // Signal handler for SocialNetworkSenderInterface
-  virtual void HandlePeer(const std::string& uid, const std::string& data);
-
-  // Signal handler for PacketSenderInterface
-  virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
-      const char* data, size_t len, const talk_base::SocketAddress& addr);
+  // Signal handlers for BasicNetworkManager
+  virtual void OnNetworksChanged();
 
   // Signal handlers for TransportChannelImpl
   virtual void OnRequestSignaling(cricket::Transport* transport);
@@ -77,10 +70,19 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
 
+  // Inherited from MessageHandler
+  virtual void OnMessage(talk_base::Message* msg);
+
+  // Signal handler for SocialNetworkSenderInterface
+  virtual void HandlePeer(const std::string& uid, const std::string& data);
+
+  // Signal handler for PacketSenderInterface
+  virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
+      const char* data, size_t len, const talk_base::SocketAddress& addr);
+
   virtual std::string GetState();
   virtual void SetRelay(const char* turn_server, const char* username,
                         const char* password);
-
 
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);
