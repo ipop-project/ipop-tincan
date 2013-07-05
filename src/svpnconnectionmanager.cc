@@ -92,7 +92,7 @@ void SvpnConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   if (transport->readable() && transport->writable()) {
     std::string uid = transport_map_[transport];
-    LOG(INFO) << __FUNCTION__ << "ONLINE " << uid;
+    LOG(INFO) << __FUNCTION__ << " ONLINE " << uid;
   }
 }
 
@@ -399,7 +399,7 @@ void SvpnConnectionManager::HandlePing_w() {
       cricket::TransportChannelImpl* channel = 
           it->second->transport->GetChannel(component);
       int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
-      LOG(INFO) << __FUNCTION__ << " PINGING " << uid_key;
+      LOG(INFO) << __FUNCTION__ << " PING TO " << uid_key;
     }
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);

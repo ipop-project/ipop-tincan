@@ -56,7 +56,6 @@ bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
   return true;
 }
 
-// TODO - Multiple logins can result in crash - fix that
 bool XmppNetwork::Login(std::string username, std::string password,
                         std::string pcid, std::string host) {
   if (pump_.get() || username.empty() || password.empty() || 
