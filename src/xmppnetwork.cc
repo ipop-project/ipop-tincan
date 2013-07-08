@@ -55,7 +55,6 @@ void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
   //buzz::XmlElement* element = new buzz::XmlElement(QN_SVPN);
   element->SetBodyText(data);
   get->AddElement(element);
-  get->AddAttr(buzz::QN_FROM, GetClient()->jid().Str());
   SendStanza(get.get());
 }
 

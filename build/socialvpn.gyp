@@ -31,6 +31,28 @@
   ],
   'targets': [
     {
+      'target_name': 'turnsvpn',
+      'type': 'executable',
+      'dependencies': [
+        'libjingle.gyp:libjingle',
+        'libjingle.gyp:libjingle_p2p',
+      ],
+      'sources': [
+        'p2p/base/turnserver_main.cc',
+      ],
+    },  # target turnserver
+    {
+      'target_name': 'xmpp-test',
+      'type': 'executable',
+      'dependencies': [
+        'libjingle.gyp:libjingle',
+        #'libjingle.gyp:libjingle_p2p',
+      ],
+      'sources': [
+        'examples/test/jingle_xmpp_test.cc',
+      ],
+    },  # target turnserver
+    {
       'target_name': 'svpn-jingle',
       'type': 'executable',
       'cflags' : [
@@ -50,18 +72,31 @@
       ],
       'sources': [
         'socialvpn/svpn-core/src/headers.c',
+        'socialvpn/svpn-core/src/headers.h',
         'socialvpn/svpn-core/src/packetio.c',
+        'socialvpn/svpn-core/src/packetio.h',
         'socialvpn/svpn-core/src/peerlist.c',
+        'socialvpn/svpn-core/src/peerlist.h',
         'socialvpn/svpn-core/src/socket_utils.c',
+        'socialvpn/svpn-core/src/socket_utils.h',
         'socialvpn/svpn-core/src/tap.c',
+        'socialvpn/svpn-core/src/tap.h',
         'socialvpn/svpn-core/src/translator.c',
+        'socialvpn/svpn-core/src/translator.h',
         'socialvpn/svpn-core/lib/threadqueue/threadqueue.c',
+        'socialvpn/svpn-core/lib/threadqueue/threadqueue.h',
         'socialvpn/svpn-core/lib/hsearch/hsearch.c',
+        'socialvpn/svpn-core/lib/hsearch/search.h',
         'socialvpn/svpn-core/lib/hsearch/hsearch_r.c',
         'socialvpn/svpn-jingle/src/svpnjingle.cc',
         'socialvpn/svpn-jingle/src/svpnconnectionmanager.cc',
+        'socialvpn/svpn-jingle/src/svpnconnectionmanager.h',
         'socialvpn/svpn-jingle/src/xmppnetwork.cc',
+        'socialvpn/svpn-jingle/src/xmppnetwork.h',
         'socialvpn/svpn-jingle/src/httpui.cc',
+        'socialvpn/svpn-jingle/src/httpui.h',
+        'xmpp/jingleinfotask.cc',
+        'xmpp/jingleinfotask.h',
       ],
     },  # target svpn-jingle
   ],
