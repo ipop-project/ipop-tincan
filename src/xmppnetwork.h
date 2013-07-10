@@ -96,7 +96,7 @@ class XmppNetwork
   }
 
   void OnLogging(const char* data, int len) {
-    LOG(LS_VERBOSE) << __FUNCTION__ << std::string(data, len);
+    LOG_F(LS_VERBOSE) << std::string(data, len);
   }
 
   // Inherited from MessageHandler

@@ -80,7 +80,6 @@ For Linux
 2. Copy modified gyp files to trunk/talk directory::
 
     cp talk/socialvpn/svpn-jingle/build/socialvpn.gyp talk/
-    cp talk/socialvpn/svpn-jingle/build/libjingle.gyp talk/
     cp talk/socialvpn/svpn-jingle/build/libjingle_all.gyp talk/
 
 3. Generate ninja build files::

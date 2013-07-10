@@ -110,7 +110,7 @@ bool XmppNetwork::Connect() {
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);
-  LOG(INFO) << __FUNCTION__ << " XMPP CONNECTING ";
+  LOG_F(INFO) << "XMPP CONNECTING";
   return true;
 }
 
@@ -136,23 +136,23 @@ void XmppNetwork::OnSignOn() {
   svpn_task_->Start();
   main_thread_->Clear(this);
   main_thread_->PostDelayed(kInterval, this, 0, 0);
-  LOG(INFO) << __FUNCTION__ << " ONLINE " << pump_->client()->jid().Str();
+  LOG_F(INFO) << "XMPP ONLINE " << pump_->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   switch (state) {
     case buzz::XmppEngine::STATE_START:
-      LOG(INFO) << __FUNCTION__ << " START";
+      LOG_F(INFO) << "START";
       break;
     case buzz::XmppEngine::STATE_OPENING:
-      LOG(INFO) << __FUNCTION__ << " OPENING";
+      LOG_F(INFO) << "OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
-      LOG(INFO) << __FUNCTION__ << " OPEN";
+      LOG_F(INFO) << "OPEN";
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
-      LOG(INFO) << __FUNCTION__ << " CLOSED";
+      LOG_F(INFO) << "CLOSED";
       OnCloseEvent(0);
       break;
   }
@@ -174,7 +174,7 @@ void XmppNetwork::OnCloseEvent(int error) {
   presence_out_.release();
   svpn_task_.release();
   pump_.release();
-  LOG(INFO) << __FUNCTION__ << " XMPP CLOSE " << error;
+  LOG_F(INFO) << "XMPP CLOSE " << error;
 }
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
