@@ -36,7 +36,7 @@ Instantiate Android Virtual Device
 
 2. Launch the newly created AVD::
 
-    tools/emulator64-arm -avd svpn-android-4.1 -no-window -no-audio &> log.txt &
+    tools/emulator64-arm -avd svpn-android-4.1 -no-window -no-audio -no-skin &> log.txt &
 
 3. Wait about one minute and test emulator is running with following command
    (a list of network devices along with ip addresses should appear)::
