@@ -43,7 +43,7 @@ static const bool kAllowTcpListen = false;
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
-static const int kCheckInterval = 30000;
+static const int kCheckInterval = 15000;
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const int kIpBase = 101;
@@ -90,8 +90,8 @@ SvpnConnectionManager::SvpnConnectionManager(
       sec_enabled_(true) {
   network_manager_.SignalNetworksChanged.connect(
       this, &SvpnConnectionManager::OnNetworksChanged);
-  signaling_thread->PostDelayed(kCheckInterval, this, MSG_CHECK, 0);
-  worker_thread->PostDelayed(kCheckInterval + 15000, this, MSG_PING, 0);
+  worker_thread->PostDelayed(kCheckInterval, this, MSG_PING, 0);
+  signaling_thread->PostDelayed(kCheckInterval + 1000, this, MSG_CHECK, 0);
   svpn_ip6_ = gen_ip6(svpn_id_);
   g_manager = this;
 }
@@ -386,7 +386,7 @@ void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
 }
 
 void SvpnConnectionManager::HandleCheck_s() {
-  if (++check_counter_ % 8 == 0) {
+  if (++check_counter_ % 16 == 0) {
     for (std::map<std::string, int>::const_iterator it = ip_map_.begin();
          it != ip_map_.end(); ++it) {
         social_sender_->SendToPeer(it->first, fingerprint());
@@ -401,7 +401,7 @@ void SvpnConnectionManager::HandleCheck_s() {
     cricket::TransportChannelImpl* channel =
         it->second->transport->GetChannel(component);
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
-    if (time_diff > 2 * kCheckInterval) {
+    if (time_diff > 6 * kCheckInterval) {
       if (!it->second->transport->was_writable()) {
         it->second->port_allocator.release();
       }
@@ -424,11 +424,11 @@ void SvpnConnectionManager::HandlePing_w() {
   for (std::map<std::string, PeerStatePtr>::const_iterator it =
        uid_map_.begin(); it != uid_map_.end(); ++it) {
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
-    if (time_diff < 2 * kCheckInterval) {
+    if (time_diff < 6 * kCheckInterval) {
       cricket::TransportChannelImpl* channel = 
           it->second->transport->GetChannel(component);
       int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
-      LOG_F(INFO) << "PING TO " << uid;
+      LOG_F(INFO) << "PING TO " << it->second->uid;
     }
   }
   worker_thread_->PostDelayed(kCheckInterval, this, MSG_PING, 0);
