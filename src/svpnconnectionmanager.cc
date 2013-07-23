@@ -401,7 +401,8 @@ void SvpnConnectionManager::HandleCheck_s() {
     cricket::TransportChannelImpl* channel =
         it->second->transport->GetChannel(component);
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
-    if (time_diff > 6 * kCheckInterval) {
+    if (time_diff > 6 * kCheckInterval &&
+        !it->second->transport->any_channels_writable()) {
       if (!it->second->transport->was_writable()) {
         it->second->port_allocator.release();
       }
@@ -424,7 +425,7 @@ void SvpnConnectionManager::HandlePing_w() {
   for (std::map<std::string, PeerStatePtr>::const_iterator it =
        uid_map_.begin(); it != uid_map_.end(); ++it) {
     uint32 time_diff = talk_base::Time() - it->second->last_ping_time;
-    if (time_diff < 6 * kCheckInterval) {
+    if (it->second->transport->any_channels_writable()) {
       cricket::TransportChannelImpl* channel = 
           it->second->transport->GetChannel(component);
       int count = channel->SendPacket(uid_key.c_str(), uid_key.size(), 0);
