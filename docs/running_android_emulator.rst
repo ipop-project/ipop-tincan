@@ -65,10 +65,10 @@ Download and run Android SocialVPN
     platform-tools/adb shell
     cd /data/svpn
 
-5. Launch socialvpn (use -v flag to enable logging)::
+5. Launch socialvpn (use -vi or -vv flag to enable logging)::
 
     chmod 755 svpn-jingle-android curl-android
-    ./svpn-jingle-android &> log.txt &
+    ./svpn-jingle-android -vi &> log.txt &
 
 6. Log into XMPP (Google Chat or Jabber.org) using credentials::
 

@@ -12,10 +12,10 @@ Download and run SocialVPN
 
     wget http://www.acis.ufl.edu/~ptony82/svpn-jingle
 
-2. Launch socialvpn (use -v flag to enable logging)::
+2. Launch socialvpn (use -vi or -vv flag to enable logging)::
 
     chmod 755 svpn-jingle
-    sudo ./svpn-jingle &> log.txt &
+    sudo ./svpn-jingle -vi &> log.txt &
 
 3. Log into XMPP (Google Chat or Jabber.org) using credentials::
 
