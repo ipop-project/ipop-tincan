@@ -32,18 +32,21 @@
 #include "talk/base/httpserver.h"
 #include "talk/base/httpcommon.h"
 #include "talk/base/socketaddress.h"
+#include "talk/p2p/base/basicpacketsocketfactory.h"
 
 #include "svpnconnectionmanager.h"
 
 namespace sjingle {
 
-class HttpUI : public sigslot::has_slots<> {
+class HttpUI : public INotifier, public sigslot::has_slots<> {
  public:
-  HttpUI(SvpnConnectionManager& manager, XmppNetwork& network);
+  HttpUI(SvpnConnectionManager& manager, XmppNetwork& network,
+         talk_base::BasicPacketSocketFactory* packet_factory);
 
   // signal handlers for HttpServer
   void OnHttpRequest(talk_base::HttpServer* server, 
                      talk_base::HttpServerTransaction* transaction);
+  virtual void Send(const char* msg, int len);
 
  private:
   void HandleRequest();
@@ -51,6 +54,8 @@ class HttpUI : public sigslot::has_slots<> {
   talk_base::HttpListenServer http_server_;
   SvpnConnectionManager& manager_;
   XmppNetwork& network_;
+  talk_base::SocketAddress remote_addr_;
+  talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
 
 };
 

@@ -89,7 +89,8 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
   peerlist_init(TABLE_SIZE);
   peerlist_set_local_p(client_id, ipv4_addr, ipv6_addr);
 
-#ifndef DROID_BUILD
+//#ifndef DROID_BUILD
+#if 0
   // drop root privileges and set to nobody, causes Android issues
   struct passwd * pwd = getpwnam("nobody");
   if (getuid() == 0) {
@@ -140,20 +141,12 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
-  char* turn_server = 0;
-  bool enable_sec = true;
   for (int i = argc - 1; i > 0; i--) {
     if (strncmp(argv[i], "-vi", 3) == 0) {
       talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
     }
     else if (strncmp(argv[i], "-vv", 3) == 0) {
       talk_base::LogMessage::LogToDebug(talk_base::LS_VERBOSE);
-    }
-    else if (strncmp(argv[i], "--no-sec", 8) == 0) {
-      enable_sec = false;
-    }
-    else if (strncmp(argv[i], "--turn=", 7) == 0) {
-      turn_server = argv[i] + 7;
     }
   }
   talk_base::InitializeSSL(SSLVerificationCallback);
@@ -170,20 +163,17 @@ int main(int argc, char **argv) {
   sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue);
-  manager.set_security(enable_sec);
-  network.set_status(manager.fingerprint());
   network.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
-  sjingle::HttpUI httpui(manager, network);
+  talk_base::BasicPacketSocketFactory packet_factory;
+  sjingle::HttpUI httpui(manager, network, &packet_factory);
+  manager.set_notifier(&httpui);
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };
   manager.ipv4().copy(ip_addr, sizeof(ip_addr));
   if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
     manager.set_ip(ip_addr);
-  }
-  if (turn_server != 0) {
-    manager.SetRelay(turn_server, "svpnjingle", "1234567890");
   }
 
   thread_opts_t opts;

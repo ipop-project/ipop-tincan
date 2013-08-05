@@ -45,7 +45,8 @@ static const int kInterval = 60000;
 static const buzz::StaticQName QN_SVPN = { "jabber:iq:svpn", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:svpn\" />";
 
-void SvpnTask::SendToPeer(const std::string &uid, const std::string &data) {
+void SvpnTask::SendToPeer(int nid, const std::string &uid,
+                          const std::string &data) {
   const buzz::Jid to(uid);
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));

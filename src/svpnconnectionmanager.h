@@ -57,6 +57,11 @@
 
 namespace sjingle {
 
+class INotifier {
+ public:
+  virtual void Send(const char* msg, int len) = 0;
+};
+
 class SvpnConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
 
@@ -82,7 +87,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   void set_ip(const char* ip) { svpn_ip4_ = ip; }
 
-  void set_security(bool enable_sec) { sec_enabled_ = enable_sec; }
+  void set_notifier(INotifier* notifier) { notifier_ = notifier; }
 
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
@@ -106,9 +111,22 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
       const char* data, size_t len, const talk_base::SocketAddress& addr);
 
+  // Other public functions
+  virtual void Setup(
+      const std::string& uid, const std::string& ip4, int ip4_mask,
+      const std::string& ip6, int ip6_mask);
+
+  virtual bool CreateTransport(
+      const std::string& uid, const std::string& fingerprint, int nid,
+      const std::string& stun_server, const std::string& turn_server,
+      const bool sec_enabled);
+
+  virtual bool AddIP(const std::string& uid_key, const std::string& ip4,
+                     const std::string& ip6);
+
+  virtual bool DestroyTransport(const std::string& uid);
+
   virtual std::string GetState();
-  virtual void SetRelay(const char* turn_server, const char* username,
-                        const char* password);
 
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);
@@ -126,20 +144,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
     uint32 last_ping_time;
+    int nid;
   };
 
   typedef talk_base::scoped_refptr<
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
-  bool AddIP(const std::string& uid_key);
   void SetupTransport(PeerState* peer_state);
-  bool CreateTransport(const std::string& uid, 
-                       const std::string& fingerprint);
   bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);
   void HandleQueueSignal_w(struct threadqueue* queue);
-  void HandleCheck_s();
   void HandlePing_w();
   void UpdateTime(const char* data, size_t len);
 
@@ -155,9 +170,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     int len = (svpn_ip6_.size() - 7) / 2;  // len should be 16
     if (uid_key.size() < len) return "";
     std::string result = svpn_ip6_.substr(0, len + 3);
-    for (int i = 0; i < len/4; i++) {
+    for (int i = 0; i < len; i+=4) {
       result += ":";
-      result += uid_key.substr(i * 4, 4);
+      result += uid_key.substr(i, 4);
     }
     return result;
   }
@@ -167,17 +182,14 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
-  std::map<std::string, int> ip_map_;
+  std::map<std::string, std::string> ip_map_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
-  talk_base::SocketAddress turn_server_;
-  cricket::RelayServerConfig relay_config_udp_;
-  cricket::RelayServerConfig relay_config_tcp_;
   talk_base::BasicNetworkManager network_manager_;
   std::string svpn_id_;
-  talk_base::OpenSSLIdentity* identity_;
-  const talk_base::SSLFingerprint* local_fingerprint_;
-  const std::string fingerprint_;
+  talk_base::scoped_ptr<talk_base::OpenSSLIdentity> identity_;
+  talk_base::scoped_ptr<talk_base::SSLFingerprint> local_fingerprint_;
+  std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
   const uint64 tiebreaker_;
@@ -185,7 +197,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string svpn_ip4_;
   std::string svpn_ip6_;
   std::string tap_name_;
-  bool sec_enabled_;
+  INotifier* notifier_;
 };
 
 }  // namespace sjingle

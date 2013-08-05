@@ -51,7 +51,8 @@ class SocialNetworkSenderInterface {
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
   virtual const std::string uid() = 0;
-  virtual void SendToPeer(const std::string& uid, const std::string& sdp) = 0;
+  virtual void SendToPeer(int nid, const std::string& uid,
+                          const std::string& data) = 0;
 
  protected:
   virtual ~SocialNetworkSenderInterface() {}
@@ -68,7 +69,8 @@ class SvpnTask
   // inherited from SocialSenderInterface
   virtual const std::string uid() { return GetClient()->jid().Str(); }
 
-  virtual void SendToPeer(const std::string& uid, const std::string& data);
+  virtual void SendToPeer(int nid, const std::string& uid,
+                          const std::string& data);
 
  protected:
   virtual int ProcessStart();
@@ -91,8 +93,9 @@ class XmppNetwork
     return uid_;
   }
 
-  virtual void SendToPeer(const std::string& uid, const std::string& data) {
-    if (svpn_task_.get()) svpn_task_->SendToPeer(uid, data);
+  virtual void SendToPeer(int nid, const std::string& uid,
+                          const std::string& data) {
+    if (svpn_task_.get()) svpn_task_->SendToPeer(nid, uid, data);
   }
 
   void OnLogging(const char* data, int len) {
