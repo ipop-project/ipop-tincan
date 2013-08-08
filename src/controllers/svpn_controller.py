@@ -105,8 +105,10 @@ def main():
             state = do_get_state()
             if counter % 4 == 0:
                 for peer in state["peers"]:
-                    do_ping(0, peer["uid"], state["_fpr"])
                     time.sleep(1)
+                    if peer["status"] == "online":
+                        do_ping(0, peer["uid"], state["_fpr"])
+                    else: do_trim_link(peer["uid"])
         except Exception as ex:
             print ex
 
