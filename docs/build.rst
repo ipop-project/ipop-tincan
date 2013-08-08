@@ -36,7 +36,7 @@ Install necessary libraries and chromium tools
 1. This works on Debian-based distros::
 
     sudo apt-get install libnss3-dev libasound2-dev libpulse-dev libjpeg62-dev \ 
-    libxv-dev libgtk2.0-dev libexpat1-dev git subversion build-essential
+    libxv-dev libgtk2.0-dev libexpat1-dev libssl-dev git subversion build-essential
 
 2. Download depot_tools for chromium repo::
 
