@@ -33,7 +33,6 @@
 #include "talk/xmpp/xmppthread.h"
 #include "talk/xmpp/xmpppump.h"
 #include "talk/xmpp/jid.h"
-#include "talk/base/logging.h"
 #include "talk/xmpp/constants.h"
 
 #include "xmppnetwork.h"
@@ -45,9 +44,18 @@ static const int kInterval = 60000;
 static const buzz::StaticQName QN_SVPN = { "jabber:iq:svpn", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:svpn\" />";
 
+static std::string get_key(const std::string& uid) {
+  int idx = uid.find('/') + sizeof(kXmppPrefix);
+  if ((idx + kIdSize) <= uid.size()) {
+    return uid.substr(idx, kIdSize);
+  }
+  return uid;
+}
+
+
 void SvpnTask::SendToPeer(int nid, const std::string &uid,
                           const std::string &data) {
-  const buzz::Jid to(uid);
+  const buzz::Jid to(get_xmpp_id(uid));
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));
   // TODO - Figure out how to build from QN_SVPN instead of template
@@ -68,8 +76,10 @@ int SvpnTask::ProcessStart() {
   buzz::Jid from(stanza->Attr(buzz::QN_FROM));
   if (from.resource().compare(0, sizeof(kXmppPrefix)-1 , kXmppPrefix) == 0 &&
       from != GetClient()->jid()) {
-    HandlePeer(stanza->Attr(buzz::QN_FROM),
-               stanza->FirstNamed(QN_SVPN)->BodyText());
+    std::string uid = stanza->Attr(buzz::QN_FROM);
+    std::string uid_key = get_key(uid);
+    set_xmpp_id(uid_key, uid);
+    HandlePeer(uid_key, stanza->FirstNamed(QN_SVPN)->BodyText());
   }
   return STATE_START;
 }
@@ -164,7 +174,10 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
   if (status.jid().resource().size() > (sizeof(kXmppPrefix) - 1) && 
       status.jid().resource().compare(0, sizeof(kXmppPrefix) - 1, 
       kXmppPrefix) == 0 && status.jid() != pump_->client()->jid()) {
-    svpn_task_->HandlePeer(status.jid().Str(), status.status());
+    std::string uid = status.jid().Str();
+    std::string uid_key = get_key(uid);
+    svpn_task_->set_xmpp_id(uid_key, uid);
+    svpn_task_->HandlePeer(uid_key, status.status());
   }
 }
 
@@ -179,6 +192,7 @@ void XmppNetwork::OnCloseEvent(int error) {
 }
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
+  // This handles reconnection if there's a connection timeout
   if (!pump_.get()) Connect();
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }

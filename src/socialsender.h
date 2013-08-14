@@ -25,41 +25,30 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SJINGLE_HTTPUI_H_
-#define SJINGLE_HTTPUI_H_
+#ifndef SJINGLE_SOCIALSENDER_H_
+#define SJINGLE_SOCIALSENDER_H_
 #pragma once
 
-#include "talk/base/httpserver.h"
-#include "talk/base/httpcommon.h"
-#include "talk/base/socketaddress.h"
-#include "talk/p2p/base/basicpacketsocketfactory.h"
-
-#include "svpnconnectionmanager.h"
+#include "talk/base/sigslot.h"
 
 namespace sjingle {
 
-class HttpUI : public INotifier, public sigslot::has_slots<> {
+static const int kHeaderSize = 40;
+static const int kIdSize = 18;
+
+class SocialSenderInterface {
  public:
-  HttpUI(SvpnConnectionManager& manager, XmppNetwork& network,
-         talk_base::BasicPacketSocketFactory* packet_factory);
+  // Slot for message callbacks
+  sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  // signal handlers for HttpServer
-  void OnHttpRequest(talk_base::HttpServer* server, 
-                     talk_base::HttpServerTransaction* transaction);
-  virtual void Send(const char* msg, int len);
+  virtual void SendToPeer(int nid, const std::string& uid,
+                          const std::string& data) = 0;
 
- private:
-  void HandleRequest();
-
-  talk_base::HttpListenServer http_server_;
-  SvpnConnectionManager& manager_;
-  XmppNetwork& network_;
-  talk_base::SocketAddress remote_addr_;
-  talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
-
+ protected:
+  virtual ~SocialSenderInterface() {}
 };
 
 }  // namespace sjingle
 
-#endif  // SJINGLE_HTTPUI_H_
+#endif  // SJINGLE_SOCIALSENDER_H_
 

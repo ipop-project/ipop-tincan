@@ -53,20 +53,32 @@
 #include "talk/socialvpn/svpn-core/src/peerlist.h"
 #include "talk/socialvpn/svpn-core/src/packetio.h"
 
-#include "xmppnetwork.h"
+#include "socialsender.h"
 
 namespace sjingle {
 
-class INotifier {
+class SocialSender : public SocialSenderInterface {
  public:
-  virtual void Send(const char* msg, int len) = 0;
+  // Inherited from SocialSenderInterface
+  virtual void SendToPeer(int nid, const std::string& uid,
+                          const std::string& data) {
+    return service_map_[nid]->SendToPeer(nid, uid, data);
+  }
+
+  virtual void add_service(int nid, SocialSenderInterface* sender) {
+    service_map_[nid] = sender;
+  }
+
+ private:
+  std::map<int, SocialSenderInterface*> service_map_;
+
 };
 
 class SvpnConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
 
  public:
-  SvpnConnectionManager(SocialNetworkSenderInterface* social_sender,
+  SvpnConnectionManager(SocialSenderInterface* social_sender,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
                         struct threadqueue* send_queue,
@@ -87,8 +99,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   void set_ip(const char* ip) { svpn_ip4_ = ip; }
 
-  void set_notifier(INotifier* notifier) { notifier_ = notifier; }
-
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
 
@@ -104,7 +114,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
-  // Signal handler for SocialNetworkSenderInterface
+  // Signal handler for SocialSenderInterface
   virtual void HandlePeer(const std::string& uid, const std::string& data);
 
   // Signal handler for PacketSenderInterface
@@ -143,7 +153,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
-    uint32 last_ping_time;
     int nid;
   };
 
@@ -155,16 +164,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);
   void HandleQueueSignal_w(struct threadqueue* queue);
-  void HandlePing_w();
-  void UpdateTime(const char* data, size_t len);
-
-  std::string get_key(const std::string& uid) {
-    int idx = uid.find('/') + sizeof(kXmppPrefix);
-    if ((idx + kIdSize) <= uid.size()) {
-      return uid.substr(idx, kIdSize);
-    }
-    return uid;
-  }
 
   std::string gen_ip6(const std::string& uid_key) {
     int len = (svpn_ip6_.size() - 7) / 2;  // len should be 16
@@ -178,7 +177,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   }
 
   const std::string content_name_;
-  SocialNetworkSenderInterface* social_sender_;
+  SocialSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
@@ -197,7 +196,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string svpn_ip4_;
   std::string svpn_ip6_;
   std::string tap_name_;
-  INotifier* notifier_;
 };
 
 }  // namespace sjingle

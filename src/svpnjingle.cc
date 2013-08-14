@@ -42,7 +42,8 @@
 #include "talk/base/ssladapter.h"
 
 #include "svpnconnectionmanager.h"
-#include "httpui.h"
+#include "controlleraccess.h"
+#include "xmppnetwork.h"
 
 #define SEGMENT_SIZE 3
 #define SEGMENT_OFFSET 4
@@ -89,23 +90,7 @@ int setup_svpn(thread_opts_t *opts, const char *tap_device_name,
   peerlist_init(TABLE_SIZE);
   peerlist_set_local_p(client_id, ipv4_addr, ipv6_addr);
 
-//#ifndef DROID_BUILD
-#if 0
-  // drop root privileges and set to nobody, causes Android issues
-  struct passwd * pwd = getpwnam("nobody");
-  if (getuid() == 0) {
-    if (setgid(pwd->pw_uid) < 0) {
-      fprintf(stderr, "setgid failed\n");
-      tap_close();
-      return -1;
-    }
-   if (setuid(pwd->pw_gid) < 0) {
-      fprintf(stderr, "setuid failed\n");
-      tap_close();
-      return -1;
-    }
-  }
-#endif
+  // TODO - Run as a non-root user
   return 0;
 }
 
@@ -141,15 +126,14 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
+  talk_base::InitializeSSL(SSLVerificationCallback);
+  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+
   for (int i = argc - 1; i > 0; i--) {
-    if (strncmp(argv[i], "-vi", 3) == 0) {
-      talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
-    }
-    else if (strncmp(argv[i], "-vv", 3) == 0) {
+    if (strncmp(argv[i], "-v", 2) == 0) {
       talk_base::LogMessage::LogToDebug(talk_base::LS_VERBOSE);
     }
   }
-  talk_base::InitializeSSL(SSLVerificationCallback);
 
   struct threadqueue send_queue, rcv_queue;
   thread_queue_init(&send_queue);
@@ -159,15 +143,17 @@ int main(int argc, char **argv) {
   talk_base::AutoThread signaling_thread;
   signaling_thread.WrapCurrent();
 
-  sjingle::XmppNetwork network(&signaling_thread);
-  sjingle::SvpnConnectionManager manager(&network, &signaling_thread,
+  sjingle::SocialSender social_sender;
+  sjingle::SvpnConnectionManager manager(&social_sender, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue);
-  network.HandlePeer.connect(&manager,
+  sjingle::XmppNetwork xmpp(&signaling_thread);
+  xmpp.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
-  sjingle::HttpUI httpui(manager, network, &packet_factory);
-  manager.set_notifier(&httpui);
+  sjingle::ControllerAccess controller(manager, xmpp, &packet_factory);
+  social_sender.add_service(0, &controller);
+  social_sender.add_service(1, &xmpp);
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };
