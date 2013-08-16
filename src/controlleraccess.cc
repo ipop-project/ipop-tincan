@@ -33,6 +33,7 @@
 namespace sjingle {
 
 static const char kLocalHost[] = "127.0.0.1";
+static const char kLocalHost6[] = "::1";
 static const int kUdpPort = 5800;
 static const int kBufferSize = 1024;
 static std::map<std::string, int> rpc_calls;
@@ -48,7 +49,7 @@ enum {
   PING,
 };
 
-void init_map() {
+static void init_map() {
   rpc_calls["register_svc"] = REGISTER_SVC;
   rpc_calls["create_link"] = CREATE_LINK;
   rpc_calls["set_local_ip"] = SET_LOCAL_IP;
@@ -65,7 +66,7 @@ ControllerAccess::ControllerAccess(
     : manager_(manager),
       network_(network) {
   socket_.reset(packet_factory->CreateUdpSocket(
-      talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
+      talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
   init_map();
 }
@@ -98,8 +99,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string fpr = root["fpr"].asString();
         std::string stun = root["stun"].asString();
         std::string turn = root["turn"].asString();
+        std::string cas = root["cas"].asString();
         bool sec = root["sec"].asBool();
         manager_.CreateTransport(uid, fpr, nid, stun, turn, sec);
+        if (!cas.empty()) {
+          manager_.CreateConnections(uid, cas);
+        }
       }
       break;
     case SET_LOCAL_IP: {
@@ -124,8 +129,10 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case SET_CALLBACK: {
-        std::string address = root["addr"].asString();
-        remote_addr_.FromString(address);
+        std::string ip = root["ip"].asString();
+        int port = root["port"].asInt();
+        remote_addr_.SetIP(ip);
+        remote_addr_.SetPort(port);
       }
       break;
     case PING: {

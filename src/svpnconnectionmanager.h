@@ -131,6 +131,9 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
       const std::string& stun_server, const std::string& turn_server,
       const bool sec_enabled);
 
+  bool CreateConnections(const std::string& uid, 
+                         const std::string& candidates_string);
+
   virtual bool AddIP(const std::string& uid_key, const std::string& ip4,
                      const std::string& ip6);
 
@@ -161,8 +164,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
  private:
   void SetupTransport(PeerState* peer_state);
-  bool CreateConnections(const std::string& uid, 
-                         const std::string& candidates_string);
   void HandleQueueSignal_w(struct threadqueue* queue);
 
   std::string gen_ip6(const std::string& uid_key) {

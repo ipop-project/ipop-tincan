@@ -371,7 +371,7 @@ void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
 
 std::string SvpnConnectionManager::GetState() {
   Json::Value state(Json::objectValue);
-  Json::Value peers(Json::arrayValue);
+  Json::Value peers(Json::objectValue);
   for (std::map<std::string, std::string>::const_iterator it =
        ip_map_.begin(); it != ip_map_.end(); ++it) {
     std::string uid = it->first;
@@ -387,7 +387,7 @@ std::string SvpnConnectionManager::GetState() {
         peer["status"] = "online";
       }
     }
-    peers.append(peer);
+    peers[it->first] = peer;
   }
   state["_uid"] = svpn_id_;
   state["_fpr"] = fingerprint_;
