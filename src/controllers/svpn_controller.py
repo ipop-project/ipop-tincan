@@ -7,13 +7,18 @@ import sys
 import os
 import binascii
 
-IP4 = "172.31.0.100"
+#IP4 = "172.31.0.100"
+IP4 = "192.168.10.100"
 IP6 = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000"
 STUN = "209.141.33.252:19302"
 LOCALHOST6= "::1"
 ANY = "0.0.0.0"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
+
+def gen_ip4(uid, ip4=IP4):
+    suffix = str(int(uid[:2], 16))
+    return ip4[:-3] + suffix
 
 def gen_ip6(uid, ip6=IP6):
     uid_key = uid[-18:]
@@ -75,8 +80,9 @@ class UdpServer:
     def do_connect(self, uid, data, nid, sec, cas, addr):
         if uid == self.state["_uid"]: return
         do_create_link(self.sock, uid, data, nid, sec, cas)
-        ip4 = self.state["_ip4"][:-3] + str(len(self.state["peers"]) + 101)
-        ip6 = gen_ip6(uid, self.state["_ip6"])
+        #ip4 = self.state["_ip4"][:-3] + str(len(self.state["peers"]) + 101)
+        ip4 = gen_ip4(uid)
+        ip6 = gen_ip6(uid)
         do_set_remote_ip(self.sock, uid, ip4, ip6)
         do_get_state(self.sock)
 
@@ -85,7 +91,8 @@ class UdpServer:
         for k, v in self.state["peers"].iteritems():
             if v["status"] == "online":
                 request = {"m": "discover"}
-                dest = (v["ip6"], CONTROLLER_PORT)
+                ip6 = gen_ip6(k)
+                dest = (ip6, CONTROLLER_PORT)
                 self.sock.sendto(json.dumps(request), dest)
 
     def process_discover(self, addr):
@@ -101,12 +108,14 @@ class UdpServer:
             msg["from"] = self.state["_uid"]
             for k, v in self.state["peers"].iteritems():
                 if v["status"] == "online":
-                    dest = (v["ip6"], CONTROLLER_PORT, 0, 0)
+                    ip6 = gen_ip6(k, IP6)
+                    dest = (ip6, CONTROLLER_PORT, 0, 0)
                     self.sock.sendto(json.dumps(msg), dest)
         elif msg["uid"] in self.state["peers"]:
             peer = self.state["peers"][msg["uid"]]
             if peer["status"] == "online":
-                dest = (peer["ip6"], CONTROLLER_PORT, 0, 0)
+                ip6 = gen_ip6(msg["uid"])
+                dest = (ip6, CONTROLLER_PORT, 0, 0)
                 self.sock.sendto(json.dumps(msg), dest)
 
     def serve(self):
@@ -154,9 +163,11 @@ def main():
     password = sys.argv[2]
     host = sys.argv[3]
     uid = binascii.b2a_hex(os.urandom(9))
+    #ip4 = IP4
+    ip4 = gen_ip4(uid)
     server = UdpServer()
     do_set_callback(server.sock, server.sock.getsockname())
-    do_set_local_ip(server.sock, uid, IP4, gen_ip6(uid))
+    do_set_local_ip(server.sock, uid, ip4, gen_ip6(uid))
     do_register_service(server.sock, user, password, host)
     do_get_state(server.sock)
     last_time = time.time()

@@ -166,17 +166,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w(struct threadqueue* queue);
 
-  std::string gen_ip6(const std::string& uid_key) {
-    int len = (svpn_ip6_.size() - 7) / 2;  // len should be 16
-    if (uid_key.size() < len) return "";
-    std::string result = svpn_ip6_.substr(0, len + 3);
-    for (int i = 0; i < len; i+=4) {
-      result += ":";
-      result += uid_key.substr(i, 4);
-    }
-    return result;
-  }
-
   const std::string content_name_;
   SocialSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
@@ -193,7 +182,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
   const uint64 tiebreaker_;
-  uint32 check_counter_;
   std::string svpn_ip4_;
   std::string svpn_ip6_;
   std::string tap_name_;

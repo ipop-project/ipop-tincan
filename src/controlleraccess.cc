@@ -32,7 +32,6 @@
 
 namespace sjingle {
 
-static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
 static const int kUdpPort = 5800;
 static const int kBufferSize = 1024;
