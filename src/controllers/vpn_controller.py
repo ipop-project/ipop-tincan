@@ -6,6 +6,7 @@ import time
 import sys
 import os
 import binascii
+import struct
 
 # TODO - Detect local ip addresses
 IP4 = "172.31.0.100"
@@ -98,10 +99,9 @@ class UdpServer:
 
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
         if uid != self.state["_uid"]:
-            if MODE == "gvpn" and ip4 == None:
-                ip4 = ""
+            if MODE == "gvpn":
                 do_send_msg(self.sock, 1, uid, "ip4:" + self.state["_ip4"])
-            elif MODE == "svpn" and ip4 == None:
+            elif MODE == "svpn":
                 ip4 = gen_ip4(uid, len(self.state["peers"]))
 
             ip6 = gen_ip6(uid)
@@ -122,8 +122,9 @@ class UdpServer:
         for k, v in self.state.get("peers", {}).iteritems():
             do_send_msg(self.sock, 1, k, self.state["_fpr"])
 
+    # TODO - Add namespace support
     def lookup(self, ip4=None, uid=None):
-        peers = self.discover_peers
+        peers = self.state.get("peers", {})
         if uid != None: peers[uid] = self.state["peers"][uid]
         for k, v in peers.iteritems():
             if v["status"] == "online":
@@ -159,14 +160,24 @@ class UdpServer:
                 dest = (ip6, CONTROLLER_PORT, 0, 0)
                 self.sock.sendto(json.dumps(msg), dest)
 
+    def handle_packet(self, packet):
+        iph = struct.unpack('!BBHHHBBH4s4s', packet[54:74])
+        version_ihl = iph[0]
+        version = version_ihl >> 4
+        s_addr = socket.inet_ntoa(iph[8])
+        d_addr = socket.inet_ntoa(iph[9])
+        print version, s_addr, d_addr
+        self.lookup(d_addr)
+
     def serve(self):
         msg = None
         socks = select.select([self.sock], [], [], 15)
         for sock in socks[0]:
             data, addr = sock.recvfrom(4096)
-            print "recv %s %s" % (addr, data)
             if data[0] == '{': msg = json.loads(data)
+            else: self.handle_packet(data); continue
 
+            print "recv %s %s" % (addr, data)
             if isinstance(msg, dict) and "_uid" in msg:
                 self.set_state(msg)
                 continue

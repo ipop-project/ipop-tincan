@@ -202,7 +202,10 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   const char* dest_id = data + kIdSize + 2;
   std::string source(data, kIdSize);
   std::string dest(dest_id, kIdSize);
-  if (uid_map_.find(dest) != uid_map_.end()) {
+  if (dest.compare(0, 1, "0") == 0) {
+    forward_socket_->SendTo(data, len, forward_addr_);
+  } 
+  else if (uid_map_.find(dest) != uid_map_.end()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         uid_map_[dest]->transport->GetChannel(component);

@@ -67,6 +67,7 @@ ControllerAccess::ControllerAccess(
   socket_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
+  manager_.set_forward_socket(socket_.get());
   init_map();
 }
 
@@ -132,6 +133,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         int port = root["port"].asInt();
         remote_addr_.SetIP(ip);
         remote_addr_.SetPort(port);
+        manager_.set_forward_addr(remote_addr_);
       }
       break;
     case SEND_MSG: {

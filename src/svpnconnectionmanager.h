@@ -97,7 +97,13 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   talk_base::Thread* worker_thread() const { return worker_thread_; }
 
-  void set_ip(const char* ip) { svpn_ip4_ = ip; }
+  void set_forward_addr(const talk_base::SocketAddress addr) {
+    forward_addr_ = addr;
+  }
+
+  void set_forward_socket(talk_base::AsyncPacketSocket* socket) {
+    forward_socket_ = socket;
+  }
 
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
@@ -185,6 +191,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string svpn_ip4_;
   std::string svpn_ip6_;
   std::string tap_name_;
+  talk_base::AsyncPacketSocket* forward_socket_;
+  talk_base::SocketAddress forward_addr_;
 };
 
 }  // namespace sjingle
