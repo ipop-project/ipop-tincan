@@ -44,8 +44,8 @@ enum {
   SET_REMOTE_IP,
   TRIM_LINK,
   SET_CALLBACK,
+  SEND_MSG,
   GET_STATE,
-  PING,
 };
 
 static void init_map() {
@@ -55,8 +55,8 @@ static void init_map() {
   rpc_calls["set_remote_ip"] = SET_REMOTE_IP;
   rpc_calls["trim_link"] = TRIM_LINK;
   rpc_calls["set_callback"] = SET_CALLBACK;
+  rpc_calls["send_msg"] = SEND_MSG;
   rpc_calls["get_state"] = GET_STATE;
-  rpc_calls["ping"] = PING;
 }
 
 ControllerAccess::ControllerAccess(
@@ -100,7 +100,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string turn = root["turn"].asString();
         std::string cas = root["cas"].asString();
         bool sec = root["sec"].asBool();
-        manager_.CreateTransport(uid, fpr, nid, stun, turn, sec);
+        bool res = manager_.CreateTransport(uid, fpr, nid, stun, turn, sec);
         if (!cas.empty()) {
           manager_.CreateConnections(uid, cas);
         }
@@ -134,10 +134,10 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         remote_addr_.SetPort(port);
       }
       break;
-    case PING: {
+    case SEND_MSG: {
         int nid = root["nid"].asInt();
         std::string uid = root["uid"].asString();
-        std::string fpr = root["fpr"].asString();
+        std::string fpr = root["data"].asString();
         network_.SendToPeer(nid, uid, fpr);
       }
       break;

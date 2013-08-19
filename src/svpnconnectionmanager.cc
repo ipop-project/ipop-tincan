@@ -33,6 +33,20 @@
 
 #include "svpnconnectionmanager.h"
 
+namespace {
+
+std::string gen_ip6(const std::string& uid, const std::string& ip6) {
+  int len = (ip6.size() - 7) / 2;  // len should be 16
+  if (uid.size() < len) return "";
+  std::string new_ip6 = ip6.substr(0, len + 3);
+  for (int i = 0; i < len/4; i++) {
+    new_ip6 += ":";
+    new_ip6 += uid.substr(i * 4, 4);
+  }
+  return new_ip6;
+}
+};
+
 namespace sjingle {
 
 static const char kContentName[] = "svpn-jingle";
@@ -116,19 +130,18 @@ void SvpnConnectionManager::OnRequestSignaling(
 void SvpnConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   std::string uid = transport_map_[transport];
-  std::string status = "unknown";
+  std::string status = "stat:unknown";
   if (transport->readable() && transport->writable()) {
-    status = "online";
+    status = "stat:online";
     LOG_F(INFO) << "ONLINE " << uid << " " << talk_base::Time();
   }
   else if (transport->was_writable()) {
-    status = "offline";
+    status = "stat:offline";
     LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
 
   // TODO - For now, nid = 0 is the controller
-  int nid = 0;
-  social_sender_->SendToPeer(nid, uid, status);
+  social_sender_->SendToPeer(0, uid, status);
 }
 
 void SvpnConnectionManager::OnCandidatesReady(
@@ -231,7 +244,7 @@ bool SvpnConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint, int nid,
     const std::string& stun_server, const std::string& turn_server,
     const bool sec_enabled) {
-  if (uid_map_.find(uid) != uid_map_.end()) {
+  if (uid_map_.find(uid) != uid_map_.end() || svpn_id_ == uid) {
     LOG_F(INFO) << "EXISTS " << uid;
     return false;
   }
@@ -286,7 +299,8 @@ bool SvpnConnectionManager::CreateTransport(
 
 bool SvpnConnectionManager::AddIP(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
-  if (ip_map_.find(uid) != ip_map_.end())  return false;
+  if (!ip_map_[uid].empty() || ip4.empty())  return false;
+  // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
   peerlist_add_p(uid.c_str(), ip4.c_str(), ip6.c_str(), 0);
   ip_map_[uid] = ip4;
@@ -339,15 +353,7 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
 void SvpnConnectionManager::HandlePeer(const std::string& uid,
                                        const std::string& data) {
   // TODO - For now, nid = 0 is the controller
-  int nid = 0;
-  if (data.size() == fingerprint().size()) {
-    social_sender_->SendToPeer(nid, uid, data);
-  }
-  else if (data.size() > fingerprint().size()) {
-    social_sender_->SendToPeer(
-        nid, uid, data.substr(0, fingerprint().size()));
-    CreateConnections(uid, data.substr(fingerprint().size()));
-  }
+  social_sender_->SendToPeer(0, uid, data);
   LOG_F(INFO) << uid << " " << data;
 }
 
@@ -374,6 +380,7 @@ std::string SvpnConnectionManager::GetState() {
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->first;
     peer["ip4"] = it->second;
+    peer["ip6"] = gen_ip6(it->first, svpn_ip6_);
     peer["status"] = "offline";
     if (uid_map_.find(uid) != uid_map_.end()) {
       peer["fpr"] = uid_map_[uid]->fingerprint;
@@ -387,6 +394,7 @@ std::string SvpnConnectionManager::GetState() {
   state["_uid"] = svpn_id_;
   state["_fpr"] = fingerprint_;
   state["_ip4"] = svpn_ip4_;
+  state["_ip6"] = svpn_ip6_;
   state["peers"] = peers;
   return state.toStyledString();
 }
