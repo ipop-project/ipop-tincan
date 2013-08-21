@@ -43,7 +43,8 @@ class ControllerAccess : public SocialSenderInterface,
                          public sigslot::has_slots<> {
  public:
   ControllerAccess(SvpnConnectionManager& manager, XmppNetwork& network,
-         talk_base::BasicPacketSocketFactory* packet_factory);
+         talk_base::BasicPacketSocketFactory* packet_factory,
+         struct threadqueue* controller_queue_);
 
   // Inherited from SocialSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
@@ -53,12 +54,15 @@ class ControllerAccess : public SocialSenderInterface,
   virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
       const char* data, size_t len, const talk_base::SocketAddress& addr);
 
+  virtual void ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
+      const char* data, size_t len, const talk_base::SocketAddress& addr);
+
  private:
   XmppNetwork& network_;
   SvpnConnectionManager& manager_;
   talk_base::SocketAddress remote_addr_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
-
+  struct threadqueue* controller_queue_;
 };
 
 }  // namespace sjingle

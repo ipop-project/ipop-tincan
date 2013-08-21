@@ -59,7 +59,8 @@ static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_TCP;
 static SvpnConnectionManager* g_manager = 0;
 
 enum {
-  MSG_QUEUESIGNAL = 0
+  MSG_QUEUESIGNAL = 0,
+  MSG_CONTROLLERSIGNAL = 1
 };
 
 SvpnConnectionManager::SvpnConnectionManager(
@@ -67,7 +68,8 @@ SvpnConnectionManager::SvpnConnectionManager(
     talk_base::Thread* signaling_thread,
     talk_base::Thread* worker_thread,
     struct threadqueue* send_queue,
-    struct threadqueue* rcv_queue)
+    struct threadqueue* rcv_queue,
+    struct threadqueue* controller_queue)
     : content_name_(kContentName),
       social_sender_(social_sender),
       packet_factory_(worker_thread),
@@ -82,6 +84,7 @@ SvpnConnectionManager::SvpnConnectionManager(
       fingerprint_(),
       send_queue_(send_queue),
       rcv_queue_(rcv_queue),
+      controller_queue_(controller_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
       svpn_ip4_(),
       svpn_ip6_(),
@@ -192,6 +195,7 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   if (uid_map_.find(source) != uid_map_.end() && 
       uid_map_[source]->transport->GetChannel(component) == channel) {
+    uid_map_[source]->last_time = talk_base::Time();
     int count = thread_queue_bput(rcv_queue_, data, len);
   }
 }
@@ -205,7 +209,8 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (dest.compare(0, 1, "0") == 0) {
     forward_socket_->SendTo(data, len, forward_addr_);
   } 
-  else if (uid_map_.find(dest) != uid_map_.end()) {
+  else if (uid_map_.find(dest) != uid_map_.end() &&
+           uid_map_[dest]->transport->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         uid_map_[dest]->transport->GetChannel(component);
@@ -259,6 +264,7 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->uid = uid;
   peer_state->fingerprint = fingerprint;
   peer_state->nid = nid;
+  peer_state->last_time = talk_base::Time();
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
       &network_manager_, &packet_factory_, stun_addr));
   peer_state->port_allocator->set_flags(kFlags);
@@ -350,6 +356,10 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
         HandleQueueSignal_w(0);
       }
       break;
+    case MSG_CONTROLLERSIGNAL: {
+        HandleControllerSignal_w(0);
+      }
+      break;
   }
 }
 
@@ -362,15 +372,30 @@ void SvpnConnectionManager::HandlePeer(const std::string& uid,
 
 void SvpnConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
   if (g_manager != 0) {
-    g_manager->worker_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
+    if (queue != 0) {
+      g_manager->worker_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
+    }
+    else {
+      g_manager->worker_thread()->Post(g_manager, MSG_CONTROLLERSIGNAL, 0);
+    }
   }
 }
 
-void SvpnConnectionManager::HandleQueueSignal_w(struct threadqueue *queue) {
+void SvpnConnectionManager::HandleQueueSignal_w(
+    struct threadqueue *queue) {
   char buf[kBufferSize];
   int len = thread_queue_bget(send_queue_, buf, sizeof(buf));
   if (len > 0) {
     HandlePacket(0, buf, len, talk_base::SocketAddress());
+  }
+}
+
+void SvpnConnectionManager::HandleControllerSignal_w(
+    struct threadqueue *queue) {
+  char buf[kBufferSize];
+  int len = thread_queue_bget(controller_queue_, buf, sizeof(buf));
+  if (len > 0) {
+    int count = thread_queue_bput(rcv_queue_, buf, len);
   }
 }
 
@@ -387,10 +412,35 @@ std::string SvpnConnectionManager::GetState() {
     peer["status"] = "offline";
     if (uid_map_.find(uid) != uid_map_.end()) {
       peer["fpr"] = uid_map_[uid]->fingerprint;
+      uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
+      peer["last_time"] = time_diff/1000;
       if (uid_map_[uid]->transport->all_channels_readable() &&
           uid_map_[uid]->transport->all_channels_writable()) {
         peer["status"] = "online";
       }
+      cricket::ConnectionInfos infos;
+      int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+      uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+      std::ostringstream oss;
+      for (int i = 0; i < infos.size(); i++) {
+        oss << infos[i].best_connection << ":"
+            << infos[i].writable << ":"
+            << infos[i].readable << ":"
+            << infos[i].timeout << ":"
+            << infos[i].new_connection << ":"
+            << infos[i].rtt << ":" 
+            << infos[i].sent_total_bytes << ":"
+            << infos[i].sent_bytes_second<< ":"
+            << infos[i].recv_total_bytes << ":"
+            << infos[i].recv_bytes_second << " ";
+      }
+      peer["stats"] = oss.str();
+      std::ostringstream oss2;
+      for (int i = 0; i < infos.size(); i++) {
+        oss2 << infos[i].local_candidate.address().ToString() << " "
+            << infos[i].remote_candidate.address().ToString() << " ";
+      }
+      peer["stats_cons"] = oss2.str();
     }
     peers[it->first] = peer;
   }

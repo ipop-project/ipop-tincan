@@ -92,9 +92,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  struct threadqueue send_queue, rcv_queue;
+  struct threadqueue send_queue, rcv_queue, controller_queue;
   thread_queue_init(&send_queue);
   thread_queue_init(&rcv_queue);
+  thread_queue_init(&controller_queue);
 
   talk_base::Thread worker_thread, send_thread, recv_thread;
   talk_base::AutoThread signaling_thread;
@@ -103,12 +104,13 @@ int main(int argc, char **argv) {
   sjingle::SocialSender social_sender;
   sjingle::SvpnConnectionManager manager(&social_sender, &signaling_thread,
                                          &worker_thread, &send_queue, 
-                                         &rcv_queue);
+                                         &rcv_queue, &controller_queue);
   sjingle::XmppNetwork xmpp(&signaling_thread);
   xmpp.HandlePeer.connect(&manager,
       &sjingle::SvpnConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
-  sjingle::ControllerAccess controller(manager, xmpp, &packet_factory);
+  sjingle::ControllerAccess controller(manager, xmpp, &packet_factory,
+                                       &controller_queue);
   social_sender.add_service(0, &controller);
   social_sender.add_service(1, &xmpp);
 

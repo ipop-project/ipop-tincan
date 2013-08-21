@@ -82,7 +82,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
                         struct threadqueue* send_queue,
-                        struct threadqueue* rcv_queue);
+                        struct threadqueue* rcv_queue,
+                        struct threadqueue* controller_queue);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -163,6 +164,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
     int nid;
+    uint32 last_time;
   };
 
   typedef talk_base::scoped_refptr<
@@ -171,6 +173,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
  private:
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w(struct threadqueue* queue);
+  void HandleControllerSignal_w(struct threadqueue* queue);
 
   const std::string content_name_;
   SocialSenderInterface* social_sender_;
@@ -187,6 +190,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   std::string fingerprint_;
   struct threadqueue* send_queue_;
   struct threadqueue* rcv_queue_;
+  struct threadqueue* controller_queue_;
   const uint64 tiebreaker_;
   std::string svpn_ip4_;
   std::string svpn_ip6_;

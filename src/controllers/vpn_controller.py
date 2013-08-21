@@ -7,6 +7,7 @@ import sys
 import os
 import binascii
 import struct
+import hashlib
 
 # TODO - Detect local ip addresses
 IP4 = "172.31.0.100"
@@ -15,6 +16,7 @@ STUN = "209.141.33.252:19302"
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
+UID_SIZE = 18
 MODE = "svpn"
 SEC = True
 
@@ -79,11 +81,14 @@ class UdpServer:
         self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.sock.bind(("", CONTROLLER_PORT))
         self.state = {}
-        self.discover_peers = {}
-        self.connect_times = {}
+        self.controllers = {}
 
     def setup_svpn(self):
-        uid = binascii.b2a_hex(os.urandom(9))
+        m = hashlib.sha1()
+        if MODE == "svpn": m.update(socket.gethostname())
+        elif MODE == "gvpn": m.update(self.ip4)
+        uid = m.hexdigest()[:UID_SIZE]
+
         if self.ip4 == None: self.ip4 = IP4
         do_set_callback(self.sock, self.sock.getsockname())
         do_set_local_ip(self.sock, uid, self.ip4, gen_ip6(uid))
@@ -94,54 +99,50 @@ class UdpServer:
         self.state = state
         if len(state["_uid"]) == 0: self.setup_svpn()
         for k, v in self.state.get("peers", {}).iteritems():
-            if k not in self.connect_times:
-                self.connect_times[k] = time.time()
+            self.controllers[v["ip4"]] = v["ip6"]
 
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
-        if uid != self.state["_uid"]:
-            if MODE == "gvpn":
-                do_send_msg(self.sock, 1, uid, "ip4:" + self.state["_ip4"])
-            elif MODE == "svpn":
-                ip4 = gen_ip4(uid, len(self.state["peers"]))
+        if uid == self.state["_uid"]: return
+        if MODE == "gvpn":
+            do_send_msg(self.sock, 1, uid, "ip4:" + self.state["_ip4"])
+        elif MODE == "svpn":
+            ip4 = gen_ip4(uid, len(self.state["peers"]))
 
-            ip6 = gen_ip6(uid)
-            do_create_link(self.sock, uid, data, nid, sec, cas)
-            do_set_remote_ip(self.sock, uid, ip4, ip6)
-            do_get_state(self.sock)
-
-            if uid not in self.connect_times:
-                self.connect_times[uid] = time.time()
+        ip6 = gen_ip6(uid)
+        do_create_link(self.sock, uid, data, nid, sec, cas)
+        do_set_remote_ip(self.sock, uid, ip4, ip6)
+        do_get_state(self.sock)
 
     def trim_connections(self):
         for k, v in self.state.get("peers", {}).iteritems():
             if "fpr" in v and v["status"] == "offline":
-                time_diff = time.time() - self.connect_times[k]
-                if time_diff > 300: do_trim_link(self.sock, k)
+                if v["last_time"] > 120: do_trim_link(self.sock, k)
 
-    def social_pings(self):
+    def do_pings(self, social_send=False):
+        # TODO - It's not a good idea to send a bunch of packets at once
+        msg = {"m":"ping", "uid": self.state["_uid"]}
         for k, v in self.state.get("peers", {}).iteritems():
-            do_send_msg(self.sock, 1, k, self.state["_fpr"])
+            if social_send: do_send_msg(self.sock, 1, k, self.state["_fpr"])
+            dest = (v["ip6"], CONTROLLER_PORT)
+            self.sock.sendto(json.dumps(msg), dest)
 
     # TODO - Add namespace support
-    def lookup(self, ip4=None, uid=None):
-        peers = self.state.get("peers", {})
-        if uid != None: peers[uid] = self.state["peers"][uid]
-        for k, v in peers.iteritems():
-            if v["status"] == "online":
-                request = {"m": "lookup", "ip4": ip4}
-                ip6 = gen_ip6(k)
-                dest = (ip6, CONTROLLER_PORT)
-                self.sock.sendto(json.dumps(request), dest)
+    def lookup(self, ip4=None, ip6=None):
+        for k, v in self.controllers:
+            request = {"m": "lookup", "ip4": ip4, "ip6": ip6}
+            ip6 = gen_ip6(k)
+            dest = (ip6, CONTROLLER_PORT)
+            self.sock.sendto(json.dumps(request), dest)
 
     def process_lookup(self, request, addr):
         for k, v in self.state.get("peers", {}).iteritems():
             ip4 = request.get("ip4", None)
-            if ip4 != None and ip4 != v["ip4"]: continue
-
-            if v["status"] == "online":
+            ip6 = request.get("ip6", None)
+            if v["status"] == "online" and \
+                (ip4 == v["ip4"] or ip6 == v["ip6"]):
                 response = {"uid": k}
                 response["data"] = v["fpr"]
-                if ip4 == v["ip4"]: response["ip4"] = ip4
+                response["ip4"] = ip4
                 self.sock.sendto(json.dumps(response), addr)
 
     def route_notification(self, msg, addr):
@@ -160,20 +161,36 @@ class UdpServer:
                 dest = (ip6, CONTROLLER_PORT, 0, 0)
                 self.sock.sendto(json.dumps(msg), dest)
 
-    def handle_packet(self, packet):
+    # TODO - Add IPv6 support
+    def handle_packet(self, packet, do_lookup=False):
         iph = struct.unpack('!BBHHHBBH4s4s', packet[54:74])
         version_ihl = iph[0]
         version = version_ihl >> 4
         s_addr = socket.inet_ntoa(iph[8])
         d_addr = socket.inet_ntoa(iph[9])
         print version, s_addr, d_addr
-        self.lookup(d_addr)
+
+        if do_lookup: self.lookup(d_addr)
+        if MODE == "svpn" or len(self.state["_ip4"]) == 0: return
+
+        if (s_addr == self.state["_ip4"]):
+            # TODO - Send to first controller, need better routing policy
+            dest = (self.controllers.values()[0], CONTROLLER_PORT)
+        elif (d_addr == self.state["_ip4"]):
+            dest = (LOCALHOST6, SVPN_PORT)
+        elif d_addr in self.controllers:
+            dest = (self.controllers[d_addr], CONTROLLER_PORT)
+        else: return
+
+        self.sock.sendto(packet, dest)
+        return d_addr
 
     def serve(self):
         msg = None
         socks = select.select([self.sock], [], [], 15)
         for sock in socks[0]:
             data, addr = sock.recvfrom(4096)
+            print addr, len(data)
             if data[0] == '{': msg = json.loads(data)
             else: self.handle_packet(data); continue
 
@@ -247,7 +264,8 @@ def main():
             server.trim_connections()
             do_get_state(server.sock)
             last_time = time.time()
-            if count % 2 == 0: server.social_pings()
+            if count % 10 == 0: server.do_pings(True)
+            else: server.do_pings(False)
 
 if __name__ == '__main__':
     main()

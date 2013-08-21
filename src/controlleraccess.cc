@@ -61,9 +61,11 @@ static void init_map() {
 
 ControllerAccess::ControllerAccess(
     SvpnConnectionManager& manager, XmppNetwork& network,
-    talk_base::BasicPacketSocketFactory* packet_factory)
+    talk_base::BasicPacketSocketFactory* packet_factory,
+    struct threadqueue* controller_queue)
     : manager_(manager),
-      network_(network) {
+      network_(network),
+      controller_queue_(controller_queue) {
   socket_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
@@ -71,15 +73,23 @@ ControllerAccess::ControllerAccess(
   init_map();
 }
 
+void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
+    const char* data, size_t len, const talk_base::SocketAddress& addr) {
+  int count = thread_queue_bput(controller_queue_, data, len);
+  SvpnConnectionManager::HandleQueueSignal(0);
+}
+
+
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
+  if (data[0] != '{') return ProcessIPPacket(socket, data, len, addr);
   std::string result;
   std::string message(data, 0, len);
   LOG_F(INFO) << message;
   Json::Reader reader;
   Json::Value root;
   if (!reader.parse(message, root)) {
-    result = "json parsing failed\n";
+    result = "{\"error\":\"json parsing failed\"}";
   }
 
   // TODO - input sanitazation for security purposes
