@@ -73,6 +73,32 @@ class RecvRunnable : public talk_base::Runnable {
   thread_opts_t *opts_;
 };
 
+int get_free_network_ip(char *ip_addr, size_t len) {
+  struct ifaddrs* interfaces;
+  if (getifaddrs(&interfaces) != 0)  return -1;
+
+  // TODO - we should loop again whenever ip address changes
+  char tmp_addr[NI_MAXHOST];
+  for (struct ifaddrs* ifa = interfaces; ifa != 0; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr != 0 && ifa->ifa_addr->sa_family == AF_INET) {
+      int error = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in),
+                              tmp_addr, sizeof(tmp_addr), NULL, 0, 
+                              NI_NUMERICHOST);
+      if (error == 0) {
+        if (strncmp(ip_addr, tmp_addr, CMP_SIZE) == 0) {
+          char segment[SEGMENT_SIZE] = { '\0' };
+          memcpy(segment, ip_addr + SEGMENT_OFFSET, sizeof(segment) - 1);
+          int i = atoi(segment) - 1;
+          snprintf(ip_addr + SEGMENT_OFFSET, sizeof(segment), "%d", i);
+          ip_addr[CMP_SIZE - 1] = '.';  // snprintf adds extra null
+        }
+      }
+    }
+  }
+  freeifaddrs(interfaces);
+  return 0;
+}
+
 // TODO - Implement some kind of verification mechanism
 bool SSLVerificationCallback(void* cert) {
   return true;
@@ -113,6 +139,13 @@ int main(int argc, char **argv) {
                                        &controller_queue);
   social_sender.add_service(0, &controller);
   social_sender.add_service(1, &xmpp);
+
+  // Checks to see if network is available, changes IP if not
+  char ip_addr[NI_MAXHOST] = { '\0' };
+  manager.ipv4().copy(ip_addr, sizeof(ip_addr));
+  if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
+    manager.set_ip(ip_addr);
+  }
 
   thread_opts_t opts;
   opts.tap = tap_open(manager.tap_name().c_str(), opts.mac);

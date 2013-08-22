@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 import socket
 import select
@@ -9,7 +10,6 @@ import binascii
 import struct
 import hashlib
 
-# TODO - Detect local ip addresses
 IP4 = "172.31.0.100"
 IP6 = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000"
 STUN = "209.141.33.252:19302"
@@ -82,14 +82,13 @@ class UdpServer:
         self.sock.bind(("", CONTROLLER_PORT))
         self.state = {}
         self.controllers = {}
+        self.controllers6 = {}
 
     def setup_svpn(self):
         m = hashlib.sha1()
         if MODE == "svpn": m.update(socket.gethostname())
         elif MODE == "gvpn": m.update(self.ip4)
         uid = m.hexdigest()[:UID_SIZE]
-
-        if self.ip4 == None: self.ip4 = IP4
         do_set_callback(self.sock, self.sock.getsockname())
         do_set_local_ip(self.sock, uid, self.ip4, gen_ip6(uid))
         do_register_service(self.sock, self.user, self.password, self.host)
@@ -97,16 +96,22 @@ class UdpServer:
 
     def set_state(self, state):
         self.state = state
+        if len(self.ip4) == 0: self.ip4 = state["_ip4"]
         if len(state["_uid"]) == 0: self.setup_svpn()
         for k, v in self.state.get("peers", {}).iteritems():
-            self.controllers[v["ip4"]] = v["ip6"]
+            if len(v["ip4"]) == 0: continue
+            # We store in network format for easier comparison
+            ip4_n = socket.inet_pton(socket.AF_INET, v["ip4"])
+            ip6_n = socket.inet_pton(socket.AF_INET6, v["ip6"])
+            self.controllers[ip4_n] = v["ip6"]
+            self.controllers6[ip6_n] = v["ip6"]
 
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
         if uid == self.state["_uid"]: return
         if MODE == "gvpn":
             do_send_msg(self.sock, 1, uid, "ip4:" + self.state["_ip4"])
         elif MODE == "svpn":
-            ip4 = gen_ip4(uid, len(self.state["peers"]))
+            ip4 = gen_ip4(uid, len(self.state["peers"]), self.ip4)
 
         ip6 = gen_ip6(uid)
         do_create_link(self.sock, uid, data, nid, sec, cas)
@@ -130,8 +135,7 @@ class UdpServer:
     def lookup(self, ip4=None, ip6=None):
         for k, v in self.controllers:
             request = {"m": "lookup", "ip4": ip4, "ip6": ip6}
-            ip6 = gen_ip6(k)
-            dest = (ip6, CONTROLLER_PORT)
+            dest = (v, CONTROLLER_PORT)
             self.sock.sendto(json.dumps(request), dest)
 
     def process_lookup(self, request, addr):
@@ -161,25 +165,42 @@ class UdpServer:
                 dest = (ip6, CONTROLLER_PORT, 0, 0)
                 self.sock.sendto(json.dumps(msg), dest)
 
-    # TODO - Add IPv6 support
     def handle_packet(self, packet, do_lookup=False):
+        if len(self.state["_ip4"]) == 0: return
         iph = struct.unpack('!BBHHHBBH4s4s', packet[54:74])
-        version_ihl = iph[0]
-        version = version_ihl >> 4
-        s_addr = socket.inet_ntoa(iph[8])
-        d_addr = socket.inet_ntoa(iph[9])
+        version_ihl = struct.unpack('!B', packet[54:55])
+        version = version_ihl[0] >> 4
+        if version == 4:
+            s_addr_n = struct.unpack('!4s', packet[66:70])[0]
+            d_addr_n = struct.unpack('!4s', packet[70:74])[0]
+            addr_family = socket.AF_INET
+        elif version == 6:
+            s_addr_n = struct.unpack('!16s', packet[62:78])[0]
+            d_addr_n = struct.unpack('!16s', packet[78:94])[0]
+            addr_family = socket.AF_INET6
+        else: return
+
+        s_addr = socket.inet_ntop(addr_family, s_addr_n)
+        d_addr = socket.inet_ntop(addr_family, d_addr_n)
         print version, s_addr, d_addr
 
         if do_lookup: self.lookup(d_addr)
         if MODE == "svpn" or len(self.state["_ip4"]) == 0: return
 
-        if (s_addr == self.state["_ip4"]):
+        if version == 4:
+            self_ip = socket.inet_pton(addr_family, self.state["_ip4"])
+            controllers = self.controllers
+        elif version == 6:
+            self_ip = socket.inet_pton(addr_family, self.state["_ip6"])
+            controllers = self.controllers6
+
+        if (s_addr_n == self_ip):
             # TODO - Send to first controller, need better routing policy
-            dest = (self.controllers.values()[0], CONTROLLER_PORT)
-        elif (d_addr == self.state["_ip4"]):
+            dest = (controllers.values()[0], CONTROLLER_PORT)
+        elif (d_addr_n == self_ip):
             dest = (LOCALHOST6, SVPN_PORT)
-        elif d_addr in self.controllers:
-            dest = (self.controllers[d_addr], CONTROLLER_PORT)
+        elif d_addr_n in controllers:
+            dest = (controllers[d_addr_n], CONTROLLER_PORT)
         else: return
 
         self.sock.sendto(packet, dest)
@@ -242,7 +263,7 @@ class UdpServer:
                 do_set_remote_ip(self.sock, msg["uid"], ip4, ip6)
 
 def main():
-    ip4 = IP4
+    ip4 = ""
     if len(sys.argv) < 4:
         print "usage: %s username password host [ip]" % (sys.argv[0],)
 

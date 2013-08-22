@@ -49,6 +49,8 @@ std::string gen_ip6(const std::string& uid, const std::string& ip6) {
 
 namespace sjingle {
 
+static const char kIpv4[] = "172.31.0.100";
+static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const char kContentName[] = "svpn-jingle";
 static const bool kAllowTcpListen = false;
 static const char kIceUfrag[] = "ufrag";
@@ -86,8 +88,8 @@ SvpnConnectionManager::SvpnConnectionManager(
       rcv_queue_(rcv_queue),
       controller_queue_(controller_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
-      svpn_ip4_(),
-      svpn_ip6_(),
+      svpn_ip4_(kIpv4),
+      svpn_ip6_(kIpv6),
       tap_name_(kTapName) {
   g_manager = this;
   network_manager_.SignalNetworksChanged.connect(

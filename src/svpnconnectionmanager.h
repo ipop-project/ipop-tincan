@@ -98,6 +98,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   talk_base::Thread* worker_thread() const { return worker_thread_; }
 
+  void set_ip(const char* ip) { svpn_ip4_ = ip; }
+
   void set_forward_addr(const talk_base::SocketAddress addr) {
     forward_addr_ = addr;
   }
