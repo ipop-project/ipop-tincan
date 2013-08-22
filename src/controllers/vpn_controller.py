@@ -133,15 +133,15 @@ class UdpServer:
 
     # TODO - Add namespace support
     def lookup(self, ip4=None, ip6=None):
-        for k, v in self.controllers:
+        for peer in self.controllers.values():
             request = {"m": "lookup", "ip4": ip4, "ip6": ip6}
-            dest = (v, CONTROLLER_PORT)
+            dest = (peer, CONTROLLER_PORT)
             self.sock.sendto(json.dumps(request), dest)
 
     def process_lookup(self, request, addr):
+        ip4 = request.get("ip4", None)
+        ip6 = request.get("ip6", None)
         for k, v in self.state.get("peers", {}).iteritems():
-            ip4 = request.get("ip4", None)
-            ip6 = request.get("ip6", None)
             if v["status"] == "online" and \
                 (ip4 == v["ip4"] or ip6 == v["ip6"]):
                 response = {"uid": k}
@@ -170,6 +170,7 @@ class UdpServer:
         iph = struct.unpack('!BBHHHBBH4s4s', packet[54:74])
         version_ihl = struct.unpack('!B', packet[54:55])
         version = version_ihl[0] >> 4
+
         if version == 4:
             s_addr_n = struct.unpack('!4s', packet[66:70])[0]
             d_addr_n = struct.unpack('!4s', packet[70:74])[0]
@@ -183,8 +184,6 @@ class UdpServer:
         s_addr = socket.inet_ntop(addr_family, s_addr_n)
         d_addr = socket.inet_ntop(addr_family, d_addr_n)
         print version, s_addr, d_addr
-
-        if do_lookup: self.lookup(d_addr)
         if MODE == "svpn" or len(self.state["_ip4"]) == 0: return
 
         if version == 4:
@@ -229,7 +228,7 @@ class UdpServer:
                 continue
 
             if msg.get("m", None) == "nc_lookup":
-                self.lookup(msg["ip"], msg["uid"])
+                self.lookup(msg["ip4"], msg["ip6"])
                 continue
 
             ip4 = msg.get("ip4", None)
