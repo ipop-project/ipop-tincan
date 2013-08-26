@@ -32,6 +32,7 @@
 
 namespace sjingle {
 
+static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
 static const int kUdpPort = 5800;
 static const int kBufferSize = 1024;
@@ -67,8 +68,11 @@ ControllerAccess::ControllerAccess(
       network_(network),
       controller_queue_(controller_queue) {
   socket_.reset(packet_factory->CreateUdpSocket(
-      talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
+      talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
+  socket6_.reset(packet_factory->CreateUdpSocket(
+      talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
+  socket6_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
   manager_.set_forward_socket(socket_.get());
   init_map();
 }
@@ -163,7 +167,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
  
   if (result.empty()) result = "{}";
-  socket_->SendTo(result.c_str(), result.size(), addr);
+  if (addr.family() == AF_INET) {
+    socket_->SendTo(result.c_str(), result.size(), addr);
+  }
+  else if (addr.family() == AF_INET6)  {
+    socket6_->SendTo(result.c_str(), result.size(), addr);
+  }
 }
 
 void ControllerAccess::SendToPeer(int nid, const std::string& uid,
@@ -172,7 +181,12 @@ void ControllerAccess::SendToPeer(int nid, const std::string& uid,
   json["uid"] = uid;
   json["data"] = data;
   std::string msg = json.toStyledString();
-  socket_->SendTo(msg.c_str(), msg.size(), remote_addr_);
+  if (remote_addr_.family() == AF_INET) {
+    socket_->SendTo(msg.c_str(), msg.size(), remote_addr_);
+  }
+  else if (remote_addr_.family() == AF_INET6)  {
+    socket6_->SendTo(msg.c_str(), msg.size(), remote_addr_);
+  }
 }
 
 }  // namespace sjingle

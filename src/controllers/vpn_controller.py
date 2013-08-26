@@ -13,6 +13,7 @@ import hashlib
 IP4 = "172.31.0.100"
 IP6 = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000"
 STUN = "209.141.33.252:19302"
+LOCALHOST= "127.0.0.1"
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
@@ -34,7 +35,8 @@ def gen_ip6(uid, ip6=IP6):
 
 def make_call(sock, params):
     data = json.dumps(params)
-    dest = (LOCALHOST6, SVPN_PORT)
+    if socket.has_ipv6: dest = (LOCALHOST6, SVPN_PORT)
+    else: dest = (LOCALHOST, SVPN_PORT)
     return sock.sendto(data, dest)
 
 def do_set_callback(sock, addr):
@@ -78,16 +80,24 @@ class UdpServer:
         self.password = password
         self.host = host
         self.ip4 = ip4
-        self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        if socket.has_ipv6:
+            self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        else:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", CONTROLLER_PORT))
         self.state = {}
         self.controllers = {}
         self.controllers6 = {}
 
     def setup_svpn(self):
+        uid = binascii.b2a_hex(os.urandom(9))
+        hostname = socket.gethostname()
         m = hashlib.sha1()
-        if MODE == "svpn": m.update(socket.gethostname())
-        elif MODE == "gvpn": m.update(self.ip4)
+        if MODE == "svpn" and hostname != "localhost":
+            m.update(socket.gethostname())
+        elif MODE == "gvpn":
+            m.update(self.ip4)
+
         uid = m.hexdigest()[:UID_SIZE]
         do_set_callback(self.sock, self.sock.getsockname())
         do_set_local_ip(self.sock, uid, self.ip4, gen_ip6(uid))
@@ -102,9 +112,10 @@ class UdpServer:
             if len(v["ip4"]) == 0: continue
             # We store in network format for easier comparison
             ip4_n = socket.inet_pton(socket.AF_INET, v["ip4"])
-            ip6_n = socket.inet_pton(socket.AF_INET6, v["ip6"])
             self.controllers[ip4_n] = v["ip6"]
-            self.controllers6[ip6_n] = v["ip6"]
+            if socket.has_ipv6:
+                ip6_n = socket.inet_pton(socket.AF_INET6, v["ip6"])
+                self.controllers6[ip6_n] = v["ip6"]
 
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
         if uid == self.state["_uid"]: return
@@ -128,11 +139,13 @@ class UdpServer:
         msg = {"m":"ping", "uid": self.state["_uid"]}
         for k, v in self.state.get("peers", {}).iteritems():
             if social_send: do_send_msg(self.sock, 1, k, self.state["_fpr"])
-            dest = (v["ip6"], CONTROLLER_PORT)
+            if socket.has_ipv6: dest = (v["ip6"], CONTROLLER_PORT)
+            else: dest = (v["ip4"], CONTROLLER_PORT)
             self.sock.sendto(json.dumps(msg), dest)
 
     # TODO - Add namespace support
     def lookup(self, ip4=None, ip6=None):
+        if not socket.has_ipv6: return
         for peer in self.controllers.values():
             request = {"m": "lookup", "ip4": ip4, "ip6": ip6}
             dest = (peer, CONTROLLER_PORT)
@@ -166,7 +179,7 @@ class UdpServer:
                 self.sock.sendto(json.dumps(msg), dest)
 
     def handle_packet(self, packet, do_lookup=False):
-        if len(self.state["_ip4"]) == 0: return
+        if len(self.state["_ip4"]) == 0 or not socket.has_ipv6: return
         iph = struct.unpack('!BBHHHBBH4s4s', packet[54:74])
         version_ihl = struct.unpack('!B', packet[54:55])
         version = version_ihl[0] >> 4
@@ -228,16 +241,16 @@ class UdpServer:
                 continue
 
             if msg.get("m", None) == "nc_lookup":
-                self.lookup(msg["ip4"], msg["ip6"])
+                self.lookup(msg["ip"], msg["ip4"], msg["ip6"])
                 continue
 
             ip4 = msg.get("ip4", None)
             fpr_len = len(self.state["_fpr"])
-            # TODO - fpr_len should not be used for decision making
+            local_ip = LOCALHOST6 if socket.has_ipv6 else LOCALHOST
 
             # this is a peer discovery notification
             if "data" in msg and len(msg["data"]) == fpr_len:
-                if addr[0] == LOCALHOST6:
+                if addr[0] == local_ip:
                     self.create_connection(msg["uid"], msg["data"], 1, SEC,
                                            "", ip4)
                 else:
@@ -248,7 +261,7 @@ class UdpServer:
                 fpr = msg["data"][:fpr_len]
                 cas = msg["data"][fpr_len + 1:]
                 # this came from social network
-                if addr[0] == LOCALHOST6 and fpr != self.state["_fpr"]:
+                if addr[0] == local_ip and fpr != self.state["_fpr"]:
                     self.create_connection(msg["uid"], fpr, 1, SEC, cas, ip4)
                 # this came from another controller
                 elif msg["uid"] == self.state["_uid"] and "from" in msg:

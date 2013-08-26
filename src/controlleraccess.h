@@ -62,6 +62,7 @@ class ControllerAccess : public SocialSenderInterface,
   SvpnConnectionManager& manager_;
   talk_base::SocketAddress remote_addr_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
+  talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket6_;
   struct threadqueue* controller_queue_;
 };
 

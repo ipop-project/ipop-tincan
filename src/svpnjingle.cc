@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
 
   thread_opts_t opts;
   opts.tap = tap_open(manager.tap_name().c_str(), opts.mac);
+  if (opts.tap < 0) return -1;
   opts.translate = translate;
   opts.send_queue = &send_queue;
   opts.rcv_queue = &rcv_queue;
