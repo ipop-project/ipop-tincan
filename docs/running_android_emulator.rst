@@ -49,41 +49,42 @@ Download and run Android SocialVPN
 1. Create directory for socialvpn files::
 
     platform-tools/adb shell mkdir data/svpn
+    platform-tools/adb shell mkdir data/svpn/python27
 
-2. Download socialvpn for android (curl as well for http management)::
+2. Download socialvpn and Python 2.7 for android::
 
-    wget http://www.acis.ufl.edu/~ptony82/svpn-jingle-android
-    wget http://www.acis.ufl.edu/~ptony82/curl-android
+    wget http://www.acis.ufl.edu/~ptony82/stable/svpn-jingle-android
+    wget http://www.acis.ufl.edu/~ptony82/stable/vpn_controller.py
+    wget http://www.acis.ufl.edu/~ptony82/stable/start_controller.sh
+    wget http://www.acis.ufl.edu/~ptony82/python27.tgz
+    tar xzvf python27.tgz
 
 3. Use *adb push* to copy downloaded files to AVD::
 
     platform-tools/adb push svpn-jingle-android /data/svpn
-    platform-tools/adb push curl-android /data/svpn
+    platform-tools/adb push vpn_controller.py /data/svpn
+    platform-tools/adb push start_controller.sh /data/svpn
+    platform-tools/adb push python27 /data/svpn/python27
 
 4. Access the AVD shell and go to svpn directory::
 
     platform-tools/adb shell
     cd /data/svpn
 
-5. Launch socialvpn (use -vi or -vv flag to enable logging)::
+5. Launch socialvpn::
 
-    chmod 755 svpn-jingle-android curl-android
-    ./svpn-jingle-android -vi &> log.txt &
+    chmod 755 svpn-jingle-android
+    ./svpn-jingle-android &> log.txt &
 
 6. Log into XMPP (Google Chat or Jabber.org) using credentials::
 
-    ./curl-android http://127.0.0.1:5800/ -d \
-    '{"m":"login","u":"username@gmail.com","p":"password","h":"talk.google.com"}'
+    sh start_controller.sh username password xmpp-host
 
-7. Check on status, including showing list of connected friends::
-
-    ./curl-android http://127.0.0.1:5800/
-
-8. Check the network devices and ip address for your device::
+7. Check the network devices and ip address for your device::
 
     netcfg
 
-9. Kill socialvpn process and terminate the AVD::
+8. Kill socialvpn process and terminate the AVD::
 
     ps
     kill <svpn-jingle-android process id>

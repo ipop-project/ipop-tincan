@@ -10,27 +10,23 @@ Download and run SocialVPN
 
 1. Download socialvpn for android::
 
-    wget http://www.acis.ufl.edu/~ptony82/svpn-jingle
+    wget http://www.acis.ufl.edu/~ptony82/stable/svpn-jingle
+    wget http://www.acis.ufl.edu/~ptony82/stable/vpn_controller.py
 
-2. Launch socialvpn (use -vi or -vv flag to enable logging)::
+2. Launch socialvpn::
 
-    chmod 755 svpn-jingle
-    sudo ./svpn-jingle -vi &> log.txt &
+    chmod 755 svpn-jingle vpn_controller.py
+    sudo ./svpn-jingle &> log.txt &
 
 3. Log into XMPP (Google Chat or Jabber.org) using credentials::
 
-    curl http://127.0.0.1:5800/ -d \
-    '{"m":"login","u":"username@gmail.com","p":"password","h":"talk.google.com"}'
+    python vpn_controller.py username password xmpp-host
 
-4. Check on status, including showing list of connected friends[1,2]::
-
-    curl http://127.0.0.1:5800/
-
-5. Check the network devices and ip address for your device::
+4. Check the network devices and ip address for your device::
 
     /sbin/ifconfig svpn
 
-6. Kill socialvpn::
+5. Kill socialvpn::
 
     pkill svpn-jingle
 
