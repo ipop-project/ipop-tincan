@@ -242,7 +242,7 @@ class UdpServer:
                 continue
 
             if msg.get("m", None) == "nc_lookup":
-                self.lookup(msg["ip"], msg["ip4"], msg["ip6"])
+                self.lookup(msg["ip4"], msg["ip6"])
                 continue
 
             ip4 = msg.get("ip4", None)
