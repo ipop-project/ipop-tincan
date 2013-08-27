@@ -95,10 +95,11 @@ class UdpServer:
         m = hashlib.sha1()
         if MODE == "svpn" and hostname != "localhost":
             m.update(socket.gethostname())
+            uid = m.hexdigest()[:UID_SIZE]
         elif MODE == "gvpn":
             m.update(self.ip4)
+            uid = m.hexdigest()[:UID_SIZE]
 
-        uid = m.hexdigest()[:UID_SIZE]
         do_set_callback(self.sock, self.sock.getsockname())
         do_set_local_ip(self.sock, uid, self.ip4, gen_ip6(uid))
         do_register_service(self.sock, self.user, self.password, self.host)
