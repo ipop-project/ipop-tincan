@@ -209,7 +209,8 @@ class UdpServer:
 
         if (s_addr_n == self_ip):
             # TODO - Send to first controller, need better routing policy
-            dest = (controllers.values()[0], CONTROLLER_PORT)
+            if len(controllers.values()) > 0:
+                dest = (controllers.values()[0], CONTROLLER_PORT)
         elif (d_addr_n == self_ip):
             dest = (LOCALHOST6, SVPN_PORT)
         elif d_addr_n in controllers:

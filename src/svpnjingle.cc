@@ -107,6 +107,7 @@ bool SSLVerificationCallback(void* cert) {
 int main(int argc, char **argv) {
   talk_base::InitializeSSL(SSLVerificationCallback);
   talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+  peerlist_init(TABLE_SIZE);
   int translate = 1;
 
   for (int i = argc - 1; i > 0; i--) {
@@ -118,10 +119,18 @@ int main(int argc, char **argv) {
     }
   }
 
+  thread_opts_t opts;
+  opts.tap = tap_open("svpn", opts.mac);
+  if (opts.tap < 0) return -1;
+  opts.translate = translate;
+
   struct threadqueue send_queue, rcv_queue, controller_queue;
   thread_queue_init(&send_queue);
   thread_queue_init(&rcv_queue);
   thread_queue_init(&controller_queue);
+
+  opts.send_queue = &send_queue;
+  opts.rcv_queue = &rcv_queue;
 
   talk_base::Thread worker_thread, send_thread, recv_thread;
   talk_base::AutoThread signaling_thread;
@@ -139,6 +148,7 @@ int main(int argc, char **argv) {
                                        &controller_queue);
   social_sender.add_service(0, &controller);
   social_sender.add_service(1, &xmpp);
+  opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };
@@ -146,15 +156,6 @@ int main(int argc, char **argv) {
   if (get_free_network_ip(ip_addr, sizeof(ip_addr)) == 0) {
     manager.set_ip(ip_addr);
   }
-
-  thread_opts_t opts;
-  opts.tap = tap_open(manager.tap_name().c_str(), opts.mac);
-  if (opts.tap < 0) return -1;
-  opts.translate = translate;
-  opts.send_queue = &send_queue;
-  opts.rcv_queue = &rcv_queue;
-  opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
-  peerlist_init(TABLE_SIZE);
 
   // Setup/run threads
   SendRunnable send_runnable(&opts);

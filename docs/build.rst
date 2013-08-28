@@ -52,7 +52,7 @@ Get the libjingle and socialvpn source code
 
 1. Configure gclient to download libjingle code::
 
-    gclient config http://libjingle.googlecode.com/svn/trunk
+    gclient config http://webrtc.googlecode.com/svn/trunk
     echo "target_os = ['android', 'unix']" >> .gclient
 
 
@@ -80,7 +80,11 @@ For Linux
 2. Copy modified gyp files to trunk/talk directory::
 
     cp talk/socialvpn/svpn-jingle/build/socialvpn.gyp talk/
-    cp talk/socialvpn/svpn-jingle/build/libjingle_all.gyp talk/
+    cp talk/socialvpn/svpn-jingle/build/all.gyp .
+
+2b. (Optional) Add this step on a 32-bit machine
+
+    export GYP_DEFINES="target_arch=ia32"
 
 3. Generate ninja build files::
 
@@ -93,7 +97,6 @@ For Linux
 5. To build debug version with gdb symbols (but creates 25 MB binary)::
 
     ninja -C out/Debug svpn-jingle
-
 
 For Android
 -----------
@@ -115,3 +118,8 @@ For Android
 4. Build socialvpn for android (binary located at out/Release/svpn-jingle)::
 
     ninja -C out/Release svpn-jingle
+
+5. To build debug version with gdb symbols (but creates 25 MB binary)::
+
+    ninja -C out/Debug svpn-jingle
+
