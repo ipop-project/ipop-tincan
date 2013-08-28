@@ -26,7 +26,6 @@
  */
 
 #include "talk/base/json.h"
-#include "talk/base/host.h"
 
 #include "controlleraccess.h"
 

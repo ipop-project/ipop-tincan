@@ -221,33 +221,39 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
 }
 
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
-  peer_state->transport->SetTiebreaker(tiebreaker_);
+  peer_state->transport->SetIceTiebreaker(tiebreaker_);
   peer_state->remote_fingerprint.reset(
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
                                                    peer_state->fingerprint));
+
+  cricket::ConnectionRole conn_role_local = cricket::CONNECTIONROLE_ACTPASS;
+  if (peer_state->uid.compare(svpn_id_) > 0) {
+    conn_role_local = cricket::CONNECTIONROLE_ACTIVE;
+  }
   peer_state->local_description.reset(new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag,
-      kIcePwd, cricket::ICEMODE_FULL, local_fingerprint_.get(), 
-      peer_state->candidates));
+      kIcePwd, cricket::ICEMODE_FULL, conn_role_local,
+      local_fingerprint_.get(), peer_state->candidates));
   peer_state->remote_description.reset(new cricket::TransportDescription(
       cricket::NS_JINGLE_ICE_UDP, std::vector<std::string>(), kIceUfrag, 
-      kIcePwd, cricket::ICEMODE_FULL, peer_state->remote_fingerprint.get(), 
-      peer_state->candidates));
+      kIcePwd, cricket::ICEMODE_FULL, cricket::CONNECTIONROLE_NONE,
+      peer_state->remote_fingerprint.get(), peer_state->candidates));
 
   if (peer_state->uid.compare(svpn_id_) < 0) {
-    peer_state->transport->SetRole(cricket::ROLE_CONTROLLING);
+    peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLING);
     peer_state->transport->SetLocalTransportDescription(
         *peer_state->local_description, cricket::CA_OFFER);
     peer_state->transport->SetRemoteTransportDescription(
         *peer_state->remote_description, cricket::CA_ANSWER);
   }
   else {
-    peer_state->transport->SetRole(cricket::ROLE_CONTROLLED);
+    peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLED);
     peer_state->transport->SetRemoteTransportDescription(
         *peer_state->remote_description, cricket::CA_OFFER);
     peer_state->transport->SetLocalTransportDescription(
         *peer_state->local_description, cricket::CA_ANSWER);
   }
+
 }
 
 bool SvpnConnectionManager::CreateTransport(
