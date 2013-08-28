@@ -21,9 +21,10 @@ Our code does not need Java to compile or run, but the setup tools require it
 
 Download Java6 at 
 
-http://www.oracle.com/technetwork/java/javase/downloads/jdk6downloads-1902814.html
+http://www.oracle.com/technetwork/java/javasebusiness/downloads/java-archive-downloads-javase6-419409.html#jdk-6u45-oth-JPR
 
-Accept License Agreement, click on jdk-6u45-linux-x64.bin for 64bit Linux to download
+Accept License Agreement, click on jdk-6u45-linux-x64.bin for 64bit Linux 
+(or jdk-6u45-linux-i586.bin for 32bit Linux) to download
 
 1. Do the following to extract Java::
 
