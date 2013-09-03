@@ -229,11 +229,8 @@ void SvpnConnectionManager::SetRelay(PeerState* peer_state,
   cricket::RelayServerConfig relay_config_tcp(cricket::RELAY_TURN);
   relay_config_udp.ports.push_back(cricket::ProtocolAddress(
       turn_addr, cricket::PROTO_UDP));
-  // TODO - Use real turn credentials
-  //relay_config_udp.credentials.username = username;
-  //relay_config_udp.credentials.password = password;
-  relay_config_udp.credentials.username = "svpnjingle";
-  relay_config_udp.credentials.password = "1234567890";
+  relay_config_udp.credentials.username = username;
+  relay_config_udp.credentials.password = password;
   relay_config_tcp.ports.push_back(cricket::ProtocolAddress(
       turn_addr, cricket::PROTO_TCP));
   relay_config_tcp.credentials.username = username;
@@ -284,6 +281,7 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
 bool SvpnConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint, int nid,
     const std::string& stun_server, const std::string& turn_server,
+    const std::string& turn_user, const std::string& turn_pass,
     const bool sec_enabled) {
   if (uid_map_.find(uid) != uid_map_.end() || svpn_id_ == uid) {
     LOG_F(INFO) << "EXISTS " << uid;
@@ -301,9 +299,7 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
       &network_manager_, &packet_factory_, stun_addr));
   peer_state->port_allocator->set_flags(kFlags);
-
-  std::string username, password;
-  SetRelay(peer_state.get(), turn_server, username, password);
+  SetRelay(peer_state.get(), turn_server, turn_user, turn_pass);
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::TransportChannelImpl* channel;

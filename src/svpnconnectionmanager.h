@@ -138,6 +138,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   virtual bool CreateTransport(
       const std::string& uid, const std::string& fingerprint, int nid,
       const std::string& stun_server, const std::string& turn_server,
+      const std::string& turn_user, const std::string& turn_pass,
       const bool sec_enabled);
 
   bool CreateConnections(const std::string& uid, 

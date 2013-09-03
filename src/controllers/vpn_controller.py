@@ -44,12 +44,14 @@ def do_set_callback(sock, addr):
     return make_call(sock, params)
 
 def do_register_service(sock, username, password, host):
-    params = {"m": "register_service", "u": username, "p": password, "h": host}
+    params = {"m": "register_service", "user": username, "pass": password,
+              "host": host}
     return make_call(sock, params)
 
 def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN):
     params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
-              "stun" : stun, "turn": stun, "sec": sec, "cas": cas}
+              "stun" : stun, "turn": stun, "turn_user": "svpnjingle",
+              "turn_pass": "1234567890", "sec": sec, "cas": cas}
     return make_call(sock, params)
 
 def do_trim_link(sock, uid):

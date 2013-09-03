@@ -99,9 +99,9 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string method = root["m"].asString();
   switch (rpc_calls[method]) {
     case REGISTER_SVC: {
-        std::string user = root["u"].asString();
-        std::string pass = root["p"].asString();
-        std::string host = root["h"].asString();
+        std::string user = root["user"].asString();
+        std::string pass = root["pass"].asString();
+        std::string host = root["host"].asString();
         network_.set_status(manager_.fingerprint());
         network_.Login(user, pass, manager_.uid(), host);
       }
@@ -112,9 +112,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string fpr = root["fpr"].asString();
         std::string stun = root["stun"].asString();
         std::string turn = root["turn"].asString();
+        std::string turn_user = root["turn_user"].asString();
+        std::string turn_pass = root["turn_pass"].asString();
         std::string cas = root["cas"].asString();
         bool sec = root["sec"].asBool();
-        bool res = manager_.CreateTransport(uid, fpr, nid, stun, turn, sec);
+        bool res = manager_.CreateTransport(uid, fpr, nid, stun, turn,
+                                            turn_user, turn_pass, sec);
         if (!cas.empty()) {
           manager_.CreateConnections(uid, cas);
         }
