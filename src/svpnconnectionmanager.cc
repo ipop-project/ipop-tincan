@@ -220,9 +220,9 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
 }
 
 void SvpnConnectionManager::SetRelay(PeerState* peer_state,
-                                     const char* turn_server,
-                                     const char* username, 
-                                     const char* password) {
+                                     const std::string& turn_server,
+                                     const std::string& username, 
+                                     const std::string& password) {
   talk_base::SocketAddress turn_addr;
   turn_addr.FromString(turn_server);
   cricket::RelayServerConfig relay_config_udp(cricket::RELAY_TURN);
@@ -301,6 +301,9 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
       &network_manager_, &packet_factory_, stun_addr));
   peer_state->port_allocator->set_flags(kFlags);
+
+  std::string username, password;
+  SetRelay(peer_state.get(), turn_server, username, password);
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::TransportChannelImpl* channel;
