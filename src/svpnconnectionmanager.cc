@@ -52,12 +52,11 @@ namespace sjingle {
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
 static const char kContentName[] = "svpn-jingle";
-static const bool kAllowTcpListen = false;
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const char kTapName[] = "svpn";
-static const uint32 kFlags = cricket::PORTALLOCATOR_DISABLE_TCP;
+static const uint32 kFlags = 0;
 static SvpnConnectionManager* g_manager = 0;
 
 enum {
@@ -220,6 +219,32 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
 }
 
+void SvpnConnectionManager::SetRelay(PeerState* peer_state,
+                                     const char* turn_server,
+                                     const char* username, 
+                                     const char* password) {
+  talk_base::SocketAddress turn_addr;
+  turn_addr.FromString(turn_server);
+  cricket::RelayServerConfig relay_config_udp(cricket::RELAY_TURN);
+  cricket::RelayServerConfig relay_config_tcp(cricket::RELAY_TURN);
+  relay_config_udp.ports.push_back(cricket::ProtocolAddress(
+      turn_addr, cricket::PROTO_UDP));
+  // TODO - Use real turn credentials
+  //relay_config_udp.credentials.username = username;
+  //relay_config_udp.credentials.password = password;
+  relay_config_udp.credentials.username = "svpnjingle";
+  relay_config_udp.credentials.password = "1234567890";
+  relay_config_tcp.ports.push_back(cricket::ProtocolAddress(
+      turn_addr, cricket::PROTO_TCP));
+  relay_config_tcp.credentials.username = username;
+  relay_config_tcp.credentials.password = password;
+  if (!relay_config_udp.credentials.username.empty()) {
+    peer_state->port_allocator->AddRelay(relay_config_udp);
+    //peer_state->port_allocator->AddRelay(relay_config_tcp);
+  }
+  LOG_F(INFO) << "TURN " << turn_addr.ToString();
+}
+
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
   peer_state->transport->SetIceTiebreaker(tiebreaker_);
   peer_state->remote_fingerprint.reset(
@@ -276,7 +301,6 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
       &network_manager_, &packet_factory_, stun_addr));
   peer_state->port_allocator->set_flags(kFlags);
-  peer_state->port_allocator->set_allow_tcp_listen(kAllowTcpListen);
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::TransportChannelImpl* channel;

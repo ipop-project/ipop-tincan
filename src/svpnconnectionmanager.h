@@ -176,6 +176,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleControllerSignal_w(struct threadqueue* queue);
+  void SetRelay(PeerState* peer_state, const char* turn_server,
+                const char* username, const char* password);
 
   const std::string content_name_;
   SocialSenderInterface* social_sender_;
