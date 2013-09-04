@@ -54,7 +54,7 @@ class SendRunnable : public talk_base::Runnable {
   SendRunnable(thread_opts_t *opts) : opts_(opts) {}
 
   virtual void Run(talk_base::Thread *thread) {
-    udp_send_thread(opts_);
+    svpn_send_thread(opts_);
   }
 
  private:
@@ -66,7 +66,7 @@ class RecvRunnable : public talk_base::Runnable {
   RecvRunnable(thread_opts_t *opts) : opts_(opts) {}
 
   virtual void Run(talk_base::Thread *thread) {
-    udp_recv_thread(opts_);
+    svpn_recv_thread(opts_);
   }
 
  private:

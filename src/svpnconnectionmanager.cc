@@ -56,6 +56,7 @@ static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const char kTapName[] = "svpn";
+static const size_t kIdBytesLen = 20;
 static const uint32 kFlags = 0;
 static SvpnConnectionManager* g_manager = 0;
 
@@ -98,8 +99,10 @@ SvpnConnectionManager::SvpnConnectionManager(
 void SvpnConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
     const std::string& ip6, int ip6_mask) {
-  if (!svpn_id_.empty()) return;
+  if (!svpn_id_.empty() || uid.size() != kIdSize) return;
   svpn_id_ = uid;
+  char uid_str[kIdBytesLen];
+  talk_base::hex_decode(uid_str, kIdBytesLen, uid);
   identity_.reset(talk_base::OpenSSLIdentity::Generate(svpn_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
@@ -107,7 +110,7 @@ void SvpnConnectionManager::Setup(
   int error = tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
-  error |= peerlist_set_local_p(uid.c_str(), ip4.c_str(), ip6.c_str());
+  error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
   ASSERT(error == 0);
   svpn_ip4_ = ip4;
   svpn_ip6_ = ip6;
@@ -190,9 +193,8 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
 void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
   if (len < kHeaderSize) return;
-  const char* dest_id = data + kIdSize + 2;
-  std::string source(data, kIdSize);
-  std::string dest(dest_id, kIdSize);
+  std::string source = talk_base::hex_encode(data, kIdBytesLen);
+  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kIdBytesLen);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   if (uid_map_.find(source) != uid_map_.end() && 
       uid_map_[source]->transport->GetChannel(component) == channel) {
@@ -204,9 +206,8 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   if (len < (kHeaderSize)) return;
-  const char* dest_id = data + kIdSize + 2;
-  std::string source(data, kIdSize);
-  std::string dest(dest_id, kIdSize);
+  std::string source = talk_base::hex_encode(data, kIdBytesLen);
+  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kIdBytesLen);
   if (dest.compare(0, 1, "0") == 0) {
     forward_socket_->SendTo(data, len, forward_addr_);
   } 
@@ -217,7 +218,7 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
         uid_map_[dest]->transport->GetChannel(component);
     int count = channel->SendPacket(data, len, 0);
   }
-}
+
 
 void SvpnConnectionManager::SetRelay(PeerState* peer_state,
                                      const std::string& turn_server,
@@ -339,10 +340,13 @@ bool SvpnConnectionManager::CreateTransport(
 
 bool SvpnConnectionManager::AddIP(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
-  if (!ip_map_[uid].empty() || ip4.empty())  return false;
+  if (!ip_map_[uid].empty() || ip4.empty() || uid.size() != kIdSize)
+    return false;
+  char uid_str[kIdBytesLen];
+  talk_base::hex_decode(uid_str, kIdBytesLen, uid);
   // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
-  peerlist_add_p(uid.c_str(), ip4.c_str(), ip6.c_str(), 0);
+  peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
   ip_map_[uid] = ip4;
   return true;
 }

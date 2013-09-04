@@ -34,7 +34,7 @@
 namespace sjingle {
 
 static const int kHeaderSize = 40;
-static const int kIdSize = 18;
+static const int kIdSize = 40;    // hex code of 160bit sha1
 
 class SocialSenderInterface {
  public:

@@ -13,11 +13,12 @@ import hashlib
 IP4 = "172.31.0.100"
 IP6 = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000"
 STUN = "209.141.33.252:19302"
+TURN = "209.141.33.252:19302"
 LOCALHOST= "127.0.0.1"
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
-UID_SIZE = 18
+UID_SIZE = 40
 MODE = "svpn"
 SEC = True
 
@@ -48,7 +49,7 @@ def do_register_service(sock, username, password, host):
               "host": host}
     return make_call(sock, params)
 
-def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN):
+def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
     params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
               "stun" : stun, "turn": stun, "turn_user": "svpnjingle",
               "turn_pass": "1234567890", "sec": sec, "cas": cas}
