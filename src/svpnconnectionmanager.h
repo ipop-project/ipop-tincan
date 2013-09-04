@@ -157,7 +157,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
 
   struct PeerState {
+    int nid;
+    uint32 last_time;
     std::string uid;
+    std::string ip4;
+    std::string ip6;
     std::string fingerprint;
     talk_base::scoped_ptr<cricket::P2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
@@ -166,8 +170,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
-    int nid;
-    uint32 last_time;
   };
 
   typedef talk_base::scoped_refptr<

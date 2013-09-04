@@ -33,20 +33,6 @@
 
 #include "svpnconnectionmanager.h"
 
-namespace {
-
-std::string gen_ip6(const std::string& uid, const std::string& ip6) {
-  int len = (ip6.size() - 7) / 2;  // len should be 16
-  if (uid.size() < len) return "";
-  std::string new_ip6 = ip6.substr(0, len + 3);
-  for (int i = 0; i < len/4; i++) {
-    new_ip6 += ":";
-    new_ip6 += uid.substr(i * 4, 4);
-  }
-  return new_ip6;
-}
-};
-
 namespace sjingle {
 
 static const char kIpv4[] = "172.31.0.100";
@@ -201,6 +187,7 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
     uid_map_[source]->last_time = talk_base::Time();
     int count = thread_queue_bput(rcv_queue_, data, len);
   }
+  //LOG_F(INFO) << source << " " << dest << " " << len;
 }
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
@@ -218,7 +205,8 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
         uid_map_[dest]->transport->GetChannel(component);
     int count = channel->SendPacket(data, len, 0);
   }
-
+  //LOG_F(INFO) << source << " " << dest << " " << len;
+}
 
 void SvpnConnectionManager::SetRelay(PeerState* peer_state,
                                      const std::string& turn_server,
@@ -348,6 +336,8 @@ bool SvpnConnectionManager::AddIP(
   override_base_ipv4_addr_p(ip4.c_str());
   peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
   ip_map_[uid] = ip4;
+  uid_map_[uid]->ip4 = ip4;
+  uid_map_[uid]->ip6 = ip6;
   return true;
 }
 
@@ -442,11 +432,11 @@ std::string SvpnConnectionManager::GetState() {
     std::string uid = it->first;
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->first;
-    peer["ip4"] = it->second;
-    peer["ip6"] = gen_ip6(it->first, svpn_ip6_);
     peer["status"] = "offline";
     if (uid_map_.find(uid) != uid_map_.end()) {
       peer["fpr"] = uid_map_[uid]->fingerprint;
+      peer["ip4"] = uid_map_[uid]->ip4;
+      peer["ip6"] = uid_map_[uid]->ip6;
       uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
       peer["last_time"] = time_diff/1000;
       if (uid_map_[uid]->transport->all_channels_readable() &&

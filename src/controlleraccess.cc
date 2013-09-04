@@ -103,7 +103,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string pass = root["pass"].asString();
         std::string host = root["host"].asString();
         network_.set_status(manager_.fingerprint());
-        network_.Login(user, pass, manager_.uid(), host);
+        bool res = network_.Login(user, pass, manager_.uid(), host);
       }
       break;
     case CREATE_LINK: {
@@ -136,7 +136,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string uid = root["uid"].asString();
         std::string ip4 = root["ip4"].asString();
         std::string ip6 = root["ip6"].asString();
-        manager_.AddIP(uid, ip4, ip6);
+        bool res = manager_.AddIP(uid, ip4, ip6);
       }
       break;
     case TRIM_LINK: {
@@ -168,7 +168,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       break;
   }
  
-  if (result.empty()) result = "{}";
+  if (result.empty()) return;
   if (addr.family() == AF_INET) {
     socket_->SendTo(result.c_str(), result.size(), addr);
   }
@@ -189,6 +189,7 @@ void ControllerAccess::SendToPeer(int nid, const std::string& uid,
   else if (remote_addr_.family() == AF_INET6)  {
     socket6_->SendTo(msg.c_str(), msg.size(), remote_addr_);
   }
+  LOG_F(INFO) << uid << " " << data;
 }
 
 }  // namespace sjingle
