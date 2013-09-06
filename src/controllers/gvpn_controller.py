@@ -4,7 +4,6 @@ import socket, select, json, time, sys, hashlib
 
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
 STUN = "209.141.33.252:19302"
-#TURN = "209.141.33.252:19302"
 TURN = ""
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
@@ -18,9 +17,7 @@ def gen_ip6(uid, ip6=IP6_PREFIX):
     return ip6
 
 def gen_uid(ip4):
-    m = hashlib.sha1()
-    m.update(ip4)
-    return m.hexdigest()[:UID_SIZE]
+    return hashlib.sha1(ip4).hexdigest()[:UID_SIZE]
 
 def get_ip4(uid, ip4):
     parts = ip4.split(".")
@@ -29,40 +26,33 @@ def get_ip4(uid, ip4):
         if uid == gen_uid(ip4 + str(i)): return ip4 + str(i)
     return None
 
-def make_call(sock, params):
+def make_call(sock, **params):
     return sock.sendto(json.dumps(params), (LOCALHOST6, SVPN_PORT))
 
 def do_set_callback(sock, addr):
-    params = {"m": "set_callback", "ip": addr[0], "port": addr[1]}
-    return make_call(sock, params)
+    return make_call(sock, m="set_callback", ip=addr[0], port=addr[1])
 
 def do_register_service(sock, username, password, host):
-    params = {"m": "register_service", "user": username, "pass": password,
-              "host": host}
-    return make_call(sock, params)
+    return make_call(sock, m="register_service", username=username,
+                     password=password, host=host)
 
 def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
-    params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
-              "stun" : stun, "turn": turn, "turn_user": "svpnjingle",
-              "turn_pass": "1234567890", "sec": sec, "cas": cas}
-    return make_call(sock, params)
+    return make_call(sock, m="create_link", uid=uid, fpr=fpr, nid=nid,
+                     stun=stun, turn=turn, turn_user="svpnjingle",
+                     turn_pass="1234567890", sec=sec, cas=cas)
 
 def do_trim_link(sock, uid):
-    params = {"m": "trim_link", "uid": uid}
-    return make_call(sock, params)
+    return make_call(sock, m="trim_link", uid=uid)
 
 def do_set_local_ip(sock, uid, ip4, ip6, ip4_mask=24, ip6_mask=64):
-    params = {"m": "set_local_ip", "uid": uid, "ip4": ip4, "ip6": ip6,
-              "ip4_mask": ip4_mask, "ip6_mask": ip6_mask}
-    return make_call(sock, params)
+    return make_call(sock, m="set_local_ip", uid=uid, ip4=ip4, ip6=ip6,
+                     ip4_mask=ip4_mask, ip6_mask=ip6_mask)
 
 def do_set_remote_ip(sock, uid, ip4, ip6):
-    params = {"m": "set_remote_ip", "uid": uid, "ip4": ip4, "ip6": ip6}
-    return make_call(sock, params)
+    return make_call(sock, m="set_remote_ip", uid=uid, ip4=ip4, ip6=ip6)
 
 def do_get_state(sock):
-    params = {"m": "get_state"}
-    return make_call(sock, params)
+    return make_call(sock, m="get_state")
 
 class UdpServer:
     def __init__(self, user, password, host, ip4):

@@ -1,14 +1,6 @@
 #!/usr/bin/env python
 
-import socket
-import select
-import json
-import time
-import sys
-import os
-import binascii
-import struct
-import hashlib
+import socket, select, json, time, sys, os, binascii, struct, hashlib
 
 IP4 = "172.31.0.100"
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
@@ -30,47 +22,41 @@ def gen_ip6(uid, ip6=IP6_PREFIX):
     for i in range(0, 16, 4): ip6 += ":" + uid[i:i+4]
     return ip6
 
-def make_call(sock, params):
-    data = json.dumps(params)
+def gen_uid(ip4):
+    return hashlib.sha1(ip4).hexdigest()[:UID_SIZE]
+
+def make_call(sock, **params):
     if socket.has_ipv6: dest = (LOCALHOST6, SVPN_PORT)
     else: dest = (LOCALHOST, SVPN_PORT)
-    return sock.sendto(data, dest)
+    return sock.sendto(json.dumps(params), dest)
 
 def do_set_callback(sock, addr):
-    params = {"m": "set_callback", "ip": addr[0], "port": addr[1]}
-    return make_call(sock, params)
+    return make_call(sock, m="set_callback", ip=addr[0], port=addr[1])
 
 def do_register_service(sock, username, password, host):
-    params = {"m": "register_service", "user": username, "pass": password,
-              "host": host}
-    return make_call(sock, params)
+    return make_call(sock, m="register_service", username=username,
+                     password=password, host=host)
 
 def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
-    params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
-              "stun" : stun, "turn": turn, "turn_user": "svpnjingle",
-              "turn_pass": "1234567890", "sec": sec, "cas": cas}
-    return make_call(sock, params)
+    return make_call(sock, m="create_link", uid=uid, fpr=fpr, nid=nid,
+                     stun=stun, turn=turn, turn_user="svpnjingle",
+                     turn_pass="1234567890", sec=sec, cas=cas)
 
 def do_trim_link(sock, uid):
-    params = {"m": "trim_link", "uid": uid}
-    return make_call(sock, params)
+    return make_call(sock, m="trim_link", uid=uid)
 
 def do_set_local_ip(sock, uid, ip4, ip6, ip4_mask=24, ip6_mask=64):
-    params = {"m": "set_local_ip", "uid": uid, "ip4": ip4, "ip6": ip6,
-              "ip4_mask": ip4_mask, "ip6_mask": ip6_mask}
-    return make_call(sock, params)
+    return make_call(sock, m="set_local_ip", uid=uid, ip4=ip4, ip6=ip6,
+                     ip4_mask=ip4_mask, ip6_mask=ip6_mask)
 
 def do_set_remote_ip(sock, uid, ip4, ip6):
-    params = {"m": "set_remote_ip", "uid": uid, "ip4": ip4, "ip6": ip6}
-    return make_call(sock, params)
+    return make_call(sock, m="set_remote_ip", uid=uid, ip4=ip4, ip6=ip6)
 
 def do_send_msg(sock, nid, uid, data):
-    params = {"m": "send_msg", "nid": nid, "uid": uid, "data": data}
-    return make_call(sock, params)
+    return make_call(sock, m="send_msg", nid=nid, uid=uid, data=data)
 
 def do_get_state(sock):
-    params = {"m": "get_state"}
-    return make_call(sock, params)
+    return make_call(sock, m="get_state")
 
 class UdpServer:
 
@@ -109,7 +95,7 @@ class UdpServer:
         if len(self.ip4) == 0: self.ip4 = state["_ip4"]
         if len(state["_uid"]) == 0: self.setup_svpn()
         for k, v in self.state.get("peers", {}).iteritems():
-            if len(v["ip4"]) == 0: continue
+            if v["status"] == "offline": continue
             # We store in network format for easier comparison
             ip4_n = socket.inet_pton(socket.AF_INET, v["ip4"])
             self.controllers[ip4_n] = v["ip6"]
@@ -138,6 +124,7 @@ class UdpServer:
         # TODO - It's not a good idea to send a bunch of packets at once
         msg = {"m":"ping", "uid": self.state["_uid"]}
         for k, v in self.state.get("peers", {}).iteritems():
+            if v["status"] == "offline": continue
             if social_send: do_send_msg(self.sock, 1, k, self.state["_fpr"])
             if socket.has_ipv6: dest = (v["ip6"], CONTROLLER_PORT)
             else: dest = (v["ip4"], CONTROLLER_PORT)

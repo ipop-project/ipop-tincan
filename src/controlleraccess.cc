@@ -99,8 +99,8 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string method = root["m"].asString();
   switch (rpc_calls[method]) {
     case REGISTER_SVC: {
-        std::string user = root["user"].asString();
-        std::string pass = root["pass"].asString();
+        std::string user = root["username"].asString();
+        std::string pass = root["password"].asString();
         std::string host = root["host"].asString();
         network_.set_status(manager_.fingerprint());
         bool res = network_.Login(user, pass, manager_.uid(), host);

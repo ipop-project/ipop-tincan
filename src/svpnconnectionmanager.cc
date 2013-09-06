@@ -327,7 +327,8 @@ bool SvpnConnectionManager::CreateTransport(
 
 bool SvpnConnectionManager::AddIP(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
-  if (ip4.empty() || ip6.empty() || uid.size() != kIdSize) return false;
+  if (ip4.empty() || ip6.empty() || uid.size() != kIdSize || 
+      ip_map_.find(uid) != ip_map_.end()) return false;
   char uid_str[kIdBytesLen];
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
   // TODO - this override call should go away, only there for compatibility
