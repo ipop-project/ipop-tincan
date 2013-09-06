@@ -11,7 +11,7 @@ import struct
 import hashlib
 
 IP4 = "172.31.0.100"
-IP6 = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000"
+IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
 STUN = "209.141.33.252:19302"
 TURN = "209.141.33.252:19302"
 LOCALHOST= "127.0.0.1"
@@ -21,17 +21,13 @@ CONTROLLER_PORT = 5801
 UID_SIZE = 40
 MODE = "svpn"
 SEC = True
+WAIT_TIME = 30
 
 def gen_ip4(uid, count, ip4=IP4):
     return ip4[:-3] + str( 101 + count)
 
-def gen_ip6(uid, ip6=IP6):
-    uid_key = uid[-18:]
-    count = (len(ip6) - 7) / 2
-    ip6 = ip6[:19]
-    for i in range(0, 16, 4):
-        ip6 += ":"
-        ip6 += uid_key[i:i+4]
+def gen_ip6(uid, ip6=IP6_PREFIX):
+    for i in range(0, 16, 4): ip6 += ":" + uid[i:i+4]
     return ip6
 
 def make_call(sock, params):
@@ -51,7 +47,7 @@ def do_register_service(sock, username, password, host):
 
 def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
     params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
-              "stun" : stun, "turn": stun, "turn_user": "svpnjingle",
+              "stun" : stun, "turn": turn, "turn_user": "svpnjingle",
               "turn_pass": "1234567890", "sec": sec, "cas": cas}
     return make_call(sock, params)
 
@@ -93,7 +89,7 @@ class UdpServer:
         self.controllers6 = {}
 
     def setup_svpn(self):
-        uid = binascii.b2a_hex(os.urandom(9))
+        uid = binascii.b2a_hex(os.urandom(UID_SIZE/2))
         hostname = socket.gethostname()
         m = hashlib.sha1()
         if MODE == "svpn" and hostname != "localhost":
@@ -136,7 +132,7 @@ class UdpServer:
     def trim_connections(self):
         for k, v in self.state.get("peers", {}).iteritems():
             if "fpr" in v and v["status"] == "offline":
-                if v["last_time"] > 120: do_trim_link(self.sock, k)
+                if v["last_time"] > WAIT_TIME * 4: do_trim_link(self.sock, k)
 
     def do_pings(self, social_send=False):
         # TODO - It's not a good idea to send a bunch of packets at once
@@ -225,7 +221,7 @@ class UdpServer:
 
     def serve(self):
         msg = None
-        socks = select.select([self.sock], [], [], 15)
+        socks = select.select([self.sock], [], [], WAIT_TIME)
         for sock in socks[0]:
             data, addr = sock.recvfrom(4096)
             print addr, len(data)
@@ -297,7 +293,7 @@ def main():
     while True:
         server.serve()
         time_diff = time.time() - last_time
-        if time_diff > 30:
+        if time_diff > WAIT_TIME:
             count += 1
             server.trim_connections()
             do_get_state(server.sock)

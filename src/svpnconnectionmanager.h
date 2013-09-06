@@ -179,7 +179,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleControllerSignal_w(struct threadqueue* queue);
-  void SetRelay(PeerState* peer_state, const std::string& turn_server,
+  bool SetRelay(PeerState* peer_state, const std::string& turn_server,
                 const std::string& username, const std::string& password);
 
   const std::string content_name_;

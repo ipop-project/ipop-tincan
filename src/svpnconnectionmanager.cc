@@ -132,7 +132,6 @@ void SvpnConnectionManager::OnRWChangeState(
     status = "stat:offline";
     LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
-
   // TODO - For now, nid = 0 is the controller
   social_sender_->SendToPeer(0, uid, status);
 }
@@ -187,7 +186,6 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
     uid_map_[source]->last_time = talk_base::Time();
     int count = thread_queue_bput(rcv_queue_, data, len);
   }
-  //LOG_F(INFO) << source << " " << dest << " " << len;
 }
 
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
@@ -195,7 +193,7 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (len < (kHeaderSize)) return;
   std::string source = talk_base::hex_encode(data, kIdBytesLen);
   std::string dest = talk_base::hex_encode(data + kIdBytesLen, kIdBytesLen);
-  if (dest.compare(0, 1, "0") == 0) {
+  if (dest.compare(0, 3, "000") == 0) {
     forward_socket_->SendTo(data, len, forward_addr_);
   } 
   else if (uid_map_.find(dest) != uid_map_.end() &&
@@ -205,13 +203,13 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
         uid_map_[dest]->transport->GetChannel(component);
     int count = channel->SendPacket(data, len, 0);
   }
-  //LOG_F(INFO) << source << " " << dest << " " << len;
 }
 
-void SvpnConnectionManager::SetRelay(PeerState* peer_state,
+bool SvpnConnectionManager::SetRelay(PeerState* peer_state,
                                      const std::string& turn_server,
                                      const std::string& username, 
                                      const std::string& password) {
+  if (turn_server.empty() || username.empty()) return false;
   talk_base::SocketAddress turn_addr;
   turn_addr.FromString(turn_server);
   cricket::RelayServerConfig relay_config_udp(cricket::RELAY_TURN);
@@ -226,9 +224,10 @@ void SvpnConnectionManager::SetRelay(PeerState* peer_state,
   relay_config_tcp.credentials.password = password;
   if (!relay_config_udp.credentials.username.empty()) {
     peer_state->port_allocator->AddRelay(relay_config_udp);
-    //peer_state->port_allocator->AddRelay(relay_config_tcp);
+    peer_state->port_allocator->AddRelay(relay_config_tcp);
   }
   LOG_F(INFO) << "TURN " << turn_addr.ToString();
+  return true;
 }
 
 void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
@@ -264,7 +263,6 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
     peer_state->transport->SetLocalTransportDescription(
         *peer_state->local_description, cricket::CA_ANSWER);
   }
-
 }
 
 bool SvpnConnectionManager::CreateTransport(
@@ -328,8 +326,7 @@ bool SvpnConnectionManager::CreateTransport(
 
 bool SvpnConnectionManager::AddIP(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
-  if (!ip_map_[uid].empty() || ip4.empty() || uid.size() != kIdSize)
-    return false;
+  if (ip4.empty() || ip6.empty() || uid.size() != kIdSize) return false;
   char uid_str[kIdBytesLen];
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
   // TODO - this override call should go away, only there for compatibility
