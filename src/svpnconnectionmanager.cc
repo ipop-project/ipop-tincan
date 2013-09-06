@@ -224,7 +224,8 @@ bool SvpnConnectionManager::SetRelay(PeerState* peer_state,
   relay_config_tcp.credentials.password = password;
   if (!relay_config_udp.credentials.username.empty()) {
     peer_state->port_allocator->AddRelay(relay_config_udp);
-    peer_state->port_allocator->AddRelay(relay_config_tcp);
+    // TODO - TCP relaying needs more testing
+    //peer_state->port_allocator->AddRelay(relay_config_tcp);
   }
   LOG_F(INFO) << "TURN " << turn_addr.ToString();
   return true;

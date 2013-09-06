@@ -4,7 +4,8 @@ import socket, select, json, time, sys, hashlib
 
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
 STUN = "209.141.33.252:19302"
-TURN = "209.141.33.252:19302"
+#TURN = "209.141.33.252:19302"
+TURN = ""
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
@@ -40,7 +41,7 @@ def do_register_service(sock, username, password, host):
               "host": host}
     return make_call(sock, params)
 
-def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=""):
+def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
     params = {"m": "create_link", "uid": uid, "fpr": fpr, "nid": nid,
               "stun" : stun, "turn": turn, "turn_user": "svpnjingle",
               "turn_pass": "1234567890", "sec": sec, "cas": cas}

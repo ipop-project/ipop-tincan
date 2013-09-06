@@ -55,6 +55,7 @@ class SvpnTask
 
   virtual void set_xmpp_id(const std::string& uid_key,
                            const std::string& uid) {
+    LOG_F(INFO) << "SET_XMPP_ID " << uid;
     xmpp_id_map_[uid_key] = uid;
   }
 
