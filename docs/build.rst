@@ -53,7 +53,7 @@ Get the libjingle and socialvpn source code
 
 1. Configure gclient to download libjingle code::
 
-    gclient config http://webrtc.googlecode.com/svn/trunk
+    gclient config http://webrtc.googlecode.com/svn/branches/3.40
     echo "target_os = ['android', 'unix']" >> .gclient
 
 
@@ -83,7 +83,7 @@ For Linux
     cp talk/socialvpn/svpn-jingle/build/socialvpn.gyp talk/
     cp talk/socialvpn/svpn-jingle/build/all.gyp .
 
-2b. (Optional) Add this step on a 32-bit machine
+2b. (Optional) Add this step on a 32-bit machine::
 
     export GYP_DEFINES="target_arch=ia32"
 
