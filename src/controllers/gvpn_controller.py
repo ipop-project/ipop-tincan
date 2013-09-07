@@ -3,7 +3,7 @@
 import socket, select, json, time, sys, hashlib
 
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
-STUN = "209.141.33.252:19302"
+STUN = "stun.l.google.com:19302"
 TURN = ""
 LOCALHOST6= "::1"
 SVPN_PORT = 5800

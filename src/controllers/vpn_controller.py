@@ -4,7 +4,7 @@ import socket, select, json, time, sys, os, binascii, struct, hashlib
 
 IP4 = "172.31.0.100"
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
-STUN = "209.141.33.252:19302"
+STUN = "stun.l.google.com:19302"
 TURN = "209.141.33.252:19302"
 LOCALHOST= "127.0.0.1"
 LOCALHOST6= "::1"
@@ -59,7 +59,6 @@ def do_get_state(sock):
     return make_call(sock, m="get_state")
 
 class UdpServer:
-
     def __init__(self, user, password, host, ip4):
         self.user = user
         self.password = password
@@ -77,13 +76,8 @@ class UdpServer:
     def setup_svpn(self):
         uid = binascii.b2a_hex(os.urandom(UID_SIZE/2))
         hostname = socket.gethostname()
-        m = hashlib.sha1()
-        if MODE == "svpn" and hostname != "localhost":
-            m.update(socket.gethostname())
-            uid = m.hexdigest()[:UID_SIZE]
-        elif MODE == "gvpn":
-            m.update(self.ip4)
-            uid = m.hexdigest()[:UID_SIZE]
+        if MODE == "svpn" and hostname != "localhost": uid = gen_uid(hostname)
+        elif MODE == "gvpn": uid = gen_uid(self.ip4)
 
         do_set_callback(self.sock, self.sock.getsockname())
         do_set_local_ip(self.sock, uid, self.ip4, gen_ip6(uid))
