@@ -15,8 +15,8 @@ MODE = "svpn"
 SEC = True
 WAIT_TIME = 30
 
-def gen_ip4(uid, count, ip4=IP4):
-    return ip4[:-3] + str( 101 + count)
+def gen_ip4(uid, peers, ip4=IP4):
+    return ip4[:-3] + str( 101 + len(peers))
 
 def gen_ip6(uid, ip6=IP6_PREFIX):
     for i in range(0, 16, 4): ip6 += ":" + uid[i:i+4]
@@ -24,6 +24,13 @@ def gen_ip6(uid, ip6=IP6_PREFIX):
 
 def gen_uid(ip4):
     return hashlib.sha1(ip4).hexdigest()[:UID_SIZE]
+
+def get_ip4(uid, ip4):
+    parts = ip4.split(".")
+    ip4 = parts[0] + "." + parts[1] + "." + parts[2] + "."
+    for i in range(1, 255):
+        if uid == gen_uid(ip4 + str(i)): return ip4 + str(i)
+    return None
 
 def make_call(sock, **params):
     if socket.has_ipv6: dest = (LOCALHOST6, SVPN_PORT)
@@ -89,7 +96,6 @@ class UdpServer:
         if len(self.ip4) == 0: self.ip4 = state["_ip4"]
         if len(state["_uid"]) == 0: self.setup_svpn()
         for k, v in self.state.get("peers", {}).iteritems():
-            if v["status"] == "offline": continue
             # We store in network format for easier comparison
             ip4_n = socket.inet_pton(socket.AF_INET, v["ip4"])
             self.controllers[ip4_n] = v["ip6"]
@@ -99,14 +105,11 @@ class UdpServer:
 
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
         if uid == self.state["_uid"]: return
-        if MODE == "gvpn":
-            do_send_msg(self.sock, 1, uid, "ip4:" + self.state["_ip4"])
-        elif MODE == "svpn":
-            ip4 = gen_ip4(uid, len(self.state["peers"]), self.ip4)
+        if MODE == "gvpn": ip4 = get_ip4(uid, self.ip4)
+        elif MODE == "svpn": ip4 = gen_ip4(uid, self.state["peers"], self.ip4)
 
-        ip6 = gen_ip6(uid)
         do_create_link(self.sock, uid, data, nid, sec, cas)
-        do_set_remote_ip(self.sock, uid, ip4, ip6)
+        do_set_remote_ip(self.sock, uid, ip4, gen_ip6(uid))
         do_get_state(self.sock)
 
     def trim_connections(self):
@@ -118,7 +121,6 @@ class UdpServer:
         # TODO - It's not a good idea to send a bunch of packets at once
         msg = {"m":"ping", "uid": self.state["_uid"]}
         for k, v in self.state.get("peers", {}).iteritems():
-            if v["status"] == "offline": continue
             if social_send: do_send_msg(self.sock, 1, k, self.state["_fpr"])
             if socket.has_ipv6: dest = (v["ip6"], CONTROLLER_PORT)
             else: dest = (v["ip4"], CONTROLLER_PORT)
