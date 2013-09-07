@@ -160,8 +160,6 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     int nid;
     uint32 last_time;
     std::string uid;
-    std::string ip4;
-    std::string ip6;
     std::string fingerprint;
     talk_base::scoped_ptr<cricket::P2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
@@ -170,6 +168,11 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
+  };
+
+  struct IPs {
+    std::string ip4;
+    std::string ip6;
   };
 
   typedef talk_base::scoped_refptr<
@@ -187,7 +190,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
-  std::map<std::string, std::string> ip_map_;
+  std::map<std::string, IPs> ip_map_;
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   talk_base::BasicNetworkManager network_manager_;

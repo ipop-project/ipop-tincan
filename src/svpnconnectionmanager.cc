@@ -334,9 +334,8 @@ bool SvpnConnectionManager::AddIP(
   // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
   peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
-  ip_map_[uid] = ip4;
-  uid_map_[uid]->ip4 = ip4;
-  uid_map_[uid]->ip6 = ip6;
+  IPs ips = { .ip4 = ip4, .ip6 = ip6 };
+  ip_map_[uid] = ips;
   return true;
 }
 
@@ -426,16 +425,16 @@ void SvpnConnectionManager::HandleControllerSignal_w(
 std::string SvpnConnectionManager::GetState() {
   Json::Value state(Json::objectValue);
   Json::Value peers(Json::objectValue);
-  for (std::map<std::string, std::string>::const_iterator it =
+  for (std::map<std::string, IPs>::const_iterator it =
        ip_map_.begin(); it != ip_map_.end(); ++it) {
     std::string uid = it->first;
     Json::Value peer(Json::objectValue);
     peer["uid"] = it->first;
+    peer["ip4"] = it->second.ip4;
+    peer["ip6"] = it->second.ip6;
     peer["status"] = "offline";
     if (uid_map_.find(uid) != uid_map_.end()) {
       peer["fpr"] = uid_map_[uid]->fingerprint;
-      peer["ip4"] = uid_map_[uid]->ip4;
-      peer["ip6"] = uid_map_[uid]->ip6;
       uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
       peer["last_time"] = time_diff/1000;
       if (uid_map_[uid]->transport->all_channels_readable() &&
