@@ -8,7 +8,7 @@ XMPP_HOST=$3
 NO_CONTAINERS=$4
 HOST=$(hostname)
 IP_PREFIX="172.16.5"
-START_PATH=container/home/ubuntu/start.sh
+START_PATH=container/rootfs/home/ubuntu/start.sh
 
 sudo apt-get update
 sudo apt-get install -y lxc tcpdump
@@ -18,7 +18,9 @@ wget -O container.tgz http://goo.gl/XJgdtf
 wget -O svpn.tgz http://goo.gl/R8sfm6
 
 sudo tar xzf ubuntu.tgz; tar xzf container.tgz; tar xzf svpn.tgz
-mv svpn container/home/ubuntu/
+sudo cp -a ubuntu/* container/rootfs/
+sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
+mv svpn container/rootfs/home/ubuntu/svpn/
 
 sudo tcpdump -i eth0 -w svpn_$HOST.cap &> /dev/null &
 
@@ -38,18 +40,16 @@ do
     lxc_path=/var/lib/lxc
     container_path=$lxc_path/$container_name
 
-    cp -r container $container_name
+    sudo cp -a container $container_name
     echo -n "$USERNAME $PASSWORD $XMPP_HOST" > \
-             $container_name/home/ubuntu/svpn/config
+             $container_name/rootfs/home/ubuntu/svpn/config
 
     #echo -n "$USERNAME $PASSWORD $XMPP_HOST $IP_PREFIX.$i" > \
-    #         $container_name/home/ubuntu/svpn/config
+    #         $container_name/rootfs/home/ubuntu/svpn/config
 
     sudo mv $container_name $lxc_path
     sudo echo "lxc.rootfs = $container_path/rootfs" >> $container_path/config
     sudo echo "lxc.mount = $container_path/fstab" >> $container_path/config
-    sudo mount -o ro,bind ./ubuntu $container_path/rootfs
-    sudo mount --bind $container_path/home $container_path/rootfs/home
     sudo lxc-start -n $container_name -d
     sleep 15
 done
