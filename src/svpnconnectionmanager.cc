@@ -333,7 +333,9 @@ bool SvpnConnectionManager::AddIP(
   // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
   peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
-  IPs ips = { .ip4 = ip4, .ip6 = ip6 };
+  IPs ips;
+  ips.ip4 = ip4;
+  ips.ip6 = ip6;
   ip_map_[uid] = ips;
   return true;
 }

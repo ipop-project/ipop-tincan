@@ -51,5 +51,6 @@ do
     sudo mount -o ro,bind ./ubuntu $container_path/rootfs
     sudo mount --bind $container_path/home $container_path/rootfs/home
     sudo lxc-start -n $container_name -d
+    sleep 15
 done
 
