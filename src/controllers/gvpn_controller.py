@@ -10,6 +10,7 @@ CONTROLLER_PORT = 5801
 UID_SIZE = 40
 SEC = True
 WAIT_TIME = 30
+BUF_SIZE = 4096
 
 def gen_ip6(uid, ip6=IP6_PREFIX):
     for i in range(0, 16, 4): ip6 += ":" + uid[i:i+4]
@@ -56,6 +57,7 @@ def do_get_state(sock):
 class UdpServer:
     def __init__(self, user, password, host, ip4):
         self.state = {}
+        self.peers = {}
         self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.sock.bind(("", CONTROLLER_PORT))
         uid = gen_uid(ip4)
@@ -69,18 +71,22 @@ class UdpServer:
         do_set_remote_ip(self.sock, uid, ip4, gen_ip6(uid))
 
     def trim_connections(self):
-        for k, v in self.state.get("peers", {}).iteritems():
+        for k, v in self.peers.iteritems():
             if "fpr" in v and v["status"] == "offline":
                 if v["last_time"] > WAIT_TIME * 4: do_trim_link(self.sock, k)
 
     def serve(self):
         socks = select.select([self.sock], [], [], WAIT_TIME)
         for sock in socks[0]:
-            data, addr = sock.recvfrom(4096)
+            data, addr = sock.recvfrom(BUF_SIZE)
             if data[0] == '{':
                 msg = json.loads(data)
                 print "recv %s %s" % (addr, data)
+
                 if "_fpr" in msg: self.state = msg; continue
+                if isinstance(msg, dict) and "uid" in msg and "status" in msg:
+                    self.peers[msg["uid"]] = msg; continue
+
                 fpr_len = len(self.state["_fpr"])
                 if "data" in msg and len(msg["data"]) >= fpr_len:
                     fpr = msg["data"][:fpr_len]

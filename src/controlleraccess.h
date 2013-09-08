@@ -58,6 +58,10 @@ class ControllerAccess : public SocialSenderInterface,
       const char* data, size_t len, const talk_base::SocketAddress& addr);
 
  private:
+  void SendTo(const char* pv, size_t cb,
+              const talk_base::SocketAddress& addr);
+  void SendState(const talk_base::SocketAddress& addr);
+
   XmppNetwork& network_;
   SvpnConnectionManager& manager_;
   talk_base::SocketAddress remote_addr_;

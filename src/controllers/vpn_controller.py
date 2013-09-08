@@ -14,6 +14,7 @@ UID_SIZE = 40
 MODE = "svpn"
 SEC = True
 WAIT_TIME = 30
+BUF_SIZE = 4096
 
 def gen_ip4(uid, peers, ip4=IP4):
     return ip4[:-3] + str( 101 + len(peers))
@@ -77,6 +78,8 @@ class UdpServer:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", CONTROLLER_PORT))
         self.state = {}
+        self.peers = {}
+        self.peerlist = set()
         self.controllers = {}
         self.controllers6 = {}
 
@@ -95,7 +98,7 @@ class UdpServer:
         self.state = state
         if len(self.ip4) == 0: self.ip4 = state["_ip4"]
         if len(state["_uid"]) == 0: self.setup_svpn()
-        for k, v in self.state.get("peers", {}).iteritems():
+        for k, v in self.peers.iteritems():
             # We store in network format for easier comparison
             ip4_n = socket.inet_pton(socket.AF_INET, v["ip4"])
             self.controllers[ip4_n] = v["ip6"]
@@ -106,21 +109,22 @@ class UdpServer:
     def create_connection(self, uid, data, nid, sec, cas, ip4=None):
         if uid == self.state["_uid"]: return
         if MODE == "gvpn": ip4 = get_ip4(uid, self.ip4)
-        elif MODE == "svpn": ip4 = gen_ip4(uid, self.state["peers"], self.ip4)
+        elif MODE == "svpn": ip4 = gen_ip4(uid, self.peerlist, self.ip4)
 
+        self.peerlist.add(uid)
         do_create_link(self.sock, uid, data, nid, sec, cas)
         do_set_remote_ip(self.sock, uid, ip4, gen_ip6(uid))
         do_get_state(self.sock)
 
     def trim_connections(self):
-        for k, v in self.state.get("peers", {}).iteritems():
+        for k, v in self.peers.iteritems():
             if "fpr" in v and v["status"] == "offline":
                 if v["last_time"] > WAIT_TIME * 4: do_trim_link(self.sock, k)
 
     def do_pings(self, social_send=False):
         # TODO - It's not a good idea to send a bunch of packets at once
         msg = {"m":"ping", "uid": self.state["_uid"]}
-        for k, v in self.state.get("peers", {}).iteritems():
+        for k, v in self.peers.iteritems():
             if social_send: do_send_msg(self.sock, 1, k, self.state["_fpr"])
             if socket.has_ipv6: dest = (v["ip6"], CONTROLLER_PORT)
             else: dest = (v["ip4"], CONTROLLER_PORT)
@@ -137,7 +141,7 @@ class UdpServer:
     def process_lookup(self, request, addr):
         ip4 = request.get("ip4", None)
         ip6 = request.get("ip6", None)
-        for k, v in self.state.get("peers", {}).iteritems():
+        for k, v in self.peers.iteritems():
             if v["status"] == "online" and \
                 (ip4 == v["ip4"] or ip6 == v["ip6"]):
                 response = {"uid": k}
@@ -149,13 +153,13 @@ class UdpServer:
         if addr[0] == LOCALHOST6:
             msg["from"] = self.state["_uid"]
             msg["ip4"] = self.state["_ip4"]
-            for k, v in self.state.get("peers", {}).iteritems():
+            for k, v in self.peers.iteritems():
                 if v["status"] == "online":
                     ip6 = gen_ip6(k, IP6)
                     dest = (ip6, CONTROLLER_PORT, 0, 0)
                     self.sock.sendto(json.dumps(msg), dest)
-        elif msg["uid"] in self.state.get("peers", {}):
-            peer = self.state["peers"][msg["uid"]]
+        elif msg["uid"] in self.peers:
+            peer = self.peers[msg["uid"]]
             if peer["status"] == "online":
                 ip6 = gen_ip6(msg["uid"])
                 dest = (ip6, CONTROLLER_PORT, 0, 0)
@@ -206,7 +210,7 @@ class UdpServer:
         msg = None
         socks = select.select([self.sock], [], [], WAIT_TIME)
         for sock in socks[0]:
-            data, addr = sock.recvfrom(4096)
+            data, addr = sock.recvfrom(BUF_SIZE)
             print addr, len(data)
             if data[0] == '{': msg = json.loads(data)
             else: self.handle_packet(data); continue
@@ -214,6 +218,10 @@ class UdpServer:
             print "recv %s %s" % (addr, data)
             if isinstance(msg, dict) and "_uid" in msg:
                 self.set_state(msg)
+                continue
+
+            if isinstance(msg, dict) and "uid" in msg and "status" in msg:
+                self.peers[msg["uid"]] = msg
                 continue
 
             # we only process if we have state and msg is json dict

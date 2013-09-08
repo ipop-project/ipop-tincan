@@ -82,6 +82,42 @@ void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
   SvpnConnectionManager::HandleQueueSignal(0);
 }
 
+void ControllerAccess::SendTo(const char* pv, size_t cb,
+                              const talk_base::SocketAddress& addr) {
+  if (addr.family() == AF_INET) {
+    socket_->SendTo(pv, cb, addr);
+  }
+  else if (addr.family() == AF_INET6)  {
+    socket6_->SendTo(pv, cb, addr);
+  }
+}
+
+void ControllerAccess::SendToPeer(int nid, const std::string& uid,
+                                  const std::string& data) {
+  Json::Value json(Json::objectValue);
+  json["uid"] = uid;
+  json["data"] = data;
+  std::string msg = json.toStyledString();
+  SendTo(msg.c_str(), msg.size(), remote_addr_);
+  LOG_F(INFO) << uid << " " << data;
+}
+
+void ControllerAccess::SendState(const talk_base::SocketAddress& addr) {
+  Json::Value state = manager_.GetState();
+  Json::Value local_state;
+  local_state["_uid"] = manager_.uid();
+  local_state["_ip4"] = manager_.ipv4();
+  local_state["_ip6"] = manager_.ipv6();
+  local_state["_fpr"] = manager_.fingerprint();
+  std::string msg = local_state.toStyledString();
+  SendTo(msg.c_str(), msg.size(), addr);
+
+  for (Json::ValueIterator it = state.begin(); it != state.end(); it++) {
+    Json::Value peer = *it;
+    msg = peer.toStyledString();
+    SendTo(msg.c_str(), msg.size(), addr);
+  }
+}
 
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
@@ -160,7 +196,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case GET_STATE: {
-        result = manager_.GetState();
+        SendState(addr);
       }
       break;
     default: {
@@ -169,27 +205,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
  
   if (result.empty()) return;
-  if (addr.family() == AF_INET) {
-    socket_->SendTo(result.c_str(), result.size(), addr);
-  }
-  else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(result.c_str(), result.size(), addr);
-  }
-}
-
-void ControllerAccess::SendToPeer(int nid, const std::string& uid,
-                                  const std::string& data) {
-  Json::Value json(Json::objectValue);
-  json["uid"] = uid;
-  json["data"] = data;
-  std::string msg = json.toStyledString();
-  if (remote_addr_.family() == AF_INET) {
-    socket_->SendTo(msg.c_str(), msg.size(), remote_addr_);
-  }
-  else if (remote_addr_.family() == AF_INET6)  {
-    socket6_->SendTo(msg.c_str(), msg.size(), remote_addr_);
-  }
-  LOG_F(INFO) << uid << " " << data;
+  SendTo(result.c_str(), result.size(), addr);
 }
 
 }  // namespace sjingle

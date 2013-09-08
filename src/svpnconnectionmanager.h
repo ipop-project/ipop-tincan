@@ -46,6 +46,7 @@
 #include "talk/base/asyncpacketsocket.h"
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
+#include "talk/base/json.h"
 
 #include "talk/socialvpn/svpn-core/lib/threadqueue/threadqueue.h"
 #include "talk/socialvpn/svpn-core/src/svpn.h"
@@ -95,7 +96,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   const std::string ipv6() const { return svpn_ip6_; }
 
   const std::string tap_name() const { return tap_name_; }
-
+  
   talk_base::Thread* worker_thread() const { return worker_thread_; }
 
   void set_ip(const char* ip) { svpn_ip4_ = ip; }
@@ -149,7 +150,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
 
   virtual bool DestroyTransport(const std::string& uid);
 
-  virtual std::string GetState();
+  virtual Json::Value GetState();
 
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);

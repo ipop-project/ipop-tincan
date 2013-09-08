@@ -29,7 +29,6 @@
 #include <sstream>
 
 #include "talk/base/logging.h"
-#include "talk/base/json.h"
 
 #include "svpnconnectionmanager.h"
 
@@ -422,8 +421,7 @@ void SvpnConnectionManager::HandleControllerSignal_w(
   }
 }
 
-std::string SvpnConnectionManager::GetState() {
-  Json::Value state(Json::objectValue);
+Json::Value SvpnConnectionManager::GetState() {
   Json::Value peers(Json::objectValue);
   for (std::map<std::string, IPs>::const_iterator it =
        ip_map_.begin(); it != ip_map_.end(); ++it) {
@@ -467,12 +465,7 @@ std::string SvpnConnectionManager::GetState() {
     }
     peers[it->first] = peer;
   }
-  state["_uid"] = svpn_id_;
-  state["_fpr"] = fingerprint_;
-  state["_ip4"] = svpn_ip4_;
-  state["_ip6"] = svpn_ip6_;
-  state["peers"] = peers;
-  return state.toStyledString();
+  return peers;
 }
 
 }  // namespace sjingle
