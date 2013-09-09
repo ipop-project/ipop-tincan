@@ -6,6 +6,7 @@ USERNAME=$1
 PASSWORD=$2
 XMPP_HOST=$3
 NO_CONTAINERS=$4
+WAIT_INTERVAL=$5
 HOST=$(hostname)
 IP_PREFIX="172.16.5"
 START_PATH=container/rootfs/home/ubuntu/start.sh
@@ -15,7 +16,7 @@ sudo apt-get install -y lxc tcpdump
 
 wget -O ubuntu.tgz http://goo.gl/Ze7hYz
 wget -O container.tgz http://goo.gl/XJgdtf
-wget -O svpn.tgz http://goo.gl/R8sfm6
+wget -O svpn.tgz http://goo.gl/1nmORG
 
 sudo tar xzf ubuntu.tgz; tar xzf container.tgz; tar xzf svpn.tgz
 sudo cp -a ubuntu/* container/rootfs/
@@ -51,6 +52,6 @@ do
     sudo echo "lxc.rootfs = $container_path/rootfs" >> $container_path/config
     sudo echo "lxc.mount = $container_path/fstab" >> $container_path/config
     sudo lxc-start -n $container_name -d
-    sleep 15
+    sleep $WAIT_INTERVAL
 done
 
