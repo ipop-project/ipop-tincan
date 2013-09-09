@@ -5,11 +5,16 @@
 USERNAME=$1
 PASSWORD=$2
 XMPP_HOST=$3
-NO_CONTAINERS=$4
-WAIT_INTERVAL=$5
+CONTAINER_START=$4
+CONTAINER_END=$5
+WAIT_INTERVAL=$6
+LXC_NETWORK_BASE=$7
+MODE=$8
 HOST=$(hostname)
 IP_PREFIX="172.16.5"
+
 START_PATH=container/rootfs/home/ubuntu/start.sh
+LXC_CONFIG_PATH=/etc/default/lxc
 
 sudo apt-get update
 sudo apt-get install -y lxc tcpdump
@@ -23,6 +28,21 @@ sudo cp -a ubuntu/* container/rootfs/
 sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
 mv svpn container/rootfs/home/ubuntu/svpn/
 
+cat > lxc-net.cfg << EOF
+LXC_AUTO="true"
+USE_LXC_BRIDGE="true"
+LXC_BRIDGE="lxcbr0"
+LXC_ADDR="$LXC_NETWORK_BASE.1"
+LXC_NETMASK="255.255.255.0"
+LXC_NETWORK="$LXC_NETWORK_BASE.0/24"
+LXC_DHCP_RANGE="$LXC_NETWORK_BASE.2,$LXC_NETWORK_BASE.254"
+LXC_DHCP_MAX="253"
+LXC_SHUTDOWN_TIMEOUT=120
+
+EOF
+
+sudo cp lxc-net.cfg $LXC_CONFIG_PATH
+sudo service lxc-net restart
 sudo tcpdump -i eth0 -w svpn_$HOST.cap &> /dev/null &
 
 cat > $START_PATH << EOF
@@ -30,23 +50,34 @@ cat > $START_PATH << EOF
 SVPN_HOME=/home/ubuntu/svpn
 CONFIG=\`cat \$SVPN_HOME/config\`
 \$SVPN_HOME/svpn-jingle &> \$SVPN_HOME/svpn_log.txt &
-python \$SVPN_HOME/vpn_controller.py \$CONFIG &> \$SVPN_HOME/controller_log.txt &
 EOF
 
+if [ "$MODE" == "gvpn" ]
+then
+    echo -n "python \$SVPN_HOME/gvpn_controller.py " >> $START_PATH
+else
+    echo -n "python \$SVPN_HOME/vpn_controller.py " >> $START_PATH
+fi
+
+echo " \$CONFIG &> \$SVPN_HOME/controller_log.txt &" >> $START_PATH
 chmod 755 $START_PATH
 
-for i in $(seq 1 $NO_CONTAINERS)
+for i in $(seq $CONTAINER_START $CONTAINER_END)
 do
     container_name=container$i
     lxc_path=/var/lib/lxc
     container_path=$lxc_path/$container_name
 
     sudo cp -a container $container_name
-    echo -n "$USERNAME $PASSWORD $XMPP_HOST" > \
-             $container_name/rootfs/home/ubuntu/svpn/config
 
-    #echo -n "$USERNAME $PASSWORD $XMPP_HOST $IP_PREFIX.$i" > \
-    #         $container_name/rootfs/home/ubuntu/svpn/config
+    if [ "$MODE" == "gvpn" ]
+    then
+        echo -n "$USERNAME $PASSWORD $XMPP_HOST $IP_PREFIX.$i" > \
+                 $container_name/rootfs/home/ubuntu/svpn/config
+    else
+        echo -n "$USERNAME $PASSWORD $XMPP_HOST" > \
+                 $container_name/rootfs/home/ubuntu/svpn/config
+    fi
 
     sudo mv $container_name $lxc_path
     sudo echo "lxc.rootfs = $container_path/rootfs" >> $container_path/config
