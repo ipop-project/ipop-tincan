@@ -2,7 +2,11 @@
 # this script uses lxc to run multiple instances of SocialVPN
 # this script is designed for Ubuntu 12.04 (64-bit)
 #
-# usage: svpn_lxc.sh username password host 1 10 30 10.0.3 gvpn"
+# for VM 1
+# svpn_lxc.sh username password host 1 10 30 10.0.3 gvpn"
+#
+# for VM 2
+# svpn_lxc.sh username password host 11 20 30 10.0.4 gvpn"
 #
 
 USERNAME=$1
