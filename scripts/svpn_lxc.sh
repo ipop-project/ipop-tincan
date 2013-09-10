@@ -93,3 +93,6 @@ do
     sleep $WAIT_INTERVAL
 done
 
+sleep 7200
+sudo pkill tcpdump
+
