@@ -40,7 +40,7 @@
 namespace sjingle {
 
 static const int kXmppPort = 5222;
-static const int kInterval = 60000;
+static const int kInterval = 120000;
 static const buzz::StaticQName QN_SVPN = { "jabber:iq:svpn", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:svpn\" />";
 
@@ -193,7 +193,15 @@ void XmppNetwork::OnCloseEvent(int error) {
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
   // This handles reconnection if there's a connection timeout
-  if (!pump_.get()) Connect();
+  if (!pump_.get()) {
+    Connect();
+  }
+  else {
+    presence_out_.release();
+    presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
+    presence_out_->Send(status_);
+    presence_out_->Start();
+  }
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }
 
