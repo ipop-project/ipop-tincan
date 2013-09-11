@@ -28,7 +28,7 @@ sudo cp -a ubuntu/* container/rootfs/
 sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
 mv svpn container/rootfs/home/ubuntu/svpn/
 
-if [ $MODE = "svpn" ]
+if [ "x$MODE" = "xsvpn" ]
 then
     CONTROLLER=svpn_controller.py
 fi
@@ -56,7 +56,7 @@ do
     echo -n "$USERNAME $PASSWORD $XMPP_HOST $IP_PREFIX.$i" > \
              $container_name/rootfs/home/ubuntu/svpn/config
 
-    if [ $MODE = "svpn" ]
+    if [ "x$MODE" = "xsvpn" ]
     then
         echo -n "$USERNAME $PASSWORD $XMPP_HOST" > \
                  $container_name/rootfs/home/ubuntu/svpn/config
