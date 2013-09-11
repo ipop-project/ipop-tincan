@@ -21,7 +21,7 @@ sudo apt-get install -y lxc tcpdump
 
 wget -O ubuntu.tgz http://goo.gl/Ze7hYz
 wget -O container.tgz http://goo.gl/XJgdtf
-wget -O svpn.tgz http://goo.gl/2L6nNH
+wget -O svpn.tgz http://goo.gl/Sg4Vh2
 
 sudo tar xzf ubuntu.tgz; tar xzf container.tgz; tar xzf svpn.tgz
 sudo cp -a ubuntu/* container/rootfs/
