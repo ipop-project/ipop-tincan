@@ -2,8 +2,11 @@
 
 import socket, select, json, time, sys, hashlib
 
-IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
 STUN = "stun.l.google.com:19302"
+TURN = ""
+TURN_USER = ""
+TURN_PASS = ""
+IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
@@ -36,10 +39,10 @@ def do_register_service(sock, username, password, host):
     return make_call(sock, m="register_service", username=username,
                      password=password, host=host)
 
-def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=""):
+def do_create_link(sock, uid, fpr, nid, sec, cas, stun=STUN, turn=TURN):
     return make_call(sock, m="create_link", uid=uid, fpr=fpr, nid=nid,
-                     stun=stun, turn=turn, turn_user="",
-                     turn_pass="", sec=sec, cas=cas)
+                     stun=stun, turn=turn, turn_user=TURN_USER,
+                     turn_pass=TURN_PASS, sec=sec, cas=cas)
 
 def do_trim_link(sock, uid):
     return make_call(sock, m="trim_link", uid=uid)
