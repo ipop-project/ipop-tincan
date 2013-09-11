@@ -1,15 +1,16 @@
-#!/bin/bash
+#!/bin/sh
 # this script uses lxc to run multiple instances of SocialVPN
 # this script is designed for Ubuntu 12.04 (64-bit)
 #
-# usage: svpn_lxc.sh username password host 1 10 svpn"
+# usage: svpn_lxc.sh username password host 1 10 30 svpn"
 
 USERNAME=$1
 PASSWORD=$2
 XMPP_HOST=$3
 CONTAINER_START=$4
 CONTAINER_END=$5
-MODE=$6
+WAIT_TIME=$6
+MODE=$7
 HOST=$(hostname)
 IP_PREFIX="172.16.5"
 CONTROLLER=gvpn_controller.py
@@ -27,7 +28,7 @@ sudo cp -a ubuntu/* container/rootfs/
 sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
 mv svpn container/rootfs/home/ubuntu/svpn/
 
-if [ "$MODE" == "svpn" ]
+if [ $MODE = "svpn" ]
 then
     CONTROLLER=svpn_controller.py
 fi
@@ -42,6 +43,8 @@ EOF
 
 chmod 755 $START_PATH
 
+sudo tcpdump -i lxcbr0 -w dump_$HOST.cap &> /dev/null &
+
 for i in $(seq $CONTAINER_START $CONTAINER_END)
 do
     container_name=container$i
@@ -53,7 +56,7 @@ do
     echo -n "$USERNAME $PASSWORD $XMPP_HOST $IP_PREFIX.$i" > \
              $container_name/rootfs/home/ubuntu/svpn/config
 
-    if [ "$MODE" == "svpn" ]
+    if [ $MODE = "svpn" ]
     then
         echo -n "$USERNAME $PASSWORD $XMPP_HOST" > \
                  $container_name/rootfs/home/ubuntu/svpn/config
@@ -63,6 +66,6 @@ do
     sudo echo "lxc.rootfs = $container_path/rootfs" >> $container_path/config
     sudo echo "lxc.mount = $container_path/fstab" >> $container_path/config
     sudo lxc-start -n $container_name -d
-    sleep 30
+    sleep $WAIT_TIME
 done
 

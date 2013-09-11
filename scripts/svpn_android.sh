@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # this script runs SocialVPN inside Android 4.1 emulator
 # this script is designed for Ubuntu 12.04 (64-bit)
 
