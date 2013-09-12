@@ -17,7 +17,7 @@ tar xzf android.tgz; tar xzf android-sdk.tgz
 
 cd android-sdk
 
-wget -O svpn-arm.tgz http://goo.gl/zfV2Y9
+wget -O svpn-arm.tgz http://goo.gl/FFtDwQ
 wget -O python27.tgz http://goo.gl/jjJxyd
 tar xzf python27.tgz; tar xzf svpn-arm.tgz
 
