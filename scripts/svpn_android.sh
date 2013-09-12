@@ -17,7 +17,7 @@ tar xzf android.tgz; tar xzf android-sdk.tgz
 
 cd android-sdk
 
-wget -O svpn-arm.tgz http://goo.gl/FFtDwQ
+wget -O svpn-arm.tgz http://goo.gl/eBrvy1
 wget -O python27.tgz http://goo.gl/jjJxyd
 tar xzf python27.tgz; tar xzf svpn-arm.tgz
 
@@ -32,15 +32,6 @@ platform-tools/adb push svpn-arm /data/svpn
 platform-tools/adb push python27 /data/svpn/python27
 platform-tools/adb shell chmod 755 /data/svpn/svpn-jingle-android
 
-cat > start_controller.sh << EOF
-export PYTHONHOME=/data/svpn/python27/files/python
-export PYTHONPATH=/data/svpn/python27/extras/python:/data/svpn/python27/files/python/lib/python2.7/lib-dynload:/data/svpn/python27/files/python/lib/python2.7
-export PATH=\$PYTHONHOME/bin:\$PATH
-export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/data/svpn/python27/files/python/lib:/data/svpn/python27/files/python/lib/python2.7/lib-dynload
-python vpn_controller.py \$@
-EOF
-
-platform-tools/adb push start_controller.sh /data/svpn/
 sudo tcpdump -i eth0 -w svpn_$HOST.cap &> /dev/null &
 platform-tools/adb shell "cd /data/svpn; ./svpn-jingle-android & sh start_controller.sh $USERNAME $PASSWORD $XMPP_HOST &> log.txt &" &> log_$HOST.txt &
 
