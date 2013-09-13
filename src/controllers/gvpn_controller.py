@@ -7,6 +7,7 @@ TURN = ""
 TURN_USER = ""
 TURN_PASS = ""
 IP6_PREFIX = "fd50:0dbc:41f2:4a3c"
+LOCALHOST= "127.0.0.1"
 LOCALHOST6= "::1"
 SVPN_PORT = 5800
 CONTROLLER_PORT = 5801
@@ -30,7 +31,9 @@ def get_ip4(uid, ip4):
     return None
 
 def make_call(sock, **params):
-    return sock.sendto(json.dumps(params), (LOCALHOST6, SVPN_PORT))
+    if socket.has_ipv6: dest = (LOCALHOST6, SVPN_PORT)
+    else: dest = (LOCALHOST, SVPN_PORT)
+    return sock.sendto(json.dumps(params), dest)
 
 def do_set_callback(sock, addr):
     return make_call(sock, m="set_callback", ip=addr[0], port=addr[1])
@@ -61,7 +64,10 @@ class UdpServer:
     def __init__(self, user, password, host, ip4):
         self.state = {}
         self.peers = {}
-        self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        if socket.has_ipv6:
+            self.sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        else:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", CONTROLLER_PORT))
         uid = gen_uid(ip4)
         do_set_callback(self.sock, self.sock.getsockname())
@@ -76,7 +82,7 @@ class UdpServer:
     def trim_connections(self):
         for k, v in self.peers.iteritems():
             if "fpr" in v and v["status"] == "offline":
-                if v["last_time"] > WAIT_TIME * 4: do_trim_link(self.sock, k)
+                if v["last_time"] > WAIT_TIME * 2: do_trim_link(self.sock, k)
 
     def serve(self):
         socks = select.select([self.sock], [], [], WAIT_TIME)

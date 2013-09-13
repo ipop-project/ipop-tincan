@@ -121,7 +121,7 @@ class UdpServer:
     def trim_connections(self):
         for k, v in self.peers.iteritems():
             if "fpr" in v and v["status"] == "offline":
-                if v["last_time"] > WAIT_TIME * 4: do_trim_link(self.sock, k)
+                if v["last_time"] > WAIT_TIME * 2: do_trim_link(self.sock, k)
 
     def do_pings(self, social_send=False):
         # TODO - It's not a good idea to send a bunch of packets at once
@@ -291,8 +291,7 @@ def main():
             server.trim_connections()
             do_get_state(server.sock)
             last_time = time.time()
-            if count % 10 == 0: server.do_pings(True)
-            else: server.do_pings(False)
+            server.do_pings()
 
 if __name__ == '__main__':
     main()
