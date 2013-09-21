@@ -28,7 +28,7 @@ sudo cp -a ubuntu/* container/rootfs/
 sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
 mv svpn container/rootfs/home/ubuntu/svpn/
 
-STUN=""
+STUN="stun.l.google.com:19302"
 TURN=""
 TURN_USER=""
 TURN_PASS=""
