@@ -28,11 +28,13 @@ sudo cp -a ubuntu/* container/rootfs/
 sudo mv container/home/ubuntu container/rootfs/home/ubuntu/
 mv svpn container/rootfs/home/ubuntu/svpn/
 
-TURN=$8
-TURN_USER=$9
-TURN_PASS=$10
+STUN=""
+TURN=""
+TURN_USER=""
+TURN_PASS=""
 for i in `ls container/rootfs/home/ubuntu/svpn/*.py`
 do
+    sed -i "s/STUN = .*/STUN = \"$STUN\"/g" $i
     sed -i "s/TURN = .*/TURN = \"$TURN\"/g" $i
     sed -i "s/TURN_USER = .*/TURN_USER = \"$TURN_USER\"/g" $i
     sed -i "s/TURN_PASS = .*/TURN_PASS = \"$TURN_PASS\"/g" $i
