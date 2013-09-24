@@ -42,6 +42,7 @@ static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const char kTapName[] = "svpn";
 static const size_t kIdBytesLen = 20;
+static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
 static SvpnConnectionManager* g_manager = 0;
 
@@ -61,6 +62,7 @@ SvpnConnectionManager::SvpnConnectionManager(
       social_sender_(social_sender),
       packet_factory_(worker_thread),
       uid_map_(),
+      short_uid_map_(),
       transport_map_(),
       signaling_thread_(signaling_thread),
       worker_thread_(worker_thread),
@@ -177,12 +179,11 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
 void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
   if (len < kHeaderSize) return;
-  std::string source = talk_base::hex_encode(data, kIdBytesLen);
-  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kIdBytesLen);
+  std::string source = talk_base::hex_encode(data, kShortLen);
+  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  if (uid_map_.find(source) != uid_map_.end() && 
-      uid_map_[source]->transport->GetChannel(component) == channel) {
-    uid_map_[source]->last_time = talk_base::Time();
+  if (short_uid_map_.find(source) != short_uid_map_.end() && 
+      short_uid_map_[source]->GetChannel(component) == channel) {
     int count = thread_queue_bput(rcv_queue_, data, len);
   }
 }
@@ -190,16 +191,16 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   if (len < (kHeaderSize)) return;
-  std::string source = talk_base::hex_encode(data, kIdBytesLen);
-  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kIdBytesLen);
+  std::string source = talk_base::hex_encode(data, kShortLen);
+  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
   if (dest.compare(0, 3, "000") == 0) {
     forward_socket_->SendTo(data, len, forward_addr_);
   } 
-  else if (uid_map_.find(dest) != uid_map_.end() &&
-           uid_map_[dest]->transport->writable()) {
+  else if (short_uid_map_.find(dest) != short_uid_map_.end() &&
+           short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
-        uid_map_[dest]->transport->GetChannel(component);
+        short_uid_map_[dest]->GetChannel(component);
     int count = channel->SendPacket(data, len, 0);
   }
 }
@@ -321,6 +322,8 @@ bool SvpnConnectionManager::CreateTransport(
   peer_state->transport->ConnectChannels();
   uid_map_[uid] = peer_state;
   transport_map_[peer_state->transport.get()] = uid;
+  // TODO: This is speed hack
+  short_uid_map_[uid.substr(0, kShortLen * 2)] = peer_state->transport.get();
   return true;
 }
 
@@ -370,6 +373,7 @@ bool SvpnConnectionManager::DestroyTransport(const std::string& uid) {
     uid_map_[uid]->port_allocator.release();
   }
   uid_map_.erase(uid);
+  short_uid_map_.erase(uid.substr(0, kShortLen * 2));
   LOG_F(INFO) << "DESTROYED " << uid;
   return true;
 }

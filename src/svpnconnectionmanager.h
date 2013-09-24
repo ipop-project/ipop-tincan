@@ -190,6 +190,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   SocialSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
+  std::map<std::string, cricket::Transport*> short_uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
   std::map<std::string, IPs> ip_map_;
   talk_base::Thread* signaling_thread_;
