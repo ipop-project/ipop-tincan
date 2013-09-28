@@ -441,8 +441,8 @@ Json::Value SvpnConnectionManager::GetState() {
       peer["fpr"] = uid_map_[uid]->fingerprint;
       uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
       peer["last_time"] = time_diff/1000;
-      if (uid_map_[uid]->transport->all_channels_readable() &&
-          uid_map_[uid]->transport->all_channels_writable()) {
+      if (uid_map_[uid]->transport->readable() && 
+          uid_map_[uid]->transport->writable()) {
         peer["status"] = "online";
       }
       cricket::ConnectionInfos infos;
