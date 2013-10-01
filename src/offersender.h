@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@ namespace sjingle {
 static const int kHeaderSize = 40;
 static const int kIdSize = 40;    // hex code of 160bit sha1
 
-class SocialSenderInterface {
+class OfferSenderInterface {
  public:
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
@@ -45,7 +45,7 @@ class SocialSenderInterface {
                           const std::string& data) = 0;
 
  protected:
-  virtual ~SocialSenderInterface() {}
+  virtual ~OfferSenderInterface() {}
 };
 
 }  // namespace sjingle

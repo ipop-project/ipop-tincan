@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ static void init_map() {
 }
 
 ControllerAccess::ControllerAccess(
-    SvpnConnectionManager& manager, XmppNetwork& network,
+    TinCanConnectionManager& manager, XmppNetwork& network,
     talk_base::BasicPacketSocketFactory* packet_factory,
     struct threadqueue* controller_queue)
     : manager_(manager),
@@ -79,7 +79,7 @@ ControllerAccess::ControllerAccess(
 void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   int count = thread_queue_bput(controller_queue_, data, len);
-  SvpnConnectionManager::HandleQueueSignal(0);
+  TinCanConnectionManager::HandleQueueSignal(0);
 }
 
 void ControllerAccess::SendTo(const char* pv, size_t cb,

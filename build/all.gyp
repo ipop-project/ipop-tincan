@@ -17,7 +17,7 @@
         'talk/libjingle.gyp:*',
         'talk/libjingle_examples.gyp:*',
         'talk/libjingle_tests.gyp:*',
-        'talk/socialvpn.gyp:*',
+        'talk/ipop-tincan.gyp:*',
       ],
     },
   ],

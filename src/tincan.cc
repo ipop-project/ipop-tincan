@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 
 #include "talk/base/ssladapter.h"
 
-#include "svpnconnectionmanager.h"
+#include "tincanconnectionmanager.h"
 #include "controlleraccess.h"
 #include "xmppnetwork.h"
 
@@ -54,7 +54,7 @@ class SendRunnable : public talk_base::Runnable {
   SendRunnable(thread_opts_t *opts) : opts_(opts) {}
 
   virtual void Run(talk_base::Thread *thread) {
-    svpn_send_thread(opts_);
+    ipop_send_thread(opts_);
   }
 
  private:
@@ -66,7 +66,7 @@ class RecvRunnable : public talk_base::Runnable {
   RecvRunnable(thread_opts_t *opts) : opts_(opts) {}
 
   virtual void Run(talk_base::Thread *thread) {
-    svpn_recv_thread(opts_);
+    ipop_recv_thread(opts_);
   }
 
  private:
@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   }
 
   thread_opts_t opts;
-  opts.tap = tap_open("svpn", opts.mac);
+  opts.tap = tap_open("tincan", opts.mac);
   if (opts.tap < 0) return -1;
   opts.translate = translate;
 
@@ -136,19 +136,19 @@ int main(int argc, char **argv) {
   talk_base::AutoThread signaling_thread;
   signaling_thread.WrapCurrent();
 
-  sjingle::SocialSender social_sender;
-  sjingle::SvpnConnectionManager manager(&social_sender, &signaling_thread,
+  sjingle::OfferSender social_sender;
+  sjingle::TinCanConnectionManager manager(&social_sender, &signaling_thread,
                                          &worker_thread, &send_queue, 
                                          &rcv_queue, &controller_queue);
   sjingle::XmppNetwork xmpp(&signaling_thread);
   xmpp.HandlePeer.connect(&manager,
-      &sjingle::SvpnConnectionManager::HandlePeer);
+      &sjingle::TinCanConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
   sjingle::ControllerAccess controller(manager, xmpp, &packet_factory,
                                        &controller_queue);
   social_sender.add_service(0, &controller);
   social_sender.add_service(1, &xmpp);
-  opts.send_signal = &sjingle::SvpnConnectionManager::HandleQueueSignal;
+  opts.send_signal = &sjingle::TinCanConnectionManager::HandleQueueSignal;
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };

@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,14 +39,14 @@
 #include "talk/xmpp/xmpppump.h"
 #include "talk/base/logging.h"
 
-#include "socialsender.h"
+#include "offersender.h"
 
 namespace sjingle {
 
-static const char kXmppPrefix[] = "svpn";
+static const char kXmppPrefix[] = "tincan";
 
 class SvpnTask
-    : public SocialSenderInterface,
+    : public OfferSenderInterface,
       public buzz::XmppTask {
  public:
   explicit SvpnTask(buzz::XmppClient* client)
@@ -65,7 +65,7 @@ class SvpnTask
 
   virtual const std::string uid() { return GetClient()->jid().Str(); }
 
-  // inherited from SocialSenderInterface
+  // inherited from OfferSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data);
 
@@ -78,7 +78,7 @@ class SvpnTask
 };
 
 class XmppNetwork 
-    : public SocialSenderInterface,
+    : public OfferSenderInterface,
       public talk_base::MessageHandler,
       public sigslot::has_slots<> {
  public:
@@ -88,14 +88,14 @@ class XmppNetwork
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  // inherited from SocialSenderInterface
+  // inherited from OfferSenderInterface
   virtual const std::string uid() { 
     return uid_;
   }
 
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data) {
-    if (svpn_task_.get()) svpn_task_->SendToPeer(nid, uid, data);
+    if (tincan_task_.get()) tincan_task_->SendToPeer(nid, uid, data);
   }
 
   void OnLogging(const char* data, int len) {
@@ -126,7 +126,7 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
-  talk_base::scoped_ptr<SvpnTask> svpn_task_;
+  talk_base::scoped_ptr<SvpnTask> tincan_task_;
   std::string uid_;
 
 };

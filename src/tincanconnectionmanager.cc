@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,29 +30,29 @@
 
 #include "talk/base/logging.h"
 
-#include "svpnconnectionmanager.h"
+#include "tincanconnectionmanager.h"
 
 namespace sjingle {
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
-static const char kContentName[] = "svpn-jingle";
+static const char kContentName[] = "tincan-jingle";
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
-static const char kTapName[] = "svpn";
+static const char kTapName[] = "tincan";
 static const size_t kIdBytesLen = 20;
 static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
-static SvpnConnectionManager* g_manager = 0;
+static TinCanConnectionManager* g_manager = 0;
 
 enum {
   MSG_QUEUESIGNAL = 0,
   MSG_CONTROLLERSIGNAL = 1
 };
 
-SvpnConnectionManager::SvpnConnectionManager(
-    SocialSenderInterface* social_sender,
+TinCanConnectionManager::TinCanConnectionManager(
+    OfferSenderInterface* social_sender,
     talk_base::Thread* signaling_thread,
     talk_base::Thread* worker_thread,
     struct threadqueue* send_queue,
@@ -67,7 +67,7 @@ SvpnConnectionManager::SvpnConnectionManager(
       signaling_thread_(signaling_thread),
       worker_thread_(worker_thread),
       network_manager_(),
-      svpn_id_(),
+      tincan_id_(),
       identity_(),
       local_fingerprint_(),
       fingerprint_(),
@@ -75,22 +75,22 @@ SvpnConnectionManager::SvpnConnectionManager(
       rcv_queue_(rcv_queue),
       controller_queue_(controller_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
-      svpn_ip4_(kIpv4),
-      svpn_ip6_(kIpv6),
+      tincan_ip4_(kIpv4),
+      tincan_ip6_(kIpv6),
       tap_name_(kTapName) {
   g_manager = this;
   network_manager_.SignalNetworksChanged.connect(
-      this, &SvpnConnectionManager::OnNetworksChanged);
+      this, &TinCanConnectionManager::OnNetworksChanged);
 }
 
-void SvpnConnectionManager::Setup(
+void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
     const std::string& ip6, int ip6_mask) {
-  if (!svpn_id_.empty() || uid.size() != kIdSize) return;
-  svpn_id_ = uid;
+  if (!tincan_id_.empty() || uid.size() != kIdSize) return;
+  tincan_id_ = uid;
   char uid_str[kIdBytesLen];
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
-  identity_.reset(talk_base::OpenSSLIdentity::Generate(svpn_id_));
+  identity_.reset(talk_base::OpenSSLIdentity::Generate(tincan_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
   fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
@@ -99,13 +99,13 @@ void SvpnConnectionManager::Setup(
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
   ASSERT(error == 0);
-  svpn_ip4_ = ip4;
-  svpn_ip6_ = ip6;
+  tincan_ip4_ = ip4;
+  tincan_ip6_ = ip6;
 }
 
-void SvpnConnectionManager::OnNetworksChanged() {
+void TinCanConnectionManager::OnNetworksChanged() {
   talk_base::NetworkManager::NetworkList networks;
-  talk_base::SocketAddress ip6_addr(svpn_ip6_, 0);
+  talk_base::SocketAddress ip6_addr(tincan_ip6_, 0);
   network_manager_.GetNetworks(&networks);
   for (uint32 i = 0; i < networks.size(); ++i) {
     if (networks[i]->name().compare(kTapName) == 0) {
@@ -116,12 +116,12 @@ void SvpnConnectionManager::OnNetworksChanged() {
   }
 }
 
-void SvpnConnectionManager::OnRequestSignaling(
+void TinCanConnectionManager::OnRequestSignaling(
     cricket::Transport* transport) {
   transport->OnSignalingReady();
 }
 
-void SvpnConnectionManager::OnRWChangeState(
+void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   std::string uid = transport_map_[transport];
   std::string status = "stat:unknown";
@@ -137,7 +137,7 @@ void SvpnConnectionManager::OnRWChangeState(
   social_sender_->SendToPeer(0, uid, status);
 }
 
-void SvpnConnectionManager::OnCandidatesReady(
+void TinCanConnectionManager::OnCandidatesReady(
     cricket::Transport* transport, const cricket::Candidates& candidates) {
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidate_list = uid_map_[uid]->candidate_list;
@@ -160,7 +160,7 @@ void SvpnConnectionManager::OnCandidatesReady(
   }
 }
 
-void SvpnConnectionManager::OnCandidatesAllocationDone(
+void TinCanConnectionManager::OnCandidatesAllocationDone(
     cricket::Transport* transport) {
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidates = uid_map_[uid]->candidate_list;
@@ -176,7 +176,7 @@ void SvpnConnectionManager::OnCandidatesAllocationDone(
   }
 }
 
-void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
+void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
   if (len < kHeaderSize) return;
   std::string source = talk_base::hex_encode(data, kShortLen);
@@ -188,7 +188,7 @@ void SvpnConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
   }
 }
 
-void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
+void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   if (len < (kHeaderSize)) return;
   std::string source = talk_base::hex_encode(data, kShortLen);
@@ -205,7 +205,7 @@ void SvpnConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
 }
 
-bool SvpnConnectionManager::SetRelay(PeerState* peer_state,
+bool TinCanConnectionManager::SetRelay(PeerState* peer_state,
                                      const std::string& turn_server,
                                      const std::string& username, 
                                      const std::string& password) {
@@ -231,14 +231,14 @@ bool SvpnConnectionManager::SetRelay(PeerState* peer_state,
   return true;
 }
 
-void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
+void TinCanConnectionManager::SetupTransport(PeerState* peer_state) {
   peer_state->transport->SetIceTiebreaker(tiebreaker_);
   peer_state->remote_fingerprint.reset(
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
                                                    peer_state->fingerprint));
 
   cricket::ConnectionRole conn_role_local = cricket::CONNECTIONROLE_ACTPASS;
-  if (peer_state->uid.compare(svpn_id_) > 0) {
+  if (peer_state->uid.compare(tincan_id_) > 0) {
     conn_role_local = cricket::CONNECTIONROLE_ACTIVE;
   }
   peer_state->local_description.reset(new cricket::TransportDescription(
@@ -250,7 +250,7 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
       kIcePwd, cricket::ICEMODE_FULL, cricket::CONNECTIONROLE_NONE,
       peer_state->remote_fingerprint.get(), peer_state->candidates));
 
-  if (peer_state->uid.compare(svpn_id_) < 0) {
+  if (peer_state->uid.compare(tincan_id_) < 0) {
     peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLING);
     peer_state->transport->SetLocalTransportDescription(
         *peer_state->local_description, cricket::CA_OFFER);
@@ -266,12 +266,12 @@ void SvpnConnectionManager::SetupTransport(PeerState* peer_state) {
   }
 }
 
-bool SvpnConnectionManager::CreateTransport(
+bool TinCanConnectionManager::CreateTransport(
     const std::string& uid, const std::string& fingerprint, int nid,
     const std::string& stun_server, const std::string& turn_server,
     const std::string& turn_user, const std::string& turn_pass,
     const bool sec_enabled) {
-  if (uid_map_.find(uid) != uid_map_.end() || svpn_id_ == uid) {
+  if (uid_map_.find(uid) != uid_map_.end() || tincan_id_ == uid) {
     LOG_F(INFO) << "EXISTS " << uid;
     return false;
   }
@@ -306,17 +306,17 @@ bool SvpnConnectionManager::CreateTransport(
   }
 
   channel->SignalReadPacket.connect(
-    this, &SvpnConnectionManager::OnReadPacket);
+    this, &TinCanConnectionManager::OnReadPacket);
   peer_state->transport->SignalRequestSignaling.connect(
-      this, &SvpnConnectionManager::OnRequestSignaling);
+      this, &TinCanConnectionManager::OnRequestSignaling);
   peer_state->transport->SignalCandidatesReady.connect(
-      this, &SvpnConnectionManager::OnCandidatesReady);
+      this, &TinCanConnectionManager::OnCandidatesReady);
   peer_state->transport->SignalCandidatesAllocationDone.connect(
-      this, &SvpnConnectionManager::OnCandidatesAllocationDone);
+      this, &TinCanConnectionManager::OnCandidatesAllocationDone);
   peer_state->transport->SignalReadableState.connect(
-      this, &SvpnConnectionManager::OnRWChangeState);
+      this, &TinCanConnectionManager::OnRWChangeState);
   peer_state->transport->SignalWritableState.connect(
-      this, &SvpnConnectionManager::OnRWChangeState);
+      this, &TinCanConnectionManager::OnRWChangeState);
 
   SetupTransport(peer_state.get());
   peer_state->transport->ConnectChannels();
@@ -327,7 +327,7 @@ bool SvpnConnectionManager::CreateTransport(
   return true;
 }
 
-bool SvpnConnectionManager::AddIP(
+bool TinCanConnectionManager::AddIP(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
   if (ip4.empty() || ip6.empty() || uid.size() != kIdSize || 
       ip_map_.find(uid) != ip_map_.end()) return false;
@@ -343,7 +343,7 @@ bool SvpnConnectionManager::AddIP(
   return true;
 }
 
-bool SvpnConnectionManager::CreateConnections(
+bool TinCanConnectionManager::CreateConnections(
     const std::string& uid, const std::string& candidates_string) {
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   cricket::Candidates& candidates = uid_map_[uid]->candidates;
@@ -367,7 +367,7 @@ bool SvpnConnectionManager::CreateConnections(
   return true;
 }
 
-bool SvpnConnectionManager::DestroyTransport(const std::string& uid) {
+bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   if (uid_map_[uid]->transport->was_writable()) {
     uid_map_[uid]->port_allocator.release();
@@ -378,7 +378,7 @@ bool SvpnConnectionManager::DestroyTransport(const std::string& uid) {
   return true;
 }
 
-void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
+void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_QUEUESIGNAL: {
         HandleQueueSignal_w(0);
@@ -391,14 +391,14 @@ void SvpnConnectionManager::OnMessage(talk_base::Message* msg) {
   }
 }
 
-void SvpnConnectionManager::HandlePeer(const std::string& uid,
+void TinCanConnectionManager::HandlePeer(const std::string& uid,
                                        const std::string& data) {
   // TODO - For now, nid = 0 is the controller
   social_sender_->SendToPeer(0, uid, data);
   LOG_F(INFO) << uid << " " << data;
 }
 
-void SvpnConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
+void TinCanConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
   if (g_manager != 0) {
     if (queue != 0) {
       g_manager->worker_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
@@ -409,7 +409,7 @@ void SvpnConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
   }
 }
 
-void SvpnConnectionManager::HandleQueueSignal_w(
+void TinCanConnectionManager::HandleQueueSignal_w(
     struct threadqueue *queue) {
   char buf[kBufferSize];
   int len = thread_queue_bget(send_queue_, buf, sizeof(buf));
@@ -418,7 +418,7 @@ void SvpnConnectionManager::HandleQueueSignal_w(
   }
 }
 
-void SvpnConnectionManager::HandleControllerSignal_w(
+void TinCanConnectionManager::HandleControllerSignal_w(
     struct threadqueue *queue) {
   char buf[kBufferSize];
   int len = thread_queue_bget(controller_queue_, buf, sizeof(buf));
@@ -427,7 +427,7 @@ void SvpnConnectionManager::HandleControllerSignal_w(
   }
 }
 
-Json::Value SvpnConnectionManager::GetState() {
+Json::Value TinCanConnectionManager::GetState() {
   Json::Value peers(Json::objectValue);
   for (std::map<std::string, IPs>::const_iterator it =
        ip_map_.begin(); it != ip_map_.end(); ++it) {

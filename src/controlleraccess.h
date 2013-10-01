@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,20 +33,20 @@
 #include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/logging.h"
 
-#include "socialsender.h"
+#include "offersender.h"
 #include "xmppnetwork.h"
-#include "svpnconnectionmanager.h"
+#include "tincanconnectionmanager.h"
 
 namespace sjingle {
 
-class ControllerAccess : public SocialSenderInterface,
+class ControllerAccess : public OfferSenderInterface,
                          public sigslot::has_slots<> {
  public:
-  ControllerAccess(SvpnConnectionManager& manager, XmppNetwork& network,
+  ControllerAccess(TinCanConnectionManager& manager, XmppNetwork& network,
          talk_base::BasicPacketSocketFactory* packet_factory,
          struct threadqueue* controller_queue_);
 
-  // Inherited from SocialSenderInterface
+  // Inherited from OfferSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data);
 
@@ -63,7 +63,7 @@ class ControllerAccess : public SocialSenderInterface,
   void SendState(const talk_base::SocketAddress& addr);
 
   XmppNetwork& network_;
-  SvpnConnectionManager& manager_;
+  TinCanConnectionManager& manager_;
   talk_base::SocketAddress remote_addr_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket6_;

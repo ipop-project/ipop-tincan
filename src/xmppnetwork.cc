@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,8 +41,8 @@ namespace sjingle {
 
 static const int kXmppPort = 5222;
 static const int kInterval = 120000;
-static const buzz::StaticQName QN_SVPN = { "jabber:iq:svpn", "query" };
-static const char kTemplate[] = "<query xmlns=\"jabber:iq:svpn\" />";
+static const buzz::StaticQName QN_SVPN = { "jabber:iq:tincan", "query" };
+static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 
 static std::string get_key(const std::string& uid) {
   int idx = uid.find('/') + sizeof(kXmppPrefix);
@@ -138,13 +138,13 @@ void XmppNetwork::OnSignOn() {
       &XmppNetwork::OnPresenceMessage);
 
   presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-  svpn_task_.reset(new SvpnTask(pump_->client()));
+  tincan_task_.reset(new SvpnTask(pump_->client()));
 
   presence_receive_->Start();
   presence_out_->Send(status_);
   presence_out_->Start();
-  svpn_task_->HandlePeer = HandlePeer;
-  svpn_task_->Start();
+  tincan_task_->HandlePeer = HandlePeer;
+  tincan_task_->Start();
   main_thread_->Clear(this);
   main_thread_->PostDelayed(kInterval, this, 0, 0);
   LOG_F(INFO) << "XMPP ONLINE " << pump_->client()->jid().Str();
@@ -170,14 +170,14 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
 }
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
-  if (!pump_.get() || !svpn_task_.get()) return;
+  if (!pump_.get() || !tincan_task_.get()) return;
   if (status.jid().resource().size() > (sizeof(kXmppPrefix) - 1) && 
       status.jid().resource().compare(0, sizeof(kXmppPrefix) - 1, 
       kXmppPrefix) == 0 && status.jid() != pump_->client()->jid()) {
     std::string uid = status.jid().Str();
     std::string uid_key = get_key(uid);
-    svpn_task_->set_xmpp_id(uid_key, uid);
-    svpn_task_->HandlePeer(uid_key, status.status());
+    tincan_task_->set_xmpp_id(uid_key, uid);
+    tincan_task_->HandlePeer(uid_key, status.status());
   }
 }
 
@@ -186,7 +186,7 @@ void XmppNetwork::OnCloseEvent(int error) {
   xmpp_socket_.release();
   presence_receive_.release();
   presence_out_.release();
-  svpn_task_.release();
+  tincan_task_.release();
   pump_.release();
   LOG_F(INFO) << "XMPP CLOSE " << error;
 }

@@ -1,5 +1,5 @@
 /*
- * svpn-jingle
+ * tincan-jingle
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,38 +48,38 @@
 #include "talk/base/refcount.h"
 #include "talk/base/json.h"
 
-#include "talk/socialvpn/svpn-core/lib/threadqueue/threadqueue.h"
-#include "talk/socialvpn/svpn-core/src/svpn.h"
-#include "talk/socialvpn/svpn-core/src/tap.h"
-#include "talk/socialvpn/svpn-core/src/peerlist.h"
-#include "talk/socialvpn/svpn-core/src/packetio.h"
+#include "talk/ipop-project/ipop-tap/lib/threadqueue/threadqueue.h"
+#include "talk/ipop-project/ipop-tap/src/ipop_tap.h"
+#include "talk/ipop-project/ipop-tap/src/tap.h"
+#include "talk/ipop-project/ipop-tap/src/peerlist.h"
+#include "talk/ipop-project/ipop-tap/src/packetio.h"
 
-#include "socialsender.h"
+#include "offersender.h"
 
 namespace sjingle {
 
-class SocialSender : public SocialSenderInterface {
+class OfferSender : public OfferSenderInterface {
  public:
-  // Inherited from SocialSenderInterface
+  // Inherited from OfferSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data) {
     return service_map_[nid]->SendToPeer(nid, uid, data);
   }
 
-  virtual void add_service(int nid, SocialSenderInterface* sender) {
+  virtual void add_service(int nid, OfferSenderInterface* sender) {
     service_map_[nid] = sender;
   }
 
  private:
-  std::map<int, SocialSenderInterface*> service_map_;
+  std::map<int, OfferSenderInterface*> service_map_;
 
 };
 
-class SvpnConnectionManager : public talk_base::MessageHandler,
+class TinCanConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
 
  public:
-  SvpnConnectionManager(SocialSenderInterface* social_sender,
+  TinCanConnectionManager(OfferSenderInterface* social_sender,
                         talk_base::Thread* signaling_thread,
                         talk_base::Thread* worker_thread,
                         struct threadqueue* send_queue,
@@ -89,17 +89,17 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
 
-  const std::string uid() const { return svpn_id_; }
+  const std::string uid() const { return tincan_id_; }
 
-  const std::string ipv4() const { return svpn_ip4_; }
+  const std::string ipv4() const { return tincan_ip4_; }
 
-  const std::string ipv6() const { return svpn_ip6_; }
+  const std::string ipv6() const { return tincan_ip6_; }
 
   const std::string tap_name() const { return tap_name_; }
   
   talk_base::Thread* worker_thread() const { return worker_thread_; }
 
-  void set_ip(const char* ip) { svpn_ip4_ = ip; }
+  void set_ip(const char* ip) { tincan_ip4_ = ip; }
 
   void set_forward_addr(const talk_base::SocketAddress addr) {
     forward_addr_ = addr;
@@ -124,7 +124,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
-  // Signal handler for SocialSenderInterface
+  // Signal handler for OfferSenderInterface
   virtual void HandlePeer(const std::string& uid, const std::string& data);
 
   // Signal handler for PacketSenderInterface
@@ -187,7 +187,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
                 const std::string& username, const std::string& password);
 
   const std::string content_name_;
-  SocialSenderInterface* social_sender_;
+  OfferSenderInterface* social_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<std::string, cricket::Transport*> short_uid_map_;
@@ -196,7 +196,7 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   talk_base::BasicNetworkManager network_manager_;
-  std::string svpn_id_;
+  std::string tincan_id_;
   talk_base::scoped_ptr<talk_base::OpenSSLIdentity> identity_;
   talk_base::scoped_ptr<talk_base::SSLFingerprint> local_fingerprint_;
   std::string fingerprint_;
@@ -204,8 +204,8 @@ class SvpnConnectionManager : public talk_base::MessageHandler,
   struct threadqueue* rcv_queue_;
   struct threadqueue* controller_queue_;
   const uint64 tiebreaker_;
-  std::string svpn_ip4_;
-  std::string svpn_ip6_;
+  std::string tincan_ip4_;
+  std::string tincan_ip6_;
   std::string tap_name_;
   talk_base::AsyncPacketSocket* forward_socket_;
   talk_base::SocketAddress forward_addr_;
