@@ -32,7 +32,7 @@
 
 #include "tincanconnectionmanager.h"
 
-namespace sjingle {
+namespace tincan {
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
@@ -40,7 +40,7 @@ static const char kContentName[] = "tincan-jingle";
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
-static const char kTapName[] = "tincan";
+static const char kTapName[] = "ipop";
 static const size_t kIdBytesLen = 20;
 static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
@@ -52,20 +52,20 @@ enum {
 };
 
 TinCanConnectionManager::TinCanConnectionManager(
-    OfferSenderInterface* social_sender,
-    talk_base::Thread* signaling_thread,
-    talk_base::Thread* worker_thread,
+    PeerSignalSenderInterface* signal_sender,
+    talk_base::Thread* link_setup_thread,
+    talk_base::Thread* packet_handling_thread,
     struct threadqueue* send_queue,
     struct threadqueue* rcv_queue,
     struct threadqueue* controller_queue)
     : content_name_(kContentName),
-      social_sender_(social_sender),
-      packet_factory_(worker_thread),
+      signal_sender_(signal_sender),
+      packet_factory_(packet_handling_thread),
       uid_map_(),
       short_uid_map_(),
       transport_map_(),
-      signaling_thread_(signaling_thread),
-      worker_thread_(worker_thread),
+      link_setup_thread_(link_setup_thread),
+      packet_handling_thread_(packet_handling_thread),
       network_manager_(),
       tincan_id_(),
       identity_(),
@@ -134,7 +134,7 @@ void TinCanConnectionManager::OnRWChangeState(
     LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
   // TODO - For now, nid = 0 is the controller
-  social_sender_->SendToPeer(0, uid, status);
+  signal_sender_->SendToPeer(0, uid, status);
 }
 
 void TinCanConnectionManager::OnCandidatesReady(
@@ -172,7 +172,7 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     data += *it;
   }
   if (transport_map_.find(transport) != transport_map_.end()) {
-    social_sender_->SendToPeer(nid, transport_map_[transport], data);
+    signal_sender_->SendToPeer(nid, transport_map_[transport], data);
   }
 }
 
@@ -293,14 +293,14 @@ bool TinCanConnectionManager::CreateTransport(
   cricket::TransportChannelImpl* channel;
   if (sec_enabled) {
     peer_state->transport.reset(new DtlsP2PTransport(
-        signaling_thread_, worker_thread_, content_name_, 
+        link_setup_thread_, packet_handling_thread_, content_name_, 
         peer_state->port_allocator.get(), identity_.get()));
     channel = static_cast<cricket::DtlsTransportChannelWrapper*>(
         peer_state->transport->CreateChannel(component));
   }
   else {
     peer_state->transport.reset(new cricket::P2PTransport(
-        signaling_thread_, worker_thread_, content_name_, 
+        link_setup_thread_, packet_handling_thread_, content_name_, 
         peer_state->port_allocator.get()));
     channel = peer_state->transport->CreateChannel(component);
   }
@@ -327,7 +327,7 @@ bool TinCanConnectionManager::CreateTransport(
   return true;
 }
 
-bool TinCanConnectionManager::AddIP(
+bool TinCanConnectionManager::AddIPMapping(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
   if (ip4.empty() || ip6.empty() || uid.size() != kIdSize || 
       ip_map_.find(uid) != ip_map_.end()) return false;
@@ -394,17 +394,17 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
 void TinCanConnectionManager::HandlePeer(const std::string& uid,
                                        const std::string& data) {
   // TODO - For now, nid = 0 is the controller
-  social_sender_->SendToPeer(0, uid, data);
+  signal_sender_->SendToPeer(0, uid, data);
   LOG_F(INFO) << uid << " " << data;
 }
 
 void TinCanConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
   if (g_manager != 0) {
     if (queue != 0) {
-      g_manager->worker_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
+      g_manager->packet_handling_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
     }
     else {
-      g_manager->worker_thread()->Post(g_manager, MSG_CONTROLLERSIGNAL, 0);
+      g_manager->packet_handling_thread()->Post(g_manager, MSG_CONTROLLERSIGNAL, 0);
     }
   }
 }
@@ -474,5 +474,5 @@ Json::Value TinCanConnectionManager::GetState() {
   return peers;
 }
 
-}  // namespace sjingle
+}  // namespace tincan
 

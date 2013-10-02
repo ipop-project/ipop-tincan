@@ -25,8 +25,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SJINGLE_XMPPNETWORK_H_
-#define SJINGLE_XMPPNETWORK_H_
+#ifndef TINCAN_XMPPNETWORK_H_
+#define TINCAN_XMPPNETWORK_H_
 #pragma once
 
 #include "talk/xmpp/xmpptask.h"
@@ -41,17 +41,17 @@
 
 #include "offersender.h"
 
-namespace sjingle {
+namespace tincan {
 
 static const char kXmppPrefix[] = "tincan";
 
-class SvpnTask
-    : public OfferSenderInterface,
+class TinCan
+    : public PeerSignalSenderInterface,
       public buzz::XmppTask {
  public:
-  explicit SvpnTask(buzz::XmppClient* client)
+  explicit TinCan(buzz::XmppClient* client)
       : XmppTask(client, buzz::XmppEngine::HL_SINGLE) {}
-  virtual ~SvpnTask() {}
+  virtual ~TinCan() {}
 
   virtual void set_xmpp_id(const std::string& uid_key,
                            const std::string& uid) {
@@ -65,7 +65,7 @@ class SvpnTask
 
   virtual const std::string uid() { return GetClient()->jid().Str(); }
 
-  // inherited from OfferSenderInterface
+  // inherited from PeerSignalSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data);
 
@@ -78,7 +78,7 @@ class SvpnTask
 };
 
 class XmppNetwork 
-    : public OfferSenderInterface,
+    : public PeerSignalSenderInterface,
       public talk_base::MessageHandler,
       public sigslot::has_slots<> {
  public:
@@ -88,7 +88,7 @@ class XmppNetwork
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  // inherited from OfferSenderInterface
+  // inherited from PeerSignalSenderInterface
   virtual const std::string uid() { 
     return uid_;
   }
@@ -126,11 +126,11 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
-  talk_base::scoped_ptr<SvpnTask> tincan_task_;
+  talk_base::scoped_ptr<TinCan> tincan_task_;
   std::string uid_;
 
 };
 
-}  // namespace sjingle
+}  // namespace tincan
 
-#endif  // SJINGLE_XMPPNETWORK_H_
+#endif  // TINCAN_XMPPNETWORK_H_

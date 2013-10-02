@@ -25,18 +25,18 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SJINGLE_SOCIALSENDER_H_
-#define SJINGLE_SOCIALSENDER_H_
+#ifndef TINCAN_PEERSIGNALSENDER_H_
+#define TINCAN_PEERSIGNALSENDER_H_
 #pragma once
 
 #include "talk/base/sigslot.h"
 
-namespace sjingle {
+namespace tincan {
 
 static const int kHeaderSize = 40;
 static const int kIdSize = 40;    // hex code of 160bit sha1
 
-class OfferSenderInterface {
+class PeerSignalSenderInterface {
  public:
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
@@ -45,10 +45,10 @@ class OfferSenderInterface {
                           const std::string& data) = 0;
 
  protected:
-  virtual ~OfferSenderInterface() {}
+  virtual ~PeerSignalSenderInterface() {}
 };
 
-}  // namespace sjingle
+}  // namespace tincan
 
-#endif  // SJINGLE_SOCIALSENDER_H_
+#endif  // TINCAN_PEERSIGNALSENDER_H_
 

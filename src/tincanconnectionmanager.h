@@ -25,8 +25,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SJINGLE_SVPNCONNECTIONMANAGER_H_
-#define SJINGLE_SVPNCONNECTIONMANAGER_H_
+#ifndef TINCAN_CONNECTIONMANAGER_H_
+#define TINCAN_CONNECTIONMANAGER_H_
 #pragma once
 
 #include <string>
@@ -56,22 +56,22 @@
 
 #include "offersender.h"
 
-namespace sjingle {
+namespace tincan {
 
-class OfferSender : public OfferSenderInterface {
+class PeerSignalSender : public PeerSignalSenderInterface {
  public:
-  // Inherited from OfferSenderInterface
+  // Inherited from PeerSignalSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data) {
     return service_map_[nid]->SendToPeer(nid, uid, data);
   }
 
-  virtual void add_service(int nid, OfferSenderInterface* sender) {
+  virtual void add_service(int nid, PeerSignalSenderInterface* sender) {
     service_map_[nid] = sender;
   }
 
  private:
-  std::map<int, OfferSenderInterface*> service_map_;
+  std::map<int, PeerSignalSenderInterface*> service_map_;
 
 };
 
@@ -79,9 +79,9 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                               public sigslot::has_slots<> {
 
  public:
-  TinCanConnectionManager(OfferSenderInterface* social_sender,
-                        talk_base::Thread* signaling_thread,
-                        talk_base::Thread* worker_thread,
+  TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
+                        talk_base::Thread* link_setup_thread,
+                        talk_base::Thread* packet_handling_thread,
                         struct threadqueue* send_queue,
                         struct threadqueue* rcv_queue,
                         struct threadqueue* controller_queue);
@@ -97,7 +97,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
 
   const std::string tap_name() const { return tap_name_; }
   
-  talk_base::Thread* worker_thread() const { return worker_thread_; }
+  talk_base::Thread* packet_handling_thread() const { return packet_handling_thread_; }
 
   void set_ip(const char* ip) { tincan_ip4_ = ip; }
 
@@ -124,7 +124,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
-  // Signal handler for OfferSenderInterface
+  // Signal handler for PeerSignalSenderInterface
   virtual void HandlePeer(const std::string& uid, const std::string& data);
 
   // Signal handler for PacketSenderInterface
@@ -145,8 +145,9 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);
 
-  virtual bool AddIP(const std::string& uid_key, const std::string& ip4,
-                     const std::string& ip6);
+  virtual bool AddIPMapping(const std::string& uid_key,
+                            const std::string& ip4,
+                            const std::string& ip6);
 
   virtual bool DestroyTransport(const std::string& uid);
 
@@ -187,14 +188,14 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                 const std::string& username, const std::string& password);
 
   const std::string content_name_;
-  OfferSenderInterface* social_sender_;
+  PeerSignalSenderInterface* signal_sender_;
   talk_base::BasicPacketSocketFactory packet_factory_;
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<std::string, cricket::Transport*> short_uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
   std::map<std::string, IPs> ip_map_;
-  talk_base::Thread* signaling_thread_;
-  talk_base::Thread* worker_thread_;
+  talk_base::Thread* link_setup_thread_;
+  talk_base::Thread* packet_handling_thread_;
   talk_base::BasicNetworkManager network_manager_;
   std::string tincan_id_;
   talk_base::scoped_ptr<talk_base::OpenSSLIdentity> identity_;
@@ -211,7 +212,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::SocketAddress forward_addr_;
 };
 
-}  // namespace sjingle
+}  // namespace tincan
 
-#endif  // SJINGLE_SVPNCONNECTIONMANAGER_H_
+#endif  // TINCAN_CONNECTIONMANAGER_H_
 

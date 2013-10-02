@@ -29,7 +29,7 @@
 
 #include "controlleraccess.h"
 
-namespace sjingle {
+namespace tincan {
 
 static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
@@ -172,7 +172,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string uid = root["uid"].asString();
         std::string ip4 = root["ip4"].asString();
         std::string ip6 = root["ip6"].asString();
-        bool res = manager_.AddIP(uid, ip4, ip6);
+        bool res = manager_.AddIPMapping(uid, ip4, ip6);
       }
       break;
     case TRIM_LINK: {
@@ -208,5 +208,5 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   SendTo(result.c_str(), result.size(), addr);
 }
 
-}  // namespace sjingle
+}  // namespace tincan
 

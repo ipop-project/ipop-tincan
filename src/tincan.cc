@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   }
 
   thread_opts_t opts;
-  opts.tap = tap_open("tincan", opts.mac);
+  opts.tap = tap_open("ipop", opts.mac);
   if (opts.tap < 0) return -1;
   opts.translate = translate;
 
@@ -132,23 +132,23 @@ int main(int argc, char **argv) {
   opts.send_queue = &send_queue;
   opts.rcv_queue = &rcv_queue;
 
-  talk_base::Thread worker_thread, send_thread, recv_thread;
-  talk_base::AutoThread signaling_thread;
-  signaling_thread.WrapCurrent();
+  talk_base::Thread packet_handling_thread, send_thread, recv_thread;
+  talk_base::AutoThread link_setup_thread;
+  link_setup_thread.WrapCurrent();
 
-  sjingle::OfferSender social_sender;
-  sjingle::TinCanConnectionManager manager(&social_sender, &signaling_thread,
-                                         &worker_thread, &send_queue, 
+  tincan::PeerSignalSender signal_sender;
+  tincan::TinCanConnectionManager manager(&signal_sender, &link_setup_thread,
+                                         &packet_handling_thread, &send_queue, 
                                          &rcv_queue, &controller_queue);
-  sjingle::XmppNetwork xmpp(&signaling_thread);
+  tincan::XmppNetwork xmpp(&link_setup_thread);
   xmpp.HandlePeer.connect(&manager,
-      &sjingle::TinCanConnectionManager::HandlePeer);
+      &tincan::TinCanConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
-  sjingle::ControllerAccess controller(manager, xmpp, &packet_factory,
+  tincan::ControllerAccess controller(manager, xmpp, &packet_factory,
                                        &controller_queue);
-  social_sender.add_service(0, &controller);
-  social_sender.add_service(1, &xmpp);
-  opts.send_signal = &sjingle::TinCanConnectionManager::HandleQueueSignal;
+  signal_sender.add_service(0, &controller);
+  signal_sender.add_service(1, &xmpp);
+  opts.send_signal = &tincan::TinCanConnectionManager::HandleQueueSignal;
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };
@@ -163,8 +163,8 @@ int main(int argc, char **argv) {
 
   send_thread.Start(&send_runnable);
   recv_thread.Start(&recv_runnable);
-  worker_thread.Start();
-  signaling_thread.Run();
+  packet_handling_thread.Start();
+  link_setup_thread.Run();
   
   return 0;
 }

@@ -25,8 +25,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SJINGLE_CONTROLLERACCESS_H_
-#define SJINGLE_CONTROLLERACCESS_H_
+#ifndef TINCAN_CONTROLLERACCESS_H_
+#define TINCAN_CONTROLLERACCESS_H_
 #pragma once
 
 #include "talk/base/socketaddress.h"
@@ -37,16 +37,16 @@
 #include "xmppnetwork.h"
 #include "tincanconnectionmanager.h"
 
-namespace sjingle {
+namespace tincan {
 
-class ControllerAccess : public OfferSenderInterface,
+class ControllerAccess : public PeerSignalSenderInterface,
                          public sigslot::has_slots<> {
  public:
   ControllerAccess(TinCanConnectionManager& manager, XmppNetwork& network,
          talk_base::BasicPacketSocketFactory* packet_factory,
          struct threadqueue* controller_queue_);
 
-  // Inherited from OfferSenderInterface
+  // Inherited from PeerSignalSenderInterface
   virtual void SendToPeer(int nid, const std::string& uid,
                           const std::string& data);
 
@@ -70,7 +70,7 @@ class ControllerAccess : public OfferSenderInterface,
   struct threadqueue* controller_queue_;
 };
 
-}  // namespace sjingle
+}  // namespace tincan
 
-#endif  // SJINGLE_CONTROLLERACCESS_H_
+#endif  // TINCAN_CONTROLLERACCESS_H_
 

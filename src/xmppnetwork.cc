@@ -37,11 +37,11 @@
 
 #include "xmppnetwork.h"
 
-namespace sjingle {
+namespace tincan {
 
 static const int kXmppPort = 5222;
 static const int kInterval = 120000;
-static const buzz::StaticQName QN_SVPN = { "jabber:iq:tincan", "query" };
+static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 
 static std::string get_key(const std::string& uid) {
@@ -53,21 +53,21 @@ static std::string get_key(const std::string& uid) {
 }
 
 
-void SvpnTask::SendToPeer(int nid, const std::string &uid,
+void TinCan::SendToPeer(int nid, const std::string &uid,
                           const std::string &data) {
   const buzz::Jid to(get_xmpp_id(uid));
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));
-  // TODO - Figure out how to build from QN_SVPN instead of template
+  // TODO - Figure out how to build from QN_TINCAN instead of template
   std::string templ(kTemplate);
   buzz::XmlElement* element = buzz::XmlElement::ForStr(templ);
-  //buzz::XmlElement* element = new buzz::XmlElement(QN_SVPN);
+  //buzz::XmlElement* element = new buzz::XmlElement(QN_TINCAN);
   element->SetBodyText(data);
   get->AddElement(element);
   SendStanza(get.get());
 }
 
-int SvpnTask::ProcessStart() {
+int TinCan::ProcessStart() {
   const buzz::XmlElement* stanza = NextStanza();
   if (stanza == NULL) {
     return STATE_BLOCKED;
@@ -79,13 +79,13 @@ int SvpnTask::ProcessStart() {
     std::string uid = stanza->Attr(buzz::QN_FROM);
     std::string uid_key = get_key(uid);
     set_xmpp_id(uid_key, uid);
-    HandlePeer(uid_key, stanza->FirstNamed(QN_SVPN)->BodyText());
+    HandlePeer(uid_key, stanza->FirstNamed(QN_TINCAN)->BodyText());
   }
   return STATE_START;
 }
 
-bool SvpnTask::HandleStanza(const buzz::XmlElement* stanza) {
-  if (!MatchRequestIq(stanza, buzz::STR_GET, QN_SVPN)) {
+bool TinCan::HandleStanza(const buzz::XmlElement* stanza) {
+  if (!MatchRequestIq(stanza, buzz::STR_GET, QN_TINCAN)) {
     return false;
   }
   QueueStanza(stanza);
@@ -138,7 +138,7 @@ void XmppNetwork::OnSignOn() {
       &XmppNetwork::OnPresenceMessage);
 
   presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-  tincan_task_.reset(new SvpnTask(pump_->client()));
+  tincan_task_.reset(new TinCan(pump_->client()));
 
   presence_receive_->Start();
   presence_out_->Send(status_);
@@ -205,5 +205,5 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }
 
-}  // namespace sjingle
+}  // namespace tincan
 
