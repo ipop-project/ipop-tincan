@@ -72,7 +72,7 @@ ControllerAccess::ControllerAccess(
   socket6_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
   socket6_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
-  manager_.set_forward_socket(socket_.get());
+  manager_.set_forward_socket(socket6_.get());
   init_map();
 }
 
