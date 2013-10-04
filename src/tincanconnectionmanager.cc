@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@ namespace tincan {
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
-static const char kContentName[] = "tincan-jingle";
+static const char kContentName[] = "ipop-tincan";
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;

@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,8 +53,8 @@ static std::string get_key(const std::string& uid) {
 }
 
 
-void TinCan::SendToPeer(int nid, const std::string &uid,
-                          const std::string &data) {
+void TinCanTask::SendToPeer(int nid, const std::string &uid,
+                            const std::string &data) {
   const buzz::Jid to(get_xmpp_id(uid));
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));
@@ -67,7 +67,7 @@ void TinCan::SendToPeer(int nid, const std::string &uid,
   SendStanza(get.get());
 }
 
-int TinCan::ProcessStart() {
+int TinCanTask::ProcessStart() {
   const buzz::XmlElement* stanza = NextStanza();
   if (stanza == NULL) {
     return STATE_BLOCKED;
@@ -84,7 +84,7 @@ int TinCan::ProcessStart() {
   return STATE_START;
 }
 
-bool TinCan::HandleStanza(const buzz::XmlElement* stanza) {
+bool TinCanTask::HandleStanza(const buzz::XmlElement* stanza) {
   if (!MatchRequestIq(stanza, buzz::STR_GET, QN_TINCAN)) {
     return false;
   }
@@ -138,7 +138,7 @@ void XmppNetwork::OnSignOn() {
       &XmppNetwork::OnPresenceMessage);
 
   presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-  tincan_task_.reset(new TinCan(pump_->client()));
+  tincan_task_.reset(new TinCanTask(pump_->client()));
 
   presence_receive_->Start();
   presence_out_->Send(status_);

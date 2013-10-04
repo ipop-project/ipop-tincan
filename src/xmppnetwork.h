@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,19 +39,19 @@
 #include "talk/xmpp/xmpppump.h"
 #include "talk/base/logging.h"
 
-#include "offersender.h"
+#include "peersignalsender.h"
 
 namespace tincan {
 
 static const char kXmppPrefix[] = "tincan";
 
-class TinCan
+class TinCanTask
     : public PeerSignalSenderInterface,
       public buzz::XmppTask {
  public:
-  explicit TinCan(buzz::XmppClient* client)
+  explicit TinCanTask(buzz::XmppClient* client)
       : XmppTask(client, buzz::XmppEngine::HL_SINGLE) {}
-  virtual ~TinCan() {}
+  virtual ~TinCanTask() {}
 
   virtual void set_xmpp_id(const std::string& uid_key,
                            const std::string& uid) {
@@ -126,7 +126,7 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
-  talk_base::scoped_ptr<TinCan> tincan_task_;
+  talk_base::scoped_ptr<TinCanTask> tincan_task_;
   std::string uid_;
 
 };

@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,7 @@
 #include "talk/ipop-project/ipop-tap/src/peerlist.h"
 #include "talk/ipop-project/ipop-tap/src/packetio.h"
 
-#include "offersender.h"
+#include "peersignalsender.h"
 
 namespace tincan {
 

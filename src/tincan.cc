@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,7 @@ bool SSLVerificationCallback(void* cert) {
 int main(int argc, char **argv) {
   talk_base::InitializeSSL(SSLVerificationCallback);
   talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
-  peerlist_init(TABLE_SIZE);
+  peerlist_init();
   int translate = 1;
 
   for (int i = argc - 1; i > 0; i--) {

@@ -1,5 +1,5 @@
 /*
- * tincan-jingle
+ * ipop-tincan
  * Copyright 2013, University of Florida
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@
 #include "talk/p2p/base/basicpacketsocketfactory.h"
 #include "talk/base/logging.h"
 
-#include "offersender.h"
+#include "peersignalsender.h"
 #include "xmppnetwork.h"
 #include "tincanconnectionmanager.h"
 
