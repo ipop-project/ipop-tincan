@@ -53,8 +53,9 @@ static std::string get_key(const std::string& uid) {
 }
 
 
-void TinCanTask::SendToPeer(int nid, const std::string &uid,
-                            const std::string &data) {
+void TinCanTask::SendToPeer(int overlay_id, const std::string &uid,
+                            const std::string &data,
+                            const std::string &type) {
   const buzz::Jid to(get_xmpp_id(uid));
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));

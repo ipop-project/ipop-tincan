@@ -41,8 +41,9 @@ class PeerSignalSenderInterface {
   // Slot for message callbacks
   sigslot::signal2<const std::string&, const std::string&> HandlePeer;
 
-  virtual void SendToPeer(int nid, const std::string& uid,
-                          const std::string& data) = 0;
+  virtual void SendToPeer(int overlay_id, const std::string& uid,
+                          const std::string& data,
+                          const std::string& type) = 0;
 
  protected:
   virtual ~PeerSignalSenderInterface() {}

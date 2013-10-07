@@ -61,13 +61,14 @@ namespace tincan {
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:
   // Inherited from PeerSignalSenderInterface
-  virtual void SendToPeer(int nid, const std::string& uid,
-                          const std::string& data) {
-    return service_map_[nid]->SendToPeer(nid, uid, data);
+  virtual void SendToPeer(int overlay_id, const std::string& uid,
+                          const std::string& data, const std::string& type) {
+    return service_map_[overlay_id]->SendToPeer(overlay_id, uid, data, type);
   }
 
-  virtual void add_service(int nid, PeerSignalSenderInterface* sender) {
-    service_map_[nid] = sender;
+  virtual void add_service(int overlay_id, 
+                           PeerSignalSenderInterface* sender) {
+    service_map_[overlay_id] = sender;
   }
 
  private:
@@ -137,7 +138,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
       const std::string& ip6, int ip6_mask);
 
   virtual bool CreateTransport(
-      const std::string& uid, const std::string& fingerprint, int nid,
+      const std::string& uid, const std::string& fingerprint, int overlay_id,
       const std::string& stun_server, const std::string& turn_server,
       const std::string& turn_user, const std::string& turn_pass,
       const bool sec_enabled);
@@ -159,7 +160,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
 
   struct PeerState {
-    int nid;
+    int overlay_id;
     uint32 last_time;
     std::string uid;
     std::string fingerprint;

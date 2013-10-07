@@ -66,8 +66,8 @@ class TinCanTask
   virtual const std::string uid() { return GetClient()->jid().Str(); }
 
   // inherited from PeerSignalSenderInterface
-  virtual void SendToPeer(int nid, const std::string& uid,
-                          const std::string& data);
+  virtual void SendToPeer(int overlay_id, const std::string& uid,
+                          const std::string& data, const std::string& type);
 
  protected:
   virtual int ProcessStart();
@@ -93,9 +93,10 @@ class XmppNetwork
     return uid_;
   }
 
-  virtual void SendToPeer(int nid, const std::string& uid,
-                          const std::string& data) {
-    if (tincan_task_.get()) tincan_task_->SendToPeer(nid, uid, data);
+  virtual void SendToPeer(int overlay_id, const std::string& uid,
+                          const std::string& data, const std::string& type) {
+    if (tincan_task_.get()) tincan_task_->SendToPeer(overlay_id, uid, data, 
+                                                     type);
   }
 
   void OnLogging(const char* data, int len) {

@@ -44,6 +44,7 @@ static const char kTapName[] = "ipop";
 static const size_t kIdBytesLen = 20;
 static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
+static const uint32 kLocalControllerId = 0;
 static TinCanConnectionManager* g_manager = 0;
 
 enum {
@@ -124,17 +125,17 @@ void TinCanConnectionManager::OnRequestSignaling(
 void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   std::string uid = transport_map_[transport];
-  std::string status = "stat:unknown";
+  std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
-    status = "stat:online";
+    status = "online";
     LOG_F(INFO) << "ONLINE " << uid << " " << talk_base::Time();
   }
   else if (transport->was_writable()) {
-    status = "stat:offline";
+    status = "offline";
     LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
-  // TODO - For now, nid = 0 is the controller
-  signal_sender_->SendToPeer(0, uid, status);
+  // callback message sent to local controller for connection status
+  signal_sender_->SendToPeer(kLocalControllerId, uid, status, "con_stat");
 }
 
 void TinCanConnectionManager::OnCandidatesReady(
@@ -164,7 +165,7 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     cricket::Transport* transport) {
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidates = uid_map_[uid]->candidate_list;
-  int nid = uid_map_[uid]->nid;
+  int overlay_id = uid_map_[uid]->overlay_id;
   std::string data(fingerprint());
   for (std::set<std::string>::const_iterator it = candidates.begin();
        it != candidates.end(); ++it) {
@@ -172,7 +173,8 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     data += *it;
   }
   if (transport_map_.find(transport) != transport_map_.end()) {
-    signal_sender_->SendToPeer(nid, transport_map_[transport], data);
+    signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
+                               data, "con_resp");
   }
 }
 
@@ -267,7 +269,7 @@ void TinCanConnectionManager::SetupTransport(PeerState* peer_state) {
 }
 
 bool TinCanConnectionManager::CreateTransport(
-    const std::string& uid, const std::string& fingerprint, int nid,
+    const std::string& uid, const std::string& fingerprint, int overlay_id,
     const std::string& stun_server, const std::string& turn_server,
     const std::string& turn_user, const std::string& turn_pass,
     const bool sec_enabled) {
@@ -282,7 +284,7 @@ bool TinCanConnectionManager::CreateTransport(
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
   peer_state->uid = uid;
   peer_state->fingerprint = fingerprint;
-  peer_state->nid = nid;
+  peer_state->overlay_id = overlay_id;
   peer_state->last_time = talk_base::Time();
   peer_state->port_allocator.reset(new cricket::BasicPortAllocator(
       &network_manager_, &packet_factory_, stun_addr));
@@ -393,8 +395,9 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
 
 void TinCanConnectionManager::HandlePeer(const std::string& uid,
                                        const std::string& data) {
-  // TODO - For now, nid = 0 is the controller
-  signal_sender_->SendToPeer(0, uid, data);
+  // This is a callback message to the controller indicating a new
+  // connection request sent over XMPP
+  signal_sender_->SendToPeer(kLocalControllerId, uid, data, "con_req");
   LOG_F(INFO) << uid << " " << data;
 }
 
@@ -444,30 +447,30 @@ Json::Value TinCanConnectionManager::GetState() {
       if (uid_map_[uid]->transport->readable() && 
           uid_map_[uid]->transport->writable()) {
         peer["status"] = "online";
+        cricket::ConnectionInfos infos;
+        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+        uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+        std::ostringstream oss;
+        for (int i = 0; i < infos.size(); i++) {
+          oss << infos[i].best_connection << ":"
+              << infos[i].writable << ":"
+              << infos[i].readable << ":"
+              << infos[i].timeout << ":"
+              << infos[i].new_connection << ":"
+              << infos[i].rtt << ":" 
+              << infos[i].sent_total_bytes << ":"
+              << infos[i].sent_bytes_second<< ":"
+              << infos[i].recv_total_bytes << ":"
+              << infos[i].recv_bytes_second << " ";
+         }
+         peer["stats"] = oss.str();
+         std::ostringstream oss2;
+         for (int i = 0; i < infos.size(); i++) {
+           oss2 << infos[i].local_candidate.address().ToString() << " "
+             << infos[i].remote_candidate.address().ToString() << " ";
+         }
+         peer["stats_cons"] = oss2.str();
       }
-      cricket::ConnectionInfos infos;
-      int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-      uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
-      std::ostringstream oss;
-      for (int i = 0; i < infos.size(); i++) {
-        oss << infos[i].best_connection << ":"
-            << infos[i].writable << ":"
-            << infos[i].readable << ":"
-            << infos[i].timeout << ":"
-            << infos[i].new_connection << ":"
-            << infos[i].rtt << ":" 
-            << infos[i].sent_total_bytes << ":"
-            << infos[i].sent_bytes_second<< ":"
-            << infos[i].recv_total_bytes << ":"
-            << infos[i].recv_bytes_second << " ";
-      }
-      peer["stats"] = oss.str();
-      std::ostringstream oss2;
-      for (int i = 0; i < infos.size(); i++) {
-        oss2 << infos[i].local_candidate.address().ToString() << " "
-            << infos[i].remote_candidate.address().ToString() << " ";
-      }
-      peer["stats_cons"] = oss2.str();
     }
     peers[it->first] = peer;
   }

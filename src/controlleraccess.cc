@@ -43,9 +43,10 @@ enum {
   SET_LOCAL_IP,
   SET_REMOTE_IP,
   TRIM_LINK,
-  SET_CALLBACK,
+  SET_CB_ENDPOINT,
   SEND_MSG,
   GET_STATE,
+  SET_LOGGING,
 };
 
 static void init_map() {
@@ -54,9 +55,10 @@ static void init_map() {
   rpc_calls["set_local_ip"] = SET_LOCAL_IP;
   rpc_calls["set_remote_ip"] = SET_REMOTE_IP;
   rpc_calls["trim_link"] = TRIM_LINK;
-  rpc_calls["set_callback"] = SET_CALLBACK;
+  rpc_calls["set_cb_endpoint"] = SET_CB_ENDPOINT;
   rpc_calls["send_msg"] = SEND_MSG;
   rpc_calls["get_state"] = GET_STATE;
+  rpc_calls["set_logging"] = SET_LOGGING;
 }
 
 ControllerAccess::ControllerAccess(
@@ -92,11 +94,13 @@ void ControllerAccess::SendTo(const char* pv, size_t cb,
   }
 }
 
-void ControllerAccess::SendToPeer(int nid, const std::string& uid,
-                                  const std::string& data) {
+void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
+                                  const std::string& data,
+                                  const std::string& type) {
   Json::Value json(Json::objectValue);
   json["uid"] = uid;
   json["data"] = data;
+  json["type"] = type;
   std::string msg = json.toStyledString();
   SendTo(msg.c_str(), msg.size(), remote_addr_);
   LOG_F(INFO) << uid << " " << data;
@@ -109,11 +113,13 @@ void ControllerAccess::SendState(const talk_base::SocketAddress& addr) {
   local_state["_ip4"] = manager_.ipv4();
   local_state["_ip6"] = manager_.ipv6();
   local_state["_fpr"] = manager_.fingerprint();
+  local_state["type"] = "local_state";
   std::string msg = local_state.toStyledString();
   SendTo(msg.c_str(), msg.size(), addr);
 
   for (Json::ValueIterator it = state.begin(); it != state.end(); it++) {
     Json::Value peer = *it;
+    peer["type"] = "peer_state";
     msg = peer.toStyledString();
     SendTo(msg.c_str(), msg.size(), addr);
   }
@@ -143,7 +149,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case CREATE_LINK: {
-        int nid = root["nid"].asInt();
+        int overlay_id = root["overlay_id"].asInt();
         std::string uid = root["uid"].asString();
         std::string fpr = root["fpr"].asString();
         std::string stun = root["stun"].asString();
@@ -152,7 +158,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string turn_pass = root["turn_pass"].asString();
         std::string cas = root["cas"].asString();
         bool sec = root["sec"].asBool();
-        bool res = manager_.CreateTransport(uid, fpr, nid, stun, turn,
+        bool res = manager_.CreateTransport(uid, fpr, overlay_id, stun, turn,
                                             turn_user, turn_pass, sec);
         if (!cas.empty()) {
           manager_.CreateConnections(uid, cas);
@@ -180,7 +186,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         manager_.DestroyTransport(uid);
       }
       break;
-    case SET_CALLBACK: {
+    case SET_CB_ENDPOINT: {
         std::string ip = root["ip"].asString();
         int port = root["port"].asInt();
         remote_addr_.SetIP(ip);
@@ -189,14 +195,20 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case SEND_MSG: {
-        int nid = root["nid"].asInt();
+        int overlay_id = root["overlay_id"].asInt();
         std::string uid = root["uid"].asString();
         std::string fpr = root["data"].asString();
-        network_.SendToPeer(nid, uid, fpr);
+        network_.SendToPeer(overlay_id, uid, fpr, "send_msg");
       }
       break;
     case GET_STATE: {
         SendState(addr);
+      }
+      break;
+    case SET_LOGGING: {
+        int flag = root["flag"].asInt();
+        if (flag > 0) talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+        else talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR + 1);
       }
       break;
     default: {

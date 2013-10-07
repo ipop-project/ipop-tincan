@@ -111,10 +111,7 @@ int main(int argc, char **argv) {
   int translate = 1;
 
   for (int i = argc - 1; i > 0; i--) {
-    if (strncmp(argv[i], "-v", 2) == 0) {
-      talk_base::LogMessage::LogToDebug(talk_base::LS_VERBOSE);
-    }
-    else if (strncmp(argv[i], "-nt", 3) == 0) {
+    if (strncmp(argv[i], "-nt", 3) == 0) {
       translate = 0;
     }
   }
