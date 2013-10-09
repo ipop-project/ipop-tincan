@@ -1,0 +1,15 @@
+INPUT = talk/app talk/base talk/media talk/p2p talk/session talk/sound talk/xmllite talk/xmpp talk/examples talk/ipop-project
+
+FILE_PATTERNS = *.cc *.h
+
+RECURSIVE = YES
+
+EXCLUDE_PATTERNS = *_unittest.cc
+
+EXTRACT_ALL = YES
+
+SOURCE_BROWSER = YES
+
+INLINE_SOURCES = YES
+
+REFERENCED_BY_RELATION = YES
