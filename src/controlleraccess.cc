@@ -87,10 +87,10 @@ void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
 void ControllerAccess::SendTo(const char* pv, size_t cb,
                               const talk_base::SocketAddress& addr) {
   if (addr.family() == AF_INET) {
-    socket_->SendTo(pv, cb, addr);
+    socket_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
   }
   else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(pv, cb, addr);
+    socket6_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
   }
 }
 

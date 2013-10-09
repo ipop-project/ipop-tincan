@@ -196,14 +196,14 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   std::string source = talk_base::hex_encode(data, kShortLen);
   std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
   if (dest.compare(0, 3, "000") == 0) {
-    forward_socket_->SendTo(data, len, forward_addr_);
+    forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT);
   } 
   else if (short_uid_map_.find(dest) != short_uid_map_.end() &&
            short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
-    int count = channel->SendPacket(data, len, 0);
+    int count = channel->SendPacket(data, len, talk_base::DSCP_DEFAULT, 0);
   }
 }
 
