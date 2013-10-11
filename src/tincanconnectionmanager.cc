@@ -91,7 +91,11 @@ void TinCanConnectionManager::Setup(
   tincan_id_ = uid;
   char uid_str[kIdBytesLen];
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
+#ifndef WIN32
   identity_.reset(talk_base::OpenSSLIdentity::Generate(tincan_id_));
+#else
+  identity_.reset(talk_base::NSSIdentity::Generate(tincan_id_));
+#endif
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
   fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();

@@ -45,7 +45,7 @@ static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 
 static std::string get_key(const std::string& uid) {
-  int idx = uid.find('/') + sizeof(kXmppPrefix);
+  size_t idx = uid.find('/') + sizeof(kXmppPrefix);
   if ((idx + kIdSize) <= uid.size()) {
     return uid.substr(idx, kIdSize);
   }
