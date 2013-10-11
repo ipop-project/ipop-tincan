@@ -36,11 +36,12 @@ namespace tincan {
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
+static const char kFpr[] =
+    "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
 static const char kContentName[] = "ipop-tincan";
 static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
-static const char kTapName[] = "ipop";
 static const size_t kIdBytesLen = 20;
 static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
@@ -75,7 +76,7 @@ TinCanConnectionManager::TinCanConnectionManager(
       tincan_id_(),
       identity_(),
       local_fingerprint_(),
-      fingerprint_(),
+      fingerprint_(kFpr),
       send_queue_(send_queue),
       rcv_queue_(rcv_queue),
       controller_queue_(controller_queue),
@@ -95,13 +96,19 @@ void TinCanConnectionManager::Setup(
   tincan_id_ = uid;
   char uid_str[kIdBytesLen];
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
-  identity_.reset(talk_base::OpenSSLIdentity::Generate(tincan_id_));
+  identity_.reset(talk_base::SSLIdentity::Generate(tincan_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
-  fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
-  int error = tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
+  // On WIN32, local_fingerprint is set to null
+  if (local_fingerprint_.get()) {
+    fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
+  }
+  int error = 0;
+#if defined(LINUX) || defined(ANDROID)
+  error = tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
+#endif
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
   ASSERT(error == 0);
   tincan_ip4_ = ip4;
@@ -112,7 +119,7 @@ void TinCanConnectionManager::OnNetworksChanged() {
   talk_base::NetworkManager::NetworkList networks;
   talk_base::SocketAddress ip6_addr(tincan_ip6_, 0);
   network_manager_.GetNetworks(&networks);
-  for (uint32 i = 0; i < networks.size(); ++i) {
+  for (size_t i = 0; i < networks.size(); ++i) {
     if (networks[i]->name().compare(kTapName) == 0) {
       networks[i]->ClearIPs();
       // Set to a random ipv6 address in order to disable
@@ -146,11 +153,13 @@ void TinCanConnectionManager::OnCandidatesReady(
     cricket::Transport* transport, const cricket::Candidates& candidates) {
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidate_list = uid_map_[uid]->candidate_list;
-  for (int i = 0; i < candidates.size(); i++) {
+  for (size_t i = 0; i < candidates.size(); i++) {
     if (candidates[i].network_name().compare(kTapName) == 0) continue;
-    std::ostringstream oss;
+    size_t idx = candidates[i].network_name().find(' ');
+    std::string interface = candidates[i].network_name().substr(0, idx);
     std::string ip_string =
         talk_base::SocketAddress::IPToString(candidates[i].address().ip());
+    std::ostringstream oss;
     oss << candidates[i].id() << ":" << candidates[i].component()
         << ":" << candidates[i].protocol() << ":" << ip_string
         << ":" << candidates[i].address().port() 
@@ -158,7 +167,7 @@ void TinCanConnectionManager::OnCandidatesReady(
         << ":" << candidates[i].username() 
         << ":" << candidates[i].password() 
         << ":" << candidates[i].type() 
-        << ":" << candidates[i].network_name() 
+        << ":" << interface
         << ":" << candidates[i].generation() 
         << ":" << candidates[i].foundation(); 
     candidate_list.insert(oss.str());
@@ -406,7 +415,6 @@ void TinCanConnectionManager::HandlePeer(const std::string& uid,
   else {
     signal_sender_->SendToPeer(kLocalControllerId, uid, data, kConReq);
   }
-  
   LOG_F(INFO) << uid << " " << data;
 }
 
@@ -453,6 +461,8 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
     if (uid_map_[uid]->transport->readable() && 
         uid_map_[uid]->transport->writable()) {
       peer["status"] = "online";
+#if !defined(WIN32)
+        // For some odd reason, GetStats fails on WIN32
       cricket::ConnectionInfos infos;
       int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
       uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
@@ -476,6 +486,7 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
            << infos[i].remote_candidate.address().ToString() << " ";
        }
        peer["stats_cons"] = oss2.str();
+#endif
     }
   }
   return peer;

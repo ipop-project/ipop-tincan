@@ -53,22 +53,10 @@
       ],
     },  # target turnserver
     {
-      'target_name': 'ipop-tincan',
-      'type': 'executable',
+      'target_name': 'ipop-tap',
+      'type': 'static_library',
       'cflags' : [
         '-Wall',
-      ],
-      'conditions': [
-        ['OS=="android"', {
-          'defines': [
-            'DROID_BUILD',
-          ],
-        }],
-      ],
-      'dependencies': [
-        'libjingle.gyp:libjingle_p2p',
-        '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
-        '<(DEPTH)/third_party/openssl/openssl.gyp:openssl',
       ],
       'sources': [
         'ipop-project/ipop-tap/src/headers.c',
@@ -81,11 +69,56 @@
         'ipop-project/ipop-tap/src/socket_utils.h',
         'ipop-project/ipop-tap/src/tap.c',
         'ipop-project/ipop-tap/src/tap.h',
+        'ipop-project/ipop-tap/src/win32_tap.c',
+        'ipop-project/ipop-tap/src/win32_tap.h',
         'ipop-project/ipop-tap/src/translator.c',
         'ipop-project/ipop-tap/src/translator.h',
         'ipop-project/ipop-tap/lib/threadqueue/threadqueue.c',
         'ipop-project/ipop-tap/lib/threadqueue/threadqueue.h',
         'ipop-project/ipop-tap/lib/klib/khash.h',
+      ],
+    },  # target ipop-tap
+    {
+      'target_name': 'ipop-tincan',
+      'type': 'executable',
+      'cflags' : [
+        '-Wall',
+      ],
+      'conditions': [
+        ['OS=="linux" or OS=="android"', {
+          'dependencies': [
+            'libjingle.gyp:libjingle_p2p',
+            '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
+            'ipop-tap',
+          ],
+        }],
+        ['OS=="win"', {
+          'dependencies': [
+            'libjingle.gyp:libjingle_p2p',
+            '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
+          ],
+          'include_dirs': [
+            '<(DEPTH)/third-party/pthreads_win32/include',
+          ],
+          'library_dirs': [
+            'ipop-project/ipop-tap/bin',
+          ],
+          'link_settings': {
+            'libraries': [
+              '-lipoptap',
+              '-lws2_32',
+              '-liphlpapi',
+            ]
+          },
+          'sources': [
+            'ipop-project/ipop-tap/src/packetio.h',
+            'ipop-project/ipop-tap/src/peerlist.h',
+            'ipop-project/ipop-tap/src/win32_tap.h',
+            'ipop-project/ipop-tap/lib/threadqueue/threadqueue.h',
+          ],
+        }],
+      ],
+      'sources': [
         'ipop-project/ipop-tincan/src/tincan.cc',
         'ipop-project/ipop-tincan/src/tincanconnectionmanager.cc',
         'ipop-project/ipop-tincan/src/tincanconnectionmanager.h',

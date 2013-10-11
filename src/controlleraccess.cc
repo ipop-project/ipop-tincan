@@ -190,8 +190,14 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_CB_ENDPOINT: {
         std::string ip = root["ip"].asString();
         int port = root["port"].asInt();
-        remote_addr_.SetIP(ip);
-        remote_addr_.SetPort(port);
+        // sometimes python sends wrong ip address based on platform
+        if (ip.compare("::") != 0 || ip.compare("0.0.0.0") != 0) {
+          remote_addr_.SetIP(ip);
+          remote_addr_.SetPort(port);
+        }
+        else { 
+          remote_addr_ = addr;
+        }
         manager_.set_forward_addr(remote_addr_);
       }
       break;

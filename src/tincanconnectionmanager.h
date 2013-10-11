@@ -38,7 +38,6 @@
 #include "talk/p2p/client/basicportallocator.h"
 #include "talk/p2p/base/transportdescription.h"
 #include "talk/p2p/base/transportchannelimpl.h"
-#include "talk/base/opensslidentity.h"
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
@@ -47,6 +46,8 @@
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
 #include "talk/base/json.h"
+
+#include "talk/base/sslidentity.h"
 
 #include "talk/ipop-project/ipop-tap/lib/threadqueue/threadqueue.h"
 #include "talk/ipop-project/ipop-tap/src/ipop_tap.h"
@@ -57,6 +58,8 @@
 #include "peersignalsender.h"
 
 namespace tincan {
+
+static const char kTapName[] = "ipop";
 
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:
@@ -201,7 +204,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::Thread* packet_handling_thread_;
   talk_base::BasicNetworkManager network_manager_;
   std::string tincan_id_;
-  talk_base::scoped_ptr<talk_base::OpenSSLIdentity> identity_;
+  talk_base::scoped_ptr<talk_base::SSLIdentity> identity_;
   talk_base::scoped_ptr<talk_base::SSLFingerprint> local_fingerprint_;
   std::string fingerprint_;
   struct threadqueue* send_queue_;
