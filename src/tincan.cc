@@ -25,14 +25,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm>
-#include <sys/types.h>
-#include <pwd.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
 #ifdef DROID_BUILD
 #include "talk/base/ifaddrs-android.h"
 #else

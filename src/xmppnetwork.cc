@@ -48,7 +48,7 @@ static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
 
 static std::string get_key(const std::string& uid) {
-  int idx = uid.find('/') + sizeof(kXmppPrefix);
+  size_t idx = uid.find('/') + sizeof(kXmppPrefix);
   if ((idx + kIdSize) <= uid.size()) {
     return uid.substr(idx, kIdSize);
   }
