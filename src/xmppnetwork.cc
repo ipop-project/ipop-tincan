@@ -184,8 +184,9 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
 
 void XmppNetwork::OnCloseEvent(int error) {
   // Release all assuming they are deleted by XmppClient
-  std::string uid_key = get_key(pump_->client()->jid().Str());
-  tincan_task_->HandlePeer(uid_key, "error:xmpp_connect_failed");
+  buzz::Jid local_jid(xcs_.user(), xcs_.host(), xcs_.resource());
+  std::string uid_key = get_key(local_jid.Str());
+  HandlePeer(uid_key, "error:1000:xmpp_connect_failed");
   xmpp_socket_.release();
   presence_receive_.release();
   presence_out_.release();
