@@ -47,6 +47,10 @@ static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
 static TinCanConnectionManager* g_manager = 0;
 
+static const char kConStat[] = "con_stat";
+static const char kConReq[] = "con_req";
+static const char kConResp[] = "con_resp";
+
 enum {
   MSG_QUEUESIGNAL = 0,
   MSG_CONTROLLERSIGNAL = 1
@@ -135,7 +139,7 @@ void TinCanConnectionManager::OnRWChangeState(
     LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
   // callback message sent to local controller for connection status
-  signal_sender_->SendToPeer(kLocalControllerId, uid, status, "con_stat");
+  signal_sender_->SendToPeer(kLocalControllerId, uid, status, kConStat);
 }
 
 void TinCanConnectionManager::OnCandidatesReady(
@@ -174,7 +178,7 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
   }
   if (transport_map_.find(transport) != transport_map_.end()) {
     signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
-                               data, "con_resp");
+                               data, kConResp);
   }
 }
 
@@ -392,11 +396,17 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
   }
 }
 
-void TinCanConnectionManager::HandlePeer(const std::string& uid,
-                                         const std::string& data) {
+void TinCanConnectionManager::HandlePeer(const std::string& uid, 
+    const std::string& data, const std::string& type) {
   // This is a callback message to the controller indicating a new
   // connection request sent over XMPP
-  signal_sender_->SendToPeer(kLocalControllerId, uid, data, "con_req");
+  if (type.size() > 0) {
+    signal_sender_->SendToPeer(kLocalControllerId, uid, data, type);
+  }
+  else {
+    signal_sender_->SendToPeer(kLocalControllerId, uid, data, kConReq);
+  }
+  
   LOG_F(INFO) << uid << " " << data;
 }
 

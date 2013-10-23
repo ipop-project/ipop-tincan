@@ -126,7 +126,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   virtual void OnMessage(talk_base::Message* msg);
 
   // Signal handler for PeerSignalSenderInterface
-  virtual void HandlePeer(const std::string& uid, const std::string& data);
+  virtual void HandlePeer(const std::string& uid, const std::string& data,
+                          const std::string& type);
 
   // Signal handler for PacketSenderInterface
   virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
