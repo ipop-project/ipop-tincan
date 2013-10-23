@@ -207,10 +207,9 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   }
 }
 
-bool TinCanConnectionManager::SetRelay(PeerState* peer_state,
-                                     const std::string& turn_server,
-                                     const std::string& username, 
-                                     const std::string& password) {
+bool TinCanConnectionManager::SetRelay(
+    PeerState* peer_state, const std::string& turn_server,
+    const std::string& username, const std::string& password) {
   if (turn_server.empty() || username.empty()) return false;
   talk_base::SocketAddress turn_addr;
   turn_addr.FromString(turn_server);
@@ -394,7 +393,7 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
 }
 
 void TinCanConnectionManager::HandlePeer(const std::string& uid,
-                                       const std::string& data) {
+                                         const std::string& data) {
   // This is a callback message to the controller indicating a new
   // connection request sent over XMPP
   signal_sender_->SendToPeer(kLocalControllerId, uid, data, "con_req");
