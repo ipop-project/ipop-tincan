@@ -121,11 +121,8 @@ bool XmppNetwork::Login(std::string username, std::string password,
   xcs_.set_user(jid.node());
   xcs_.set_host(jid.domain());
   xcs_.set_resource(resource);
-#if defined(LINUX) || defined(ANDROID)
   xcs_.set_use_tls(buzz::TLS_REQUIRED);
-#elif defined(WIN32)
-  xcs_.set_allow_plain(true);
-#endif
+  //xcs_.set_allow_plain(true);
   xcs_.set_pass(talk_base::CryptString(pass));
   xcs_.set_server(talk_base::SocketAddress(host, kXmppPort));
   return Connect();

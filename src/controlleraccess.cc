@@ -191,12 +191,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string ip = root["ip"].asString();
         int port = root["port"].asInt();
         // sometimes python sends wrong ip address based on platform
-        if (ip.compare("::") != 0 || ip.compare("0.0.0.0") != 0) {
-          remote_addr_.SetIP(ip);
-          remote_addr_.SetPort(port);
+        if (ip.compare("::") == 0) {
+          remote_addr_ = addr;
         }
         else { 
-          remote_addr_ = addr;
+          remote_addr_.SetIP(ip);
+          remote_addr_.SetPort(port);
         }
         manager_.set_forward_addr(remote_addr_);
       }

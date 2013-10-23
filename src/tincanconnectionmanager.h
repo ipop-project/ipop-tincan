@@ -168,6 +168,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     uint32 last_time;
     std::string uid;
     std::string fingerprint;
+    std::string connection_security;
     talk_base::scoped_ptr<cricket::P2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
     talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;

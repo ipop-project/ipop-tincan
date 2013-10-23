@@ -36,7 +36,7 @@ namespace tincan {
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
-static const char kFpr[] =
+static const char kFprNull[] =
     "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
 static const char kContentName[] = "ipop-tincan";
 static const char kIceUfrag[] = "ufrag";
@@ -76,7 +76,7 @@ TinCanConnectionManager::TinCanConnectionManager(
       tincan_id_(),
       identity_(),
       local_fingerprint_(),
-      fingerprint_(kFpr),
+      fingerprint_(kFprNull),
       send_queue_(send_queue),
       rcv_queue_(rcv_queue),
       controller_queue_(controller_queue),
@@ -305,18 +305,21 @@ bool TinCanConnectionManager::CreateTransport(
 
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::TransportChannelImpl* channel;
-  if (sec_enabled) {
+  if (sec_enabled && local_fingerprint_.get() &&
+      fingerprint.compare(kFprNull) != 0) {
     peer_state->transport.reset(new DtlsP2PTransport(
         link_setup_thread_, packet_handling_thread_, content_name_, 
         peer_state->port_allocator.get(), identity_.get()));
     channel = static_cast<cricket::DtlsTransportChannelWrapper*>(
         peer_state->transport->CreateChannel(component));
+    peer_state->connection_security = "dtls";
   }
   else {
     peer_state->transport.reset(new cricket::P2PTransport(
         link_setup_thread_, packet_handling_thread_, content_name_, 
         peer_state->port_allocator.get()));
     channel = peer_state->transport->CreateChannel(component);
+    peer_state->connection_security = "none";
   }
 
   channel->SignalReadPacket.connect(
@@ -461,6 +464,7 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
     if (uid_map_[uid]->transport->readable() && 
         uid_map_[uid]->transport->writable()) {
       peer["status"] = "online";
+      peer["security"] = uid_map_[uid]->connection_security;
 #if !defined(WIN32)
         // For some odd reason, GetStats fails on WIN32
       cricket::ConnectionInfos infos;
