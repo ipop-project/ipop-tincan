@@ -106,8 +106,9 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
   LOG_F(INFO) << uid << " " << data;
 }
 
-void ControllerAccess::SendState(const talk_base::SocketAddress& addr) {
-  Json::Value state = manager_.GetState();
+void ControllerAccess::SendState(const std::string& uid, 
+                                 const talk_base::SocketAddress& addr) {
+  Json::Value state = manager_.GetState(uid);
   Json::Value local_state;
   local_state["_uid"] = manager_.uid();
   local_state["_ip4"] = manager_.ipv4();
@@ -202,7 +203,8 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case GET_STATE: {
-        SendState(addr);
+        std::string uid = root["uid"].asString();
+        SendState(uid, addr);
       }
       break;
     case SET_LOGGING: {

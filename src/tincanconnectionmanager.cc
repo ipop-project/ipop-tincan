@@ -338,7 +338,7 @@ bool TinCanConnectionManager::AddIPMapping(
   // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
   peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
-  IPs ips;
+  PeerIPs ips;
   ips.ip4 = ip4;
   ips.ip6 = ip6;
   ip_map_[uid] = ips;
@@ -430,49 +430,58 @@ void TinCanConnectionManager::HandleControllerSignal_w(
   }
 }
 
-Json::Value TinCanConnectionManager::GetState() {
-  Json::Value peers(Json::objectValue);
-  for (std::map<std::string, IPs>::const_iterator it =
-       ip_map_.begin(); it != ip_map_.end(); ++it) {
-    std::string uid = it->first;
-    Json::Value peer(Json::objectValue);
-    peer["uid"] = it->first;
-    peer["ip4"] = it->second.ip4;
-    peer["ip6"] = it->second.ip6;
-    peer["status"] = "offline";
-    if (uid_map_.find(uid) != uid_map_.end()) {
-      peer["fpr"] = uid_map_[uid]->fingerprint;
-      uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
-      peer["last_time"] = time_diff/1000;
-      if (uid_map_[uid]->transport->readable() && 
-          uid_map_[uid]->transport->writable()) {
-        peer["status"] = "online";
-        cricket::ConnectionInfos infos;
-        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-        uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
-        std::ostringstream oss;
-        for (int i = 0; i < infos.size(); i++) {
-          oss << infos[i].best_connection << ":"
-              << infos[i].writable << ":"
-              << infos[i].readable << ":"
-              << infos[i].timeout << ":"
-              << infos[i].new_connection << ":"
-              << infos[i].rtt << ":" 
-              << infos[i].sent_total_bytes << ":"
-              << infos[i].sent_bytes_second<< ":"
-              << infos[i].recv_total_bytes << ":"
-              << infos[i].recv_bytes_second << " ";
-         }
-         peer["stats"] = oss.str();
-         std::ostringstream oss2;
-         for (int i = 0; i < infos.size(); i++) {
-           oss2 << infos[i].local_candidate.address().ToString() << " "
-             << infos[i].remote_candidate.address().ToString() << " ";
-         }
-         peer["stats_cons"] = oss2.str();
-      }
+Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
+                                                 const PeerIPs& ips) {
+  Json::Value peer(Json::objectValue);
+  peer["uid"] = uid;
+  peer["ip4"] = ips.ip4;
+  peer["ip6"] = ips.ip6;
+  peer["status"] = "offline";
+  if (uid_map_.find(uid) != uid_map_.end()) {
+    peer["fpr"] = uid_map_[uid]->fingerprint;
+    uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
+    peer["last_time"] = time_diff/1000;
+    if (uid_map_[uid]->transport->readable() && 
+        uid_map_[uid]->transport->writable()) {
+      peer["status"] = "online";
+      cricket::ConnectionInfos infos;
+      int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+      uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+      std::ostringstream oss;
+      for (int i = 0; i < infos.size(); i++) {
+        oss << infos[i].best_connection << ":"
+            << infos[i].writable << ":"
+            << infos[i].readable << ":"
+            << infos[i].timeout << ":"
+            << infos[i].new_connection << ":"
+            << infos[i].rtt << ":" 
+            << infos[i].sent_total_bytes << ":"
+            << infos[i].sent_bytes_second<< ":"
+            << infos[i].recv_total_bytes << ":"
+            << infos[i].recv_bytes_second << " ";
+       }
+       peer["stats"] = oss.str();
+       std::ostringstream oss2;
+       for (int i = 0; i < infos.size(); i++) {
+         oss2 << infos[i].local_candidate.address().ToString() << " "
+           << infos[i].remote_candidate.address().ToString() << " ";
+       }
+       peer["stats_cons"] = oss2.str();
     }
-    peers[it->first] = peer;
+  }
+  return peer;
+}
+
+Json::Value TinCanConnectionManager::GetState(const std::string& uid) {
+  Json::Value peers(Json::objectValue);
+  if (uid.size() > 0 && ip_map_.find(uid) != ip_map_.end()) {
+    peers[uid] = StateToJson(uid, ip_map_[uid]);
+  }
+  else if (uid.size() == 0) {
+    for (std::map<std::string, PeerIPs>::const_iterator it =
+         ip_map_.begin(); it != ip_map_.end(); ++it) {
+      peers[it->first] = StateToJson(it->first, it->second);
+    }
   }
   return peers;
 }

@@ -152,7 +152,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
 
   virtual bool DestroyTransport(const std::string& uid);
 
-  virtual Json::Value GetState();
+  virtual Json::Value GetState(const std::string& uid);
 
   // Signal fired when packet inserted in recv_queue
   static void HandleQueueSignal(struct threadqueue* queue);
@@ -173,7 +173,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     std::set<std::string> candidate_list;
   };
 
-  struct IPs {
+  struct PeerIPs {
     std::string ip4;
     std::string ip6;
   };
@@ -185,6 +185,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w(struct threadqueue* queue);
   void HandleControllerSignal_w(struct threadqueue* queue);
+  Json::Value StateToJson(const std::string& uid, const PeerIPs& ips);
   bool SetRelay(PeerState* peer_state, const std::string& turn_server,
                 const std::string& username, const std::string& password);
 
@@ -194,7 +195,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<std::string, cricket::Transport*> short_uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
-  std::map<std::string, IPs> ip_map_;
+  std::map<std::string, PeerIPs> ip_map_;
   talk_base::Thread* link_setup_thread_;
   talk_base::Thread* packet_handling_thread_;
   talk_base::BasicNetworkManager network_manager_;
