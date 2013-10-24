@@ -86,7 +86,8 @@ class XmppNetwork
       : main_thread_(main_thread){};
 
   // Slot for message callbacks
-  sigslot::signal2<const std::string&, const std::string&> HandlePeer;
+  sigslot::signal3<const std::string&, const std::string&,
+                   const std::string&> HandlePeer;
 
   // inherited from PeerSignalSenderInterface
   virtual const std::string uid() { 

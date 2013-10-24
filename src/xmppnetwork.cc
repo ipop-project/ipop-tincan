@@ -43,6 +43,7 @@ static const int kXmppPort = 5222;
 static const int kInterval = 120000;
 static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
+static const char kErrorMsg[] = "error";
 
 static std::string get_key(const std::string& uid) {
   int idx = uid.find('/') + sizeof(kXmppPrefix);
@@ -80,7 +81,7 @@ int TinCanTask::ProcessStart() {
     std::string uid = stanza->Attr(buzz::QN_FROM);
     std::string uid_key = get_key(uid);
     set_xmpp_id(uid_key, uid);
-    HandlePeer(uid_key, stanza->FirstNamed(QN_TINCAN)->BodyText());
+    HandlePeer(uid_key, stanza->FirstNamed(QN_TINCAN)->BodyText(), "");
   }
   return STATE_START;
 }
@@ -178,12 +179,15 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
     std::string uid = status.jid().Str();
     std::string uid_key = get_key(uid);
     tincan_task_->set_xmpp_id(uid_key, uid);
-    tincan_task_->HandlePeer(uid_key, status.status());
+    tincan_task_->HandlePeer(uid_key, status.status(), "");
   }
 }
 
 void XmppNetwork::OnCloseEvent(int error) {
   // Release all assuming they are deleted by XmppClient
+  buzz::Jid local_jid(xcs_.user(), xcs_.host(), xcs_.resource());
+  std::string uid_key = get_key(local_jid.Str());
+  HandlePeer(uid_key, "1000:xmpp_connect_failed", kErrorMsg);
   xmpp_socket_.release();
   presence_receive_.release();
   presence_out_.release();

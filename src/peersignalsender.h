@@ -39,7 +39,8 @@ static const int kIdSize = 40;    // hex code of 160bit sha1
 class PeerSignalSenderInterface {
  public:
   // Slot for message callbacks
-  sigslot::signal2<const std::string&, const std::string&> HandlePeer;
+  sigslot::signal3<const std::string&, const std::string&,
+                   const std::string&> HandlePeer;
 
   virtual void SendToPeer(int overlay_id, const std::string& uid,
                           const std::string& data,
