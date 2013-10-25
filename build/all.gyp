@@ -13,10 +13,10 @@
       'target_name': 'All',
       'type': 'none',
       'dependencies': [
-        'webrtc/webrtc.gyp:*',
+        #'webrtc/webrtc.gyp:*',
         'talk/libjingle.gyp:*',
-        'talk/libjingle_examples.gyp:*',
-        'talk/libjingle_tests.gyp:*',
+        #'talk/libjingle_examples.gyp:*',
+        #'talk/libjingle_tests.gyp:*',
         'talk/ipop-tincan.gyp:*',
       ],
     },
