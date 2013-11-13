@@ -91,7 +91,7 @@ TinCanConnectionManager::TinCanConnectionManager(
 
 void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
-    const std::string& ip6, int ip6_mask) {
+    const std::string& ip6, int ip6_mask, int subnet_mask) {
   if (!tincan_id_.empty() || uid.size() != kIdSize) return;
   tincan_id_ = uid;
   char uid_str[kIdBytesLen];
@@ -110,6 +110,7 @@ void TinCanConnectionManager::Setup(
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
 #endif
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
+  error |= set_subnet_mask(subnet_mask);
   ASSERT(error == 0);
   tincan_ip4_ = ip4;
   tincan_ip6_ = ip6;

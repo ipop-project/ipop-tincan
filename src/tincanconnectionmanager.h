@@ -80,15 +80,15 @@ class PeerSignalSender : public PeerSignalSenderInterface {
 };
 
 class TinCanConnectionManager : public talk_base::MessageHandler,
-                              public sigslot::has_slots<> {
+                                public sigslot::has_slots<> {
 
  public:
   TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
-                        talk_base::Thread* link_setup_thread,
-                        talk_base::Thread* packet_handling_thread,
-                        struct threadqueue* send_queue,
-                        struct threadqueue* rcv_queue,
-                        struct threadqueue* controller_queue);
+                          talk_base::Thread* link_setup_thread,
+                          talk_base::Thread* packet_handling_thread,
+                          struct threadqueue* send_queue,
+                          struct threadqueue* rcv_queue,
+                          struct threadqueue* controller_queue);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -120,7 +120,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   virtual void OnRequestSignaling(cricket::Transport* transport);
   virtual void OnRWChangeState(cricket::Transport* transport);
   virtual void OnCandidatesReady(cricket::Transport* transport,
-                                const cricket::Candidates& candidates);
+                                 const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
@@ -139,13 +139,13 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   // Other public functions
   virtual void Setup(
       const std::string& uid, const std::string& ip4, int ip4_mask,
-      const std::string& ip6, int ip6_mask);
+      const std::string& ip6, int ip6_mask, int subnet_mask);
 
   virtual bool CreateTransport(
       const std::string& uid, const std::string& fingerprint, int overlay_id,
       const std::string& stun_server, const std::string& turn_server,
       const std::string& turn_user, const std::string& turn_pass,
-      const bool sec_enabled);
+      bool sec_enabled);
 
   bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);

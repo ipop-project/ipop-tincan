@@ -172,7 +172,8 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string ip6 = root["ip6"].asString();
         int ip4_mask = root["ip4_mask"].asInt();
         int ip6_mask = root["ip6_mask"].asInt();
-        manager_.Setup(uid, ip4, ip4_mask, ip6, ip6_mask);
+        int subnet_mask = root["subnet_mask"].asInt();
+        manager_.Setup(uid, ip4, ip4_mask, ip6, ip6_mask, subnet_mask);
       }
       break;
     case SET_REMOTE_IP: {
