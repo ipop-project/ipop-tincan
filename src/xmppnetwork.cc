@@ -42,6 +42,8 @@ namespace tincan {
 static const int kXmppPort = 5222;
 static const int kInterval = 120000;
 static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
+static const buzz::StaticQName QN_TINCAN_DATA = { "jabber:iq:tincan", "data" };
+static const buzz::StaticQName QN_TINCAN_TYPE = { "jabber:iq:tincan", "type" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
 
@@ -64,7 +66,14 @@ void TinCanTask::SendToPeer(int overlay_id, const std::string &uid,
   std::string templ(kTemplate);
   buzz::XmlElement* element = buzz::XmlElement::ForStr(templ);
   //buzz::XmlElement* element = new buzz::XmlElement(QN_TINCAN);
-  element->SetBodyText(data);
+  buzz::XmlElement* data_xe = new buzz::XmlElement(QN_TINCAN_DATA);
+  buzz::XmlElement* type_xe = new buzz::XmlElement(QN_TINCAN_TYPE);
+
+  data_xe->SetBodyText(data);
+  type_xe->SetBodyText(type);
+  element->AddElement(data_xe);
+  element->AddElement(type_xe);
+
   get->AddElement(element);
   SendStanza(get.get());
 }
@@ -81,7 +90,12 @@ int TinCanTask::ProcessStart() {
     std::string uid = stanza->Attr(buzz::QN_FROM);
     std::string uid_key = get_key(uid);
     set_xmpp_id(uid_key, uid);
-    HandlePeer(uid_key, stanza->FirstNamed(QN_TINCAN)->BodyText(), "");
+
+    const buzz::XmlElement* msg = stanza->FirstNamed(QN_TINCAN);
+    std::string data = msg->FirstNamed(QN_TINCAN_DATA)->BodyText();
+    std::string type = msg->FirstNamed(QN_TINCAN_TYPE)->BodyText();
+
+    HandlePeer(uid_key, data, type);
   }
   return STATE_START;
 }
