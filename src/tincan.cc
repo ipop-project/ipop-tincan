@@ -25,18 +25,12 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm>
-#include <sys/types.h>
-#include <pwd.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include <stdio.h>
 
-#ifdef DROID_BUILD
-#include "talk/base/ifaddrs-android.h"
-#else
+#if defined(LINUX)
 #include <ifaddrs.h>
+#elif defined(ANDROID)
+#include "talk/base/ifaddrs-android.h"
 #endif
 
 #include "talk/base/ssladapter.h"
@@ -74,6 +68,7 @@ class RecvRunnable : public talk_base::Runnable {
 };
 
 int get_free_network_ip(char *ip_addr, size_t len) {
+#if defined(LINUX) || defined(ANDROID)
   struct ifaddrs* interfaces;
   if (getifaddrs(&interfaces) != 0)  return -1;
 
@@ -96,6 +91,7 @@ int get_free_network_ip(char *ip_addr, size_t len) {
     }
   }
   freeifaddrs(interfaces);
+#endif
   return 0;
 }
 
@@ -117,8 +113,13 @@ int main(int argc, char **argv) {
   }
 
   thread_opts_t opts;
-  opts.tap = tap_open("ipop", opts.mac);
+#if defined(LINUX) || defined(ANDROID)
+  opts.tap = tap_open(tincan::kTapName, opts.mac);
   if (opts.tap < 0) return -1;
+#elif defined(WIN32)
+  opts.win32_tap = open_tap(tincan::kTapName, opts.mac);
+  if (opts.win32_tap < 0) return -1;
+#endif
   opts.translate = translate;
 
   struct threadqueue send_queue, rcv_queue, controller_queue;

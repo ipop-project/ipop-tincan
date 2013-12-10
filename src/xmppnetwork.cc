@@ -48,7 +48,7 @@ static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
 
 static std::string get_key(const std::string& uid) {
-  int idx = uid.find('/') + sizeof(kXmppPrefix);
+  size_t idx = uid.find('/') + sizeof(kXmppPrefix);
   if ((idx + kIdSize) <= uid.size()) {
     return uid.substr(idx, kIdSize);
   }
@@ -92,10 +92,18 @@ int TinCanTask::ProcessStart() {
     set_xmpp_id(uid_key, uid);
 
     const buzz::XmlElement* msg = stanza->FirstNamed(QN_TINCAN);
-    std::string data = msg->FirstNamed(QN_TINCAN_DATA)->BodyText();
-    std::string type = msg->FirstNamed(QN_TINCAN_TYPE)->BodyText();
-
-    HandlePeer(uid_key, data, type);
+    if (msg != NULL) {
+      const buzz::XmlElement* xml_data = msg->FirstNamed(QN_TINCAN_DATA);
+      const buzz::XmlElement* xml_type = msg->FirstNamed(QN_TINCAN_TYPE);
+      std::string data, type;
+      if (xml_data != NULL) {
+        data = xml_data->BodyText();
+      }
+      if (xml_data != NULL) {
+        type= xml_type->BodyText();
+      }
+      HandlePeer(uid_key, data, type);
+    }
   }
   return STATE_START;
 }
@@ -122,6 +130,7 @@ bool XmppNetwork::Login(std::string username, std::string password,
   xcs_.set_host(jid.domain());
   xcs_.set_resource(resource);
   xcs_.set_use_tls(buzz::TLS_REQUIRED);
+  //xcs_.set_allow_plain(true);
   xcs_.set_pass(talk_base::CryptString(pass));
   xcs_.set_server(talk_base::SocketAddress(host, kXmppPort));
   return Connect();
@@ -193,6 +202,7 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
     std::string uid = status.jid().Str();
     std::string uid_key = get_key(uid);
     tincan_task_->set_xmpp_id(uid_key, uid);
+    // TODO - Decide what message type to assign to presence messages
     tincan_task_->HandlePeer(uid_key, status.status(), "");
   }
 }

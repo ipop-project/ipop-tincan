@@ -38,7 +38,6 @@
 #include "talk/p2p/client/basicportallocator.h"
 #include "talk/p2p/base/transportdescription.h"
 #include "talk/p2p/base/transportchannelimpl.h"
-#include "talk/base/opensslidentity.h"
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
@@ -47,6 +46,8 @@
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
 #include "talk/base/json.h"
+
+#include "talk/base/sslidentity.h"
 
 #include "talk/ipop-project/ipop-tap/lib/threadqueue/threadqueue.h"
 #include "talk/ipop-project/ipop-tap/src/ipop_tap.h"
@@ -57,6 +58,8 @@
 #include "peersignalsender.h"
 
 namespace tincan {
+
+static const char kTapName[] = "ipop";
 
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:
@@ -77,15 +80,15 @@ class PeerSignalSender : public PeerSignalSenderInterface {
 };
 
 class TinCanConnectionManager : public talk_base::MessageHandler,
-                              public sigslot::has_slots<> {
+                                public sigslot::has_slots<> {
 
  public:
   TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
-                        talk_base::Thread* link_setup_thread,
-                        talk_base::Thread* packet_handling_thread,
-                        struct threadqueue* send_queue,
-                        struct threadqueue* rcv_queue,
-                        struct threadqueue* controller_queue);
+                          talk_base::Thread* link_setup_thread,
+                          talk_base::Thread* packet_handling_thread,
+                          struct threadqueue* send_queue,
+                          struct threadqueue* rcv_queue,
+                          struct threadqueue* controller_queue);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -117,7 +120,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   virtual void OnRequestSignaling(cricket::Transport* transport);
   virtual void OnRWChangeState(cricket::Transport* transport);
   virtual void OnCandidatesReady(cricket::Transport* transport,
-                                const cricket::Candidates& candidates);
+                                 const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
                             const char* data, size_t len, int flags);
@@ -136,13 +139,13 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   // Other public functions
   virtual void Setup(
       const std::string& uid, const std::string& ip4, int ip4_mask,
-      const std::string& ip6, int ip6_mask);
+      const std::string& ip6, int ip6_mask, int subnet_mask);
 
   virtual bool CreateTransport(
       const std::string& uid, const std::string& fingerprint, int overlay_id,
       const std::string& stun_server, const std::string& turn_server,
       const std::string& turn_user, const std::string& turn_pass,
-      const bool sec_enabled);
+      bool sec_enabled);
 
   bool CreateConnections(const std::string& uid, 
                          const std::string& candidates_string);
@@ -165,6 +168,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     uint32 last_time;
     std::string uid;
     std::string fingerprint;
+    std::string connection_security;
     talk_base::scoped_ptr<cricket::P2PTransport> transport;
     talk_base::scoped_ptr<cricket::BasicPortAllocator> port_allocator;
     talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;
@@ -201,7 +205,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::Thread* packet_handling_thread_;
   talk_base::BasicNetworkManager network_manager_;
   std::string tincan_id_;
-  talk_base::scoped_ptr<talk_base::OpenSSLIdentity> identity_;
+  talk_base::scoped_ptr<talk_base::SSLIdentity> identity_;
   talk_base::scoped_ptr<talk_base::SSLFingerprint> local_fingerprint_;
   std::string fingerprint_;
   struct threadqueue* send_queue_;
