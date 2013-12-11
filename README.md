@@ -1,7 +1,9 @@
 IPOP Tincan
 ===========
 
-Sends socialvpn packets over libjingle
+TinCan links are the foundation for end-to-end tunneling of IP traffic among two endpoints.
+
+For more information, refer to the [IPOP project's Web site](http://www.ipop-project.org) and the [IPOP project GitHub Wiki](https://github.com/ipop-project/documentation/wiki)
 
 Style Guidelines
 ----------------
