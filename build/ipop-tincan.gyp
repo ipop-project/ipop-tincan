@@ -73,8 +73,6 @@
         'ipop-project/ipop-tap/src/win32_tap.h',
         'ipop-project/ipop-tap/src/translator.c',
         'ipop-project/ipop-tap/src/translator.h',
-        'ipop-project/ipop-tap/lib/threadqueue/threadqueue.c',
-        'ipop-project/ipop-tap/lib/threadqueue/threadqueue.h',
         'ipop-project/ipop-tap/lib/klib/khash.h',
       ],
     },  # target ipop-tap

@@ -46,16 +46,15 @@
 #include "talk/base/scoped_ref_ptr.h"
 #include "talk/base/refcount.h"
 #include "talk/base/json.h"
-
 #include "talk/base/sslidentity.h"
 
-#include "talk/ipop-project/ipop-tap/lib/threadqueue/threadqueue.h"
 #include "talk/ipop-project/ipop-tap/src/ipop_tap.h"
 #include "talk/ipop-project/ipop-tap/src/tap.h"
 #include "talk/ipop-project/ipop-tap/src/peerlist.h"
 #include "talk/ipop-project/ipop-tap/src/packetio.h"
 
 #include "peersignalsender.h"
+#include "wqueue.h"
 
 namespace tincan {
 
@@ -85,10 +84,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
  public:
   TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
                           talk_base::Thread* link_setup_thread,
-                          talk_base::Thread* packet_handling_thread,
-                          struct threadqueue* send_queue,
-                          struct threadqueue* rcv_queue,
-                          struct threadqueue* controller_queue);
+                          talk_base::Thread* packet_handling_thread);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -158,8 +154,11 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
 
   virtual Json::Value GetState(const std::string& uid);
 
-  // Signal fired when packet inserted in recv_queue
-  static void HandleQueueSignal(struct threadqueue* queue);
+  static int DoPacketSend(const char* buf, size_t len);
+
+  static int DoPacketRecv(char* buf, size_t len);
+
+  static int SendToTap(const char* buf, size_t len);
 
   typedef cricket::DtlsTransport<cricket::P2PTransport> DtlsP2PTransport;
 
@@ -188,8 +187,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
 
  private:
   void SetupTransport(PeerState* peer_state);
-  void HandleQueueSignal_w(struct threadqueue* queue);
-  void HandleControllerSignal_w(struct threadqueue* queue);
+  void HandleQueueSignal_w();
+  void HandleControllerSignal_w();
   Json::Value StateToJson(const std::string& uid, const PeerIPs& ips);
   bool SetRelay(PeerState* peer_state, const std::string& turn_server,
                 const std::string& username, const std::string& password);
@@ -208,9 +207,6 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::scoped_ptr<talk_base::SSLIdentity> identity_;
   talk_base::scoped_ptr<talk_base::SSLFingerprint> local_fingerprint_;
   std::string fingerprint_;
-  struct threadqueue* send_queue_;
-  struct threadqueue* rcv_queue_;
-  struct threadqueue* controller_queue_;
   const uint64 tiebreaker_;
   std::string tincan_ip4_;
   std::string tincan_ip6_;

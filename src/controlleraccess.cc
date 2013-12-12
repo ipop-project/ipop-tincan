@@ -63,11 +63,9 @@ static void init_map() {
 
 ControllerAccess::ControllerAccess(
     TinCanConnectionManager& manager, XmppNetwork& network,
-    talk_base::BasicPacketSocketFactory* packet_factory,
-    struct threadqueue* controller_queue)
+    talk_base::BasicPacketSocketFactory* packet_factory)
     : manager_(manager),
-      network_(network),
-      controller_queue_(controller_queue) {
+      network_(network) {
   socket_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
@@ -80,8 +78,7 @@ ControllerAccess::ControllerAccess(
 
 void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
-  int count = thread_queue_bput(controller_queue_, data, len);
-  TinCanConnectionManager::HandleQueueSignal(0);
+  manager_.SendToTap(data, len);
 }
 
 void ControllerAccess::SendTo(const char* pv, size_t cb,
