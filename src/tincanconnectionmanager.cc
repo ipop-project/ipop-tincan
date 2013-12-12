@@ -47,6 +47,8 @@ static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
 static TinCanConnectionManager* g_manager = 0;
+static wqueue<talk_base::Buffer*> g_recv_queue;
+static wqueue<talk_base::Buffer*> g_send_queue;
 
 static const char kConStat[] = "con_stat";
 static const char kConReq[] = "con_req";
@@ -60,10 +62,7 @@ enum {
 TinCanConnectionManager::TinCanConnectionManager(
     PeerSignalSenderInterface* signal_sender,
     talk_base::Thread* link_setup_thread,
-    talk_base::Thread* packet_handling_thread,
-    struct threadqueue* send_queue,
-    struct threadqueue* rcv_queue,
-    struct threadqueue* controller_queue)
+    talk_base::Thread* packet_handling_thread)
     : content_name_(kContentName),
       signal_sender_(signal_sender),
       packet_factory_(packet_handling_thread),
@@ -77,9 +76,6 @@ TinCanConnectionManager::TinCanConnectionManager(
       identity_(),
       local_fingerprint_(),
       fingerprint_(kFprNull),
-      send_queue_(send_queue),
-      rcv_queue_(rcv_queue),
-      controller_queue_(controller_queue),
       tiebreaker_(talk_base::CreateRandomId64()),
       tincan_ip4_(kIpv4),
       tincan_ip6_(kIpv6),
@@ -200,7 +196,7 @@ void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   if (short_uid_map_.find(source) != short_uid_map_.end() && 
       short_uid_map_[source]->GetChannel(component) == channel) {
-    int count = thread_queue_bput(rcv_queue_, data, len);
+    g_recv_queue.add(new talk_base::Buffer(data, len));
   }
 }
 
@@ -398,11 +394,7 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
 void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_QUEUESIGNAL: {
-        HandleQueueSignal_w(0);
-      }
-      break;
-    case MSG_CONTROLLERSIGNAL: {
-        HandleControllerSignal_w(0);
+        HandleQueueSignal_w();
       }
       break;
   }
@@ -421,33 +413,31 @@ void TinCanConnectionManager::HandlePeer(const std::string& uid,
   LOG_F(INFO) << uid << " " << data;
 }
 
-void TinCanConnectionManager::HandleQueueSignal(struct threadqueue *queue) {
+int TinCanConnectionManager::DoPacketSend(const char* buf, size_t len) {
+  g_send_queue.add(new talk_base::Buffer(buf, len));
   if (g_manager != 0) {
-    if (queue != 0) {
-      g_manager->packet_handling_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
-    }
-    else {
-      g_manager->packet_handling_thread()->Post(g_manager, MSG_CONTROLLERSIGNAL, 0);
-    }
+    g_manager->packet_handling_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
   }
+  return len;
 }
 
-void TinCanConnectionManager::HandleQueueSignal_w(
-    struct threadqueue *queue) {
-  char buf[kBufferSize];
-  int len = thread_queue_bget(send_queue_, buf, sizeof(buf));
-  if (len > 0) {
-    HandlePacket(0, buf, len, talk_base::SocketAddress());
+int TinCanConnectionManager::DoPacketRecv(char* buf, size_t len) {
+  talk_base::scoped_ptr<talk_base::Buffer> packet(g_recv_queue.remove());
+  if (packet->length() > len) {
+    return -1;
   }
+  memcpy(buf, packet->data(), packet->length());
+  return packet->length();
 }
 
-void TinCanConnectionManager::HandleControllerSignal_w(
-    struct threadqueue *queue) {
-  char buf[kBufferSize];
-  int len = thread_queue_bget(controller_queue_, buf, sizeof(buf));
-  if (len > 0) {
-    int count = thread_queue_bput(rcv_queue_, buf, len);
-  }
+int TinCanConnectionManager::SendToTap(const char* buf, size_t len) {
+  g_recv_queue.add(new talk_base::Buffer(buf, len));
+  return len;
+}
+
+void TinCanConnectionManager::HandleQueueSignal_w() {
+  talk_base::scoped_ptr<talk_base::Buffer> packet(g_send_queue.remove());
+  HandlePacket(0, packet->data(), packet->length(), forward_addr_);
 }
 
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,

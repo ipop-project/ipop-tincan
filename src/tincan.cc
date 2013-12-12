@@ -122,31 +122,22 @@ int main(int argc, char **argv) {
 #endif
   opts.translate = translate;
 
-  struct threadqueue send_queue, rcv_queue, controller_queue;
-  thread_queue_init(&send_queue);
-  thread_queue_init(&rcv_queue);
-  thread_queue_init(&controller_queue);
-
-  opts.send_queue = &send_queue;
-  opts.rcv_queue = &rcv_queue;
-
   talk_base::Thread packet_handling_thread, send_thread, recv_thread;
   talk_base::AutoThread link_setup_thread;
   link_setup_thread.WrapCurrent();
 
   tincan::PeerSignalSender signal_sender;
   tincan::TinCanConnectionManager manager(&signal_sender, &link_setup_thread,
-                                         &packet_handling_thread, &send_queue, 
-                                         &rcv_queue, &controller_queue);
+                                         &packet_handling_thread);
   tincan::XmppNetwork xmpp(&link_setup_thread);
   xmpp.HandlePeer.connect(&manager,
       &tincan::TinCanConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
-  tincan::ControllerAccess controller(manager, xmpp, &packet_factory,
-                                       &controller_queue);
+  tincan::ControllerAccess controller(manager, xmpp, &packet_factory);
   signal_sender.add_service(0, &controller);
   signal_sender.add_service(1, &xmpp);
-  opts.send_signal = &tincan::TinCanConnectionManager::HandleQueueSignal;
+  opts.send_func = &tincan::TinCanConnectionManager::DoPacketSend;
+  opts.recv_func = &tincan::TinCanConnectionManager::DoPacketRecv;
 
   // Checks to see if network is available, changes IP if not
   char ip_addr[NI_MAXHOST] = { '\0' };
