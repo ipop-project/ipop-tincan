@@ -96,23 +96,24 @@
             '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
           ],
           'include_dirs': [
-            '<(DEPTH)/third-party/pthreads_win32/include',
+            '<(DEPTH)/third_party/pthreads_win32/include',
           ],
           'library_dirs': [
             'ipop-project/ipop-tap/bin',
+            '<(DEPTH)/third_party/pthreads_win32/lib/x86',
           ],
           'link_settings': {
             'libraries': [
               '-lipoptap',
               '-lws2_32',
               '-liphlpapi',
+              '-lpthreadVC2',
             ]
           },
           'sources': [
             'ipop-project/ipop-tap/src/packetio.h',
             'ipop-project/ipop-tap/src/peerlist.h',
             'ipop-project/ipop-tap/src/win32_tap.h',
-            'ipop-project/ipop-tap/lib/threadqueue/threadqueue.h',
           ],
         }],
       ],
