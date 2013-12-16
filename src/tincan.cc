@@ -102,7 +102,6 @@ bool SSLVerificationCallback(void* cert) {
 
 int main(int argc, char **argv) {
   talk_base::InitializeSSL(SSLVerificationCallback);
-  talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
   peerlist_init();
   int translate = 1;
 
