@@ -128,7 +128,6 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (data[0] != '{') return ProcessIPPacket(socket, data, len, addr);
   std::string result;
   std::string message(data, 0, len);
-  LOG_F(INFO) << message;
   Json::Reader reader;
   Json::Value root;
   if (!reader.parse(message, root)) {
@@ -212,9 +211,19 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case SET_LOGGING: {
-        int flag = root["flag"].asInt();
-        if (flag > 0) talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
-        else talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR + 1);
+        int logging = root["logging"].asInt();
+        if (logging == 0) {
+          talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR + 1);
+        }
+        else if (logging == 1) {
+          talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR);
+        }
+        else if (logging == 2) {
+          talk_base::LogMessage::LogToDebug(talk_base::LS_INFO);
+        }
+        else if (logging == 3) {
+          talk_base::LogMessage::LogToDebug(talk_base::LS_SENSITIVE);
+        }
       }
       break;
     default: {
