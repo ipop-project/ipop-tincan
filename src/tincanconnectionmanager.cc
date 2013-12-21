@@ -208,8 +208,11 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (dest.compare(0, 3, "000") == 0) {
     forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT);
   } 
-  else if (short_uid_map_.find(dest) != short_uid_map_.end() &&
-           short_uid_map_[dest]->writable()) {
+  else if (short_uid_map_.find(dest) == short_uid_map_.end()) { 
+    forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT); 
+  } 
+  else if (short_uid_map_[dest]->writable()) {
+    LOG_F(INFO) << "found in uid map and send packet to channel\n"; 
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
