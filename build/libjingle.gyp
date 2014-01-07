@@ -323,7 +323,7 @@
         'base/json.h',
         'base/linked_ptr.h',
         'base/linuxfdwalk.h',
-        'base/logging.cc',
+        'ipop-project/ipop-tincan/src/logging.cc',
         'base/logging.h',
         'base/maccocoathreadhelper.h',
         'base/maccocoathreadhelper.mm',
