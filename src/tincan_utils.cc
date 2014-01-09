@@ -25,6 +25,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(LINUX)
 #include "tincan_utils.h"
 
 namespace tincan {
@@ -48,3 +49,4 @@ namespace tincan {
   }
 
 } //namespace tincan
+#endif //if defined(LINUX)

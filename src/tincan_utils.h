@@ -33,8 +33,9 @@
 #define LOG_TS(sev) LOG(sev) << tincan::CurrentTime() << __FUNCTION__ << ": "
 #else
 #define LOG_TS(sev) LOG_F(sev) <<  __FUNCTION__ << ": "
-#endif
+#endif //if defined(LINUX)
 
+#if defined(LINUX)
 #include <iomanip>
 #include <iostream>
 #include <sys/time.h>
@@ -47,4 +48,5 @@ class CurrentTime {
 
 } //namespace tincan
 
-#endif
+#endif //if defined(LINUX)
+#endif //ifndef TINCAN_UTILS_H_
