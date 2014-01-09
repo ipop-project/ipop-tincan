@@ -35,8 +35,9 @@
 
 #include "talk/base/ssladapter.h"
 
-#include "tincanconnectionmanager.h"
 #include "controlleraccess.h"
+#include "tincanconnectionmanager.h"
+#include "tincan_utils.h"
 #include "xmppnetwork.h"
 
 #define SEGMENT_SIZE 3

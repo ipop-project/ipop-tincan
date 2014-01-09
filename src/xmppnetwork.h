@@ -40,6 +40,7 @@
 #include "talk/base/logging.h"
 
 #include "peersignalsender.h"
+#include "tincan_utils.h"
 
 namespace tincan {
 
@@ -55,7 +56,7 @@ class TinCanTask
 
   virtual void set_xmpp_id(const std::string& uid_key,
                            const std::string& uid) {
-    LOG_F(INFO) << "SET_XMPP_ID " << uid;
+    LOG_TS(INFO) << "SET_XMPP_ID " << uid;
     xmpp_id_map_[uid_key] = uid;
   }
 
@@ -101,7 +102,7 @@ class XmppNetwork
   }
 
   void OnLogging(const char* data, int len) {
-    LOG_F(LS_VERBOSE) << std::string(data, len);
+    LOG_TS(LS_VERBOSE) << std::string(data, len);
   }
 
   // Inherited from MessageHandler

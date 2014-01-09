@@ -125,6 +125,8 @@
         'ipop-project/ipop-tincan/src/xmppnetwork.h',
         'ipop-project/ipop-tincan/src/controlleraccess.cc',
         'ipop-project/ipop-tincan/src/controlleraccess.h',
+        'ipop-project/ipop-tincan/src/tincan_utils.h',
+        'ipop-project/ipop-tincan/src/tincan_utils.cc',
         'xmpp/jingleinfotask.cc',
         'xmpp/jingleinfotask.h',
       ],
