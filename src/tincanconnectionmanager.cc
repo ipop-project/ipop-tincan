@@ -30,7 +30,9 @@
 
 #include "talk/base/logging.h"
 
+#include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
+
 
 namespace tincan {
 
@@ -136,11 +138,11 @@ void TinCanConnectionManager::OnRWChangeState(
   std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
     status = "online";
-    LOG_F(INFO) << "ONLINE " << uid << " " << talk_base::Time();
+    LOG_TS(INFO) << "ONLINE " << uid << " " << talk_base::Time();
   }
   else if (transport->was_writable()) {
     status = "offline";
-    LOG_F(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
+    LOG_TS(INFO) << "OFFLINE " << uid << " " << talk_base::Time();
   }
   // callback message sent to local controller for connection status
   signal_sender_->SendToPeer(kLocalControllerId, uid, status, kConStat);
@@ -212,7 +214,7 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT); 
   } 
   else if (short_uid_map_[dest]->writable()) {
-    LOG_F(INFO) << "found in uid map and send packet to channel\n"; 
+    LOG_TS(INFO) << "found in uid map and send packet to channel\n"; 
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
@@ -241,7 +243,7 @@ bool TinCanConnectionManager::SetRelay(
     // TODO - TCP relaying needs more testing
     //peer_state->port_allocator->AddRelay(relay_config_tcp);
   }
-  LOG_F(INFO) << "TURN " << turn_addr.ToString();
+  LOG_TS(INFO) << "TURN " << turn_addr.ToString();
   return true;
 }
 
@@ -286,11 +288,11 @@ bool TinCanConnectionManager::CreateTransport(
     const std::string& turn_user, const std::string& turn_pass,
     const bool sec_enabled) {
   if (uid_map_.find(uid) != uid_map_.end() || tincan_id_ == uid) {
-    LOG_F(INFO) << "EXISTS " << uid;
+    LOG_TS(INFO) << "EXISTS " << uid;
     return false;
   }
 
-  LOG_F(INFO) << uid << " " << talk_base::Time();
+  LOG_TS(INFO) << uid << " " << talk_base::Time();
   talk_base::SocketAddress stun_addr;
   stun_addr.FromString(stun_server);
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
@@ -390,7 +392,7 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   uid_map_[uid]->port_allocator.release();
   uid_map_.erase(uid);
   short_uid_map_.erase(uid.substr(0, kShortLen * 2));
-  LOG_F(INFO) << "DESTROYED " << uid;
+  LOG_TS(INFO) << "DESTROYED " << uid;
   return true;
 }
 
@@ -413,7 +415,7 @@ void TinCanConnectionManager::HandlePeer(const std::string& uid,
   else {
     signal_sender_->SendToPeer(kLocalControllerId, uid, data, kConReq);
   }
-  LOG_F(INFO) << uid << " " << data;
+  LOG_TS(INFO) << uid << " " << data;
 }
 
 int TinCanConnectionManager::DoPacketSend(const char* buf, size_t len) {

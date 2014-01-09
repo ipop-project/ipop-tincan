@@ -35,6 +35,7 @@
 #include "talk/xmpp/jid.h"
 #include "talk/xmpp/constants.h"
 
+#include "tincan_utils.h"
 #include "xmppnetwork.h"
 
 namespace tincan {
@@ -146,7 +147,7 @@ bool XmppNetwork::Connect() {
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);
-  LOG_F(INFO) << "XMPP CONNECTING";
+  LOG_TS(INFO) << "XMPP CONNECTING";
   return true;
 }
 
@@ -172,23 +173,23 @@ void XmppNetwork::OnSignOn() {
   tincan_task_->Start();
   main_thread_->Clear(this);
   main_thread_->PostDelayed(kInterval, this, 0, 0);
-  LOG_F(INFO) << "XMPP ONLINE " << pump_->client()->jid().Str();
+  LOG_TS(INFO) << "XMPP ONLINE " << pump_->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   switch (state) {
     case buzz::XmppEngine::STATE_START:
-      LOG_F(INFO) << "START";
+      LOG_TS(INFO) << "START";
       break;
     case buzz::XmppEngine::STATE_OPENING:
-      LOG_F(INFO) << "OPENING";
+      LOG_TS(INFO) << "OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
-      LOG_F(INFO) << "OPEN";
+      LOG_TS(INFO) << "OPEN";
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
-      LOG_F(INFO) << "CLOSED";
+      LOG_TS(INFO) << "CLOSED";
       OnCloseEvent(0);
       break;
   }
@@ -217,7 +218,7 @@ void XmppNetwork::OnCloseEvent(int error) {
   presence_out_.release();
   tincan_task_.release();
   pump_.release();
-  LOG_F(INFO) << "XMPP CLOSE " << error;
+  LOG_TS(INFO) << "XMPP CLOSE " << error;
 }
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
