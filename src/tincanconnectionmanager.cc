@@ -214,7 +214,6 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT); 
   } 
   else if (short_uid_map_[dest]->writable()) {
-    LOG_TS(INFO) << "found in uid map and send packet to channel\n"; 
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
