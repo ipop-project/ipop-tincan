@@ -101,7 +101,7 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
   json["type"] = type;
   std::string msg = json.toStyledString();
   SendTo(msg.c_str(), msg.size(), remote_addr_);
-  LOG_TS(INFO) << uid << " " << data;
+  LOG_TS(INFO) << "uid:" << uid << " data:" << data << " type:" << type;
 }
 
 void ControllerAccess::SendState(const std::string& uid, 

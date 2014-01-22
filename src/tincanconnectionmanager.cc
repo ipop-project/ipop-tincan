@@ -414,7 +414,7 @@ void TinCanConnectionManager::HandlePeer(const std::string& uid,
   else {
     signal_sender_->SendToPeer(kLocalControllerId, uid, data, kConReq);
   }
-  LOG_TS(INFO) << uid << " " << data;
+  LOG_TS(INFO) << "uid:" << uid << " data:" << data << " type:" << type;
 }
 
 int TinCanConnectionManager::DoPacketSend(const char* buf, size_t len) {
