@@ -91,6 +91,7 @@ int TinCanTask::ProcessStart() {
     std::string uid = stanza->Attr(buzz::QN_FROM);
     std::string uid_key = get_key(uid);
     set_xmpp_id(uid_key, uid);
+    LOG_TS(INFO) << "uid_key:" << uid_key << " uid:" << uid;
 
     const buzz::XmlElement* msg = stanza->FirstNamed(QN_TINCAN);
     if (msg != NULL) {
@@ -202,9 +203,12 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
       kXmppPrefix) == 0 && status.jid() != pump_->client()->jid()) {
     std::string uid = status.jid().Str();
     std::string uid_key = get_key(uid);
+    std::string fpr = status.status();
     tincan_task_->set_xmpp_id(uid_key, uid);
+    LOG_TS(INFO) << "uid_key:" << uid_key << " uid" << uid << " status:" << fpr;
     // TODO - Decide what message type to assign to presence messages
-    tincan_task_->HandlePeer(uid_key, status.status(), "");
+    if (fpr.size() == 59 )
+        tincan_task_->HandlePeer(uid_key, fpr, "");
   }
 }
 
