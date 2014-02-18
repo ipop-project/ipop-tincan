@@ -445,7 +445,8 @@ void TinCanConnectionManager::HandleQueueSignal_w() {
 }
 
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
-                                                 const PeerIPs& ips) {
+                                                 const PeerIPs& ips,
+                                                 bool get_stats) {
   Json::Value peer(Json::objectValue);
   peer["uid"] = uid;
   peer["ip4"] = ips.ip4;
@@ -461,44 +462,48 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
       peer["security"] = uid_map_[uid]->connection_security;
 #if !defined(WIN32)
         // For some odd reason, GetStats fails on WIN32
-      cricket::ConnectionInfos infos;
-      int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-      uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
-      std::ostringstream oss;
-      for (int i = 0; i < infos.size(); i++) {
-        oss << infos[i].best_connection << ":"
-            << infos[i].writable << ":"
-            << infos[i].readable << ":"
-            << infos[i].timeout << ":"
-            << infos[i].new_connection << ":"
-            << infos[i].rtt << ":" 
-            << infos[i].sent_total_bytes << ":"
-            << infos[i].sent_bytes_second<< ":"
-            << infos[i].recv_total_bytes << ":"
-            << infos[i].recv_bytes_second << " ";
-       }
-       peer["stats"] = oss.str();
-       std::ostringstream oss2;
-       for (int i = 0; i < infos.size(); i++) {
-         oss2 << infos[i].local_candidate.address().ToString() << " "
-           << infos[i].remote_candidate.address().ToString() << " ";
-       }
-       peer["stats_cons"] = oss2.str();
+      if (get_stats) {
+        cricket::ConnectionInfos infos;
+        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+        uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+        Json::Value stats(Json::arrayValue);
+        for (int i = 0; i < infos.size(); i++) {
+          Json::Value stat(Json::objectValue);
+          stat["local_addr"] = infos[i].local_candidate.address().ToString();
+          stat["rem_addr"] = infos[i].remote_candidate.address().ToString();
+          stat["local_type"] = infos[i].local_candidate.type();
+          stat["rem_type"] = infos[i].remote_candidate.type();
+          stat["best_conn"] = infos[i].best_connection;
+          stat["writable"] = infos[i].writable;
+          stat["readable"] = infos[i].readable;
+          stat["timeout"] = infos[i].timeout;
+          stat["new_conn"] = infos[i].new_connection;
+          stat["rtt"] = (uint) infos[i].rtt;
+          stat["sent_total_bytes"] = (uint) infos[i].sent_total_bytes;
+          stat["sent_bytes_second"] = (uint) infos[i].sent_bytes_second;
+          stat["recv_total_bytes"] = (uint) infos[i].recv_total_bytes;
+          stat["recv_bytes_second"] = (uint) infos[i].recv_bytes_second;
+          stats.append(stat);
+        }
+        peer["stats"] = stats;
+      }
 #endif
     }
   }
   return peer;
 }
 
-Json::Value TinCanConnectionManager::GetState(const std::string& uid) {
+Json::Value TinCanConnectionManager::GetState(const std::string& uid,
+                                              bool get_stats) {
   Json::Value peers(Json::objectValue);
-  if (uid.size() > 0 && ip_map_.find(uid) != ip_map_.end()) {
-    peers[uid] = StateToJson(uid, ip_map_[uid]);
+  if (uid.size() == this->uid().size()  &&
+      ip_map_.find(uid) != ip_map_.end()) {
+    peers[uid] = StateToJson(uid, ip_map_[uid], get_stats);
   }
-  else if (uid.size() == 0) {
+  else if (uid.size() != this->uid().size() ) {
     for (std::map<std::string, PeerIPs>::const_iterator it =
          ip_map_.begin(); it != ip_map_.end(); ++it) {
-      peers[it->first] = StateToJson(it->first, it->second);
+      peers[it->first] = StateToJson(it->first, it->second, get_stats);
     }
   }
   return peers;

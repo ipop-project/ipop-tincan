@@ -59,7 +59,7 @@ class ControllerAccess : public PeerSignalSenderInterface,
  private:
   void SendTo(const char* pv, size_t cb,
               const talk_base::SocketAddress& addr);
-  void SendState(const std::string& uid,
+  void SendState(const std::string& uid, bool get_stats,
                  const talk_base::SocketAddress& addr);
 
   XmppNetwork& network_;

@@ -152,7 +152,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
 
   virtual bool DestroyTransport(const std::string& uid);
 
-  virtual Json::Value GetState(const std::string& uid);
+  virtual Json::Value GetState(const std::string& uid, bool get_stats);
 
   static int DoPacketSend(const char* buf, size_t len);
 
@@ -189,7 +189,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
-  Json::Value StateToJson(const std::string& uid, const PeerIPs& ips);
+  Json::Value StateToJson(const std::string& uid, const PeerIPs& ips,
+                          bool get_stats);
   bool SetRelay(PeerState* peer_state, const std::string& turn_server,
                 const std::string& username, const std::string& password);
 
