@@ -253,8 +253,8 @@ void XmppNetwork::OnTimeout() {
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
-    // Resend presence every 2 min necessary for reconnections
-    if (on_msg_counter_++ % 8 == 0) {
+    // Resend presence every 3 min necessary for reconnections
+    if (on_msg_counter_++ % 12 == 0) {
       presence_out_.release();
       presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
       presence_out_->Send(status_);
