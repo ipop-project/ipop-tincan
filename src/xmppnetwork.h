@@ -145,6 +145,7 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::PingTask> ping_task_;
   talk_base::scoped_ptr<TinCanTask> tincan_task_;
   buzz::XmppEngine::State xmpp_state_;
+  int on_msg_counter_;
   std::string uid_;
 
 };

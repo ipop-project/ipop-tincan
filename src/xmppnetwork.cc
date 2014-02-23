@@ -168,6 +168,7 @@ bool XmppNetwork::Connect() {
   LOG_TS(INFO) << "XMPP CONNECTING";
   main_thread_->Clear(this);
   main_thread_->PostDelayed(kInterval, this, 0, 0);
+  on_msg_counter_ = 0;
   return true;
 }
 
@@ -252,6 +253,14 @@ void XmppNetwork::OnTimeout() {
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
+    // Resend presence every 2 min necessary for reconnections
+    if (on_msg_counter_++ % 8 == 0) {
+      presence_out_.release();
+      presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
+      presence_out_->Send(status_);
+      presence_out_->Start();
+    }
+
     if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
         xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
       pump_->DoDisconnect();
