@@ -34,6 +34,7 @@
 #include "talk/xmpp/presencestatus.h"
 #include "talk/xmpp/presencereceivetask.h"
 #include "talk/xmpp/presenceouttask.h"
+#include "talk/xmpp/pingtask.h"
 #include "talk/xmpp/xmppclient.h"
 #include "talk/xmpp/xmppsocket.h"
 #include "talk/xmpp/xmpppump.h"
@@ -46,13 +47,18 @@ namespace tincan {
 
 static const char kXmppPrefix[] = "tincan";
 
-class TinCanTask
-    : public PeerSignalSenderInterface,
-      public buzz::XmppTask {
+class PeerHandlerInterface {
+
  public:
-  explicit TinCanTask(buzz::XmppClient* client)
-      : XmppTask(client, buzz::XmppEngine::HL_SINGLE) {}
-  virtual ~TinCanTask() {}
+  virtual void DoHandlePeer(std::string& uid, std::string& data, 
+                            std::string& type) = 0;
+};
+
+class TinCanTask
+    :  public buzz::XmppTask {
+ public:
+  explicit TinCanTask(buzz::XmppClient* client,
+                      PeerHandlerInterface* handler);
 
   virtual void set_xmpp_id(const std::string& uid_key,
                            const std::string& uid) {
@@ -64,9 +70,8 @@ class TinCanTask
     return xmpp_id_map_[uid];
   }
 
-  virtual const std::string uid() { return GetClient()->jid().Str(); }
+  //virtual const std::string uid() { return GetClient()->jid().Str(); }
 
-  // inherited from PeerSignalSenderInterface
   virtual void SendToPeer(int overlay_id, const std::string& uid,
                           const std::string& data, const std::string& type);
 
@@ -76,10 +81,12 @@ class TinCanTask
 
  private:
   std::map<std::string, std::string> xmpp_id_map_;
+  PeerHandlerInterface* handler_;
 };
 
 class XmppNetwork 
     : public PeerSignalSenderInterface,
+      public PeerHandlerInterface,
       public talk_base::MessageHandler,
       public sigslot::has_slots<> {
  public:
@@ -95,6 +102,12 @@ class XmppNetwork
     return uid_;
   }
 
+  // inherited from PeerHandler
+  virtual void DoHandlePeer(std::string& uid, std::string& data,
+                            std::string& type) {
+    HandlePeer(uid, data, type);
+  }
+
   virtual void SendToPeer(int overlay_id, const std::string& uid,
                           const std::string& data, const std::string& type) {
     if (tincan_task_.get()) tincan_task_->SendToPeer(overlay_id, uid, data, 
@@ -105,7 +118,6 @@ class XmppNetwork
     LOG_TS(LS_VERBOSE) << std::string(data, len);
   }
 
-  // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
 
   virtual void set_status(const std::string& status) {
@@ -121,6 +133,7 @@ class XmppNetwork
   void OnStateChange(buzz::XmppEngine::State state);
   void OnPresenceMessage(const buzz::PresenceStatus &status);
   void OnCloseEvent(int error);
+  void OnTimeout();
 
   talk_base::Thread* main_thread_;
   buzz::XmppClientSettings xcs_;
@@ -129,7 +142,9 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
+  talk_base::scoped_ptr<buzz::PingTask> ping_task_;
   talk_base::scoped_ptr<TinCanTask> tincan_task_;
+  buzz::XmppEngine::State xmpp_state_;
   std::string uid_;
 
 };
