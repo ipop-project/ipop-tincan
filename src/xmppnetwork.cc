@@ -41,12 +41,19 @@
 namespace tincan {
 
 static const int kXmppPort = 5222;
-static const int kInterval = 120000;
+static const int kInterval = 15000;
+
 static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const buzz::StaticQName QN_TINCAN_DATA = { "jabber:iq:tincan", "data" };
 static const buzz::StaticQName QN_TINCAN_TYPE = { "jabber:iq:tincan", "type" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
+
+static const int kPingPeriod = 10000;
+static const int kPingTimeout = 500;
+
+// Predetermined size of fingerprint string from RFC 4572
+static const int kFprSize = 59;
 
 static std::string get_key(const std::string& uid) {
   size_t idx = uid.find('/') + sizeof(kXmppPrefix);
@@ -56,6 +63,12 @@ static std::string get_key(const std::string& uid) {
   return uid;
 }
 
+
+TinCanTask::TinCanTask(buzz::XmppClient* client,
+                       PeerHandlerInterface* handler)
+  : XmppTask(client, buzz::XmppEngine::HL_TYPE),
+    handler_(handler) {
+}
 
 void TinCanTask::SendToPeer(int overlay_id, const std::string &uid,
                             const std::string &data,
@@ -104,7 +117,7 @@ int TinCanTask::ProcessStart() {
       if (xml_data != NULL) {
         type= xml_type->BodyText();
       }
-      HandlePeer(uid_key, data, type);
+      handler_->DoHandlePeer(uid_key, data, type);
     }
   }
   return STATE_START;
@@ -147,8 +160,15 @@ bool XmppNetwork::Connect() {
   pump_->client()->SignalLogOutput.connect(this, &XmppNetwork::OnLogging);
   pump_->client()->SignalStateChange.connect(this, 
       &XmppNetwork::OnStateChange);
+  pump_->client()->SignalDisconnected.connect(this,
+      &XmppNetwork::OnTimeout);
+
+  xmpp_state_ = buzz::XmppEngine::STATE_NONE;
   pump_->DoLogin(xcs_, xmpp_socket_.get(), 0);
   LOG_TS(INFO) << "XMPP CONNECTING";
+  main_thread_->Clear(this);
+  main_thread_->PostDelayed(kInterval, this, 0, 0);
+  on_msg_counter_ = 0;
   return true;
 }
 
@@ -165,35 +185,46 @@ void XmppNetwork::OnSignOn() {
       &XmppNetwork::OnPresenceMessage);
 
   presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-  tincan_task_.reset(new TinCanTask(pump_->client()));
+
+  tincan_task_.reset(new TinCanTask(pump_->client(), this));
+
+  ping_task_.reset(new buzz::PingTask(pump_->client(), main_thread_,
+                                      kPingPeriod, kPingTimeout));
+  ping_task_->SignalTimeout.connect(this, &XmppNetwork::OnTimeout);
 
   presence_receive_->Start();
   presence_out_->Send(status_);
   presence_out_->Start();
-  tincan_task_->HandlePeer = HandlePeer;
+  ping_task_->Start();
   tincan_task_->Start();
-  main_thread_->Clear(this);
-  main_thread_->PostDelayed(kInterval, this, 0, 0);
   LOG_TS(INFO) << "XMPP ONLINE " << pump_->client()->jid().Str();
 }
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
+  xmpp_state_ = state;
+  std::string str_state;
   switch (state) {
     case buzz::XmppEngine::STATE_START:
       LOG_TS(INFO) << "START";
+      str_state = "START";
       break;
     case buzz::XmppEngine::STATE_OPENING:
       LOG_TS(INFO) << "OPENING";
+      str_state = "OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
       LOG_TS(INFO) << "OPEN";
+      str_state = "OPEN";
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
       LOG_TS(INFO) << "CLOSED";
-      OnCloseEvent(0);
+      str_state = "CLOSED";
       break;
   }
+  buzz::Jid local_jid(xcs_.user(), xcs_.host(), xcs_.resource());
+  std::string uid_key = get_key(local_jid.Str());
+  HandlePeer(uid_key, "1000:xmpp_state", str_state);
 }
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
@@ -207,34 +238,50 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
     tincan_task_->set_xmpp_id(uid_key, uid);
     LOG_TS(INFO) << "uid_key:" << uid_key << " uid" << uid << " status:" << fpr;
     // TODO - Decide what message type to assign to presence messages
-    if (fpr.size() == 59 )
-        tincan_task_->HandlePeer(uid_key, fpr, "");
+    if (fpr.size() == kFprSize)
+        HandlePeer(uid_key, fpr, "");
   }
 }
 
 void XmppNetwork::OnCloseEvent(int error) {
-  // Release all assuming they are deleted by XmppClient
-  buzz::Jid local_jid(xcs_.user(), xcs_.host(), xcs_.resource());
-  std::string uid_key = get_key(local_jid.Str());
-  HandlePeer(uid_key, "1000:xmpp_connect_failed", kErrorMsg);
-  xmpp_socket_.release();
-  presence_receive_.release();
-  presence_out_.release();
-  tincan_task_.release();
-  pump_.release();
-  LOG_TS(INFO) << "XMPP CLOSE " << error;
+  LOG_TS(INFO) << "ONCLOSEEVENT " << error;
+}
+
+void XmppNetwork::OnTimeout() {
+  LOG_TS(INFO) << "ONTIMEOUT";
 }
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
-  // This handles reconnection if there's a connection timeout
-  if (!pump_.get()) {
-    Connect();
-  }
-  else {
-    presence_out_.release();
-    presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-    presence_out_->Send(status_);
-    presence_out_->Start();
+  if (pump_.get()) {
+    // Resend presence every 3 min necessary for reconnections
+    if (on_msg_counter_++ % 12 == 0) {
+      presence_out_.release();
+      presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
+      presence_out_->Send(status_);
+      presence_out_->Start();
+    }
+
+    if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
+        xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
+      pump_->DoDisconnect();
+    }
+    else if (pump_->client()->AnyChildError() &&
+             xmpp_state_ != buzz::XmppEngine::STATE_CLOSED) {
+      pump_->DoDisconnect();
+    }
+    else if (xmpp_state_ == buzz::XmppEngine::STATE_NONE) {
+      xmpp_socket_.release();
+      Connect();
+    }
+    else if (xmpp_state_ == buzz::XmppEngine::STATE_CLOSED) {
+      xmpp_socket_.release();
+      presence_receive_.release();
+      presence_out_.release();
+      tincan_task_.release();
+      ping_task_.release();
+      //pump_.release();
+      Connect();
+    }
   }
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }

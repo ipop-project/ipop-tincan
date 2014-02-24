@@ -388,7 +388,9 @@ bool TinCanConnectionManager::CreateConnections(
 bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   // TODO - This is a memory leak, we don't always have to release
-  uid_map_[uid]->port_allocator.release();
+  if (uid_map_[uid]->transport->was_writable()) {
+    uid_map_[uid]->port_allocator.release();
+  }
   uid_map_.erase(uid);
   short_uid_map_.erase(uid.substr(0, kShortLen * 2));
   LOG_TS(INFO) << "DESTROYED " << uid;
