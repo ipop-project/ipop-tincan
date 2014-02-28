@@ -45,17 +45,42 @@ static const char kIceUfrag[] = "ufrag";
 static const char kIcePwd[] = "pwd";
 static const int kBufferSize = 1500;
 static const size_t kIdBytesLen = 20;
-static const size_t kShortLen = 8;
 static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
+
+// this is an optimization for decode 20-byte hearders, we only
+// decode 8 bytes instead of 20-bytes because hex_decode is
+// costly operation and 8 bytes is enough entropy for small
+// networks to avoid collisions (birthday problem)
+static const size_t kShortLen = 8;
+// this is a hack because we are depending on a global variable
+// to set the pointer for instance of this same class
+// sadly this is necessary for communication with ipop-tap
+// TODO - Replace this ugly hack with something smarter
 static TinCanConnectionManager* g_manager = 0;
+
+// these blocking queues used to communicate with ipop-tap,
+// these are required to be static global variables because
+// ipop-tap is written in C and uses function pointers to access
+// this portion of the code, this can probably be done in a smarter way
 static wqueue<talk_base::Buffer*> g_recv_queue;
 static wqueue<talk_base::Buffer*> g_send_queue;
 
+// when the destination uid of a packet is set to this constant it means
+// that a P2P connection does not exist and this packet is sent to
+// a forwarder (i.e. the controller)
+static const char kNullPeerId[] = "00000000000000000000";
+
+// delimiter for candidate string parameters
+static const char kCandidateDelim[] = ":";
+
+// constants sent to controller to indicate different types of connection
+// notifications
 static const char kConStat[] = "con_stat";
 static const char kConReq[] = "con_req";
 static const char kConResp[] = "con_resp";
 
+// enumeration used by OnMessage function
 enum {
   MSG_QUEUESIGNAL = 0,
   MSG_CONTROLLERSIGNAL = 1
@@ -82,7 +107,11 @@ TinCanConnectionManager::TinCanConnectionManager(
       tincan_ip4_(kIpv4),
       tincan_ip6_(kIpv6),
       tap_name_(kTapName) {
+  // we have to set the global point for ipop-tap communication
   g_manager = this;
+
+  // we set event handler for network change in order to disable
+  // ipop VNIC from list of devices uses by libjingle
   network_manager_.SignalNetworksChanged.connect(
       this, &TinCanConnectionManager::OnNetworksChanged);
 }
@@ -90,23 +119,36 @@ TinCanConnectionManager::TinCanConnectionManager(
 void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
     const std::string& ip6, int ip6_mask, int subnet_mask) {
+
+  // input verification before proceeding
   if (!tincan_id_.empty() || uid.size() != kIdSize) return;
+
+  // tincan id is uid
   tincan_id_ = uid;
-  char uid_str[kIdBytesLen];
-  talk_base::hex_decode(uid_str, kIdBytesLen, uid);
+
+  // we create X509 identity for secure connections
   identity_.reset(talk_base::SSLIdentity::Generate(tincan_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
-  // On WIN32, local_fingerprint is set to null
+  // On WIN32, local_fingerprint is set to null because we do not
+  // support DTLS on WIN32 at the moment
+  // TODO - Support DTLS on WIN32
   if (local_fingerprint_.get()) {
     fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
   }
+
+  // translate string based uid to byte based uid
+  char uid_str[kIdBytesLen];
+  talk_base::hex_decode(uid_str, kIdBytesLen, uid);
+
   int error = 0;
 #if defined(LINUX) || defined(ANDROID)
+  // Configure ipop tap VNIC through Linux sys calls
   error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
 #endif
+  // set up ipop-tap parameters
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
   error |= set_subnet_mask(ip4_mask, subnet_mask);
   ASSERT(error == 0);
@@ -118,6 +160,10 @@ void TinCanConnectionManager::OnNetworksChanged() {
   talk_base::NetworkManager::NetworkList networks;
   talk_base::SocketAddress ip6_addr(tincan_ip6_, 0);
   network_manager_.GetNetworks(&networks);
+
+  // We loop through each network interface and we disable ipop tap
+  // interface because we don't want libjingle to try to connect
+  // over ipop network that can create weird conditions and break things
   for (size_t i = 0; i < networks.size(); ++i) {
     if (networks[i]->name().compare(kTapName) == 0) {
       networks[i]->ClearIPs();
@@ -129,6 +175,7 @@ void TinCanConnectionManager::OnNetworksChanged() {
 
 void TinCanConnectionManager::OnRequestSignaling(
     cricket::Transport* transport) {
+  // boiler plate libjingle code
   transport->OnSignalingReady();
 }
 
@@ -158,17 +205,21 @@ void TinCanConnectionManager::OnCandidatesReady(
     std::string interface = candidates[i].network_name().substr(0, idx);
     std::string ip_string =
         talk_base::SocketAddress::IPToString(candidates[i].address().ip());
+
+    // here we built a colon delimited set of parameters required by
+    // libjingle/ICE protocol to create P2P connections
     std::ostringstream oss;
-    oss << candidates[i].id() << ":" << candidates[i].component()
-        << ":" << candidates[i].protocol() << ":" << ip_string
-        << ":" << candidates[i].address().port() 
-        << ":" << candidates[i].priority() 
-        << ":" << candidates[i].username() 
-        << ":" << candidates[i].password() 
-        << ":" << candidates[i].type() 
-        << ":" << interface
-        << ":" << candidates[i].generation() 
-        << ":" << candidates[i].foundation(); 
+    oss << candidates[i].id() << kCandidateDelim << candidates[i].component()
+        << kCandidateDelim << candidates[i].protocol()
+        << kCandidateDelim << ip_string
+        << kCandidateDelim << candidates[i].address().port() 
+        << kCandidateDelim << candidates[i].priority() 
+        << kCandidateDelim << candidates[i].username() 
+        << kCandidateDelim << candidates[i].password() 
+        << kCandidateDelim << candidates[i].type() 
+        << kCandidateDelim << interface
+        << kCandidateDelim << candidates[i].generation() 
+        << kCandidateDelim << candidates[i].foundation(); 
     candidate_list.insert(oss.str());
   }
 }
@@ -179,6 +230,10 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
   std::set<std::string>& candidates = uid_map_[uid]->candidate_list;
   int overlay_id = uid_map_[uid]->overlay_id;
   std::string data(fingerprint());
+
+  // we create a space delimited list of candidate information and
+  // then send that information over XMPP to other peer to create
+  // P2P connections
   for (std::set<std::string>::const_iterator it = candidates.begin();
        it != candidates.end(); ++it) {
     data += " ";
@@ -193,11 +248,20 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
 void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
   if (len < kHeaderSize) return;
+
+  // we are processing incoming code from the P2P network, first we convert
+  // 20-byte uid from bytes to string, this is a costly operation especially
+  // if we want high bandwidth throughput. The kShortLen parameter is used
+  // to limit the encode to only 8 bytes instead of 20 bytes. This is
+  // sufficient for a small network because 8 bytes (64-bits of entropy)
+  // which is enough (birthday problem). We are required to use strings
+  // for lookup tables because many lookup tables depend on string as key.
   std::string source = talk_base::hex_encode(data, kShortLen);
   std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   if (short_uid_map_.find(source) != short_uid_map_.end() && 
       short_uid_map_[source]->GetChannel(component) == channel) {
+    // add to receive for processing by ipop-tap
     g_recv_queue.add(new talk_base::Buffer(data, len));
   }
 }
@@ -207,16 +271,18 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (len < (kHeaderSize)) return;
   std::string source = talk_base::hex_encode(data, kShortLen);
   std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
-  if (dest.compare(0, 3, "000") == 0) {
+
+  // forward packet to controller if we do not have a P2P connection for it
+  if (dest.compare(0, 3, kNullPeerId) == 0 ||
+      short_uid_map_.find(dest) == short_uid_map_.end()) {
+    // forward_addr_ is the address of the forwarder/controller
     forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT);
-  } 
-  else if (short_uid_map_.find(dest) == short_uid_map_.end()) { 
-    forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT); 
   } 
   else if (short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
+    // Send packet over Tincan P2P connection
     int count = channel->SendPacket(data, len, talk_base::DSCP_DEFAULT, 0);
   }
 }
@@ -353,10 +419,14 @@ bool TinCanConnectionManager::AddIPMapping(
   talk_base::hex_decode(uid_str, kIdBytesLen, uid);
   // TODO - this override call should go away, only there for compatibility
   override_base_ipv4_addr_p(ip4.c_str());
+
+  // this create a UID to IP mapping in the ipop-tap peerlist
   peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
   PeerIPs ips;
   ips.ip4 = ip4;
   ips.ip6 = ip6;
+
+  // we also store the assigned ip addresses to table for reuse
   ip_map_[uid] = ips;
   return true;
 }
@@ -366,6 +436,9 @@ bool TinCanConnectionManager::CreateConnections(
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   cricket::Candidates& candidates = uid_map_[uid]->candidates;
   if (candidates.size() > 0) return false;
+
+  // this parses the string delimited list of candidates and adds
+  // them to the P2P transport and therefore creating connections
   std::istringstream iss(candidates_string);
   do {
     std::string candidate_string;
@@ -391,6 +464,10 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   if (uid_map_[uid]->transport->was_writable()) {
     uid_map_[uid]->port_allocator.release();
   }
+
+  // This call destroys the P2P connection and deletes connection
+  // because this calls destructor of PeerState which in turn calls the
+  // destructors of all internal objects
   uid_map_.erase(uid);
   short_uid_map_.erase(uid.substr(0, kShortLen * 2));
   LOG_TS(INFO) << "DESTROYED " << uid;
@@ -422,6 +499,7 @@ void TinCanConnectionManager::HandlePeer(const std::string& uid,
 int TinCanConnectionManager::DoPacketSend(const char* buf, size_t len) {
   g_send_queue.add(new talk_base::Buffer(buf, len));
   if (g_manager != 0) {
+    // This is called when main_thread has to process outgoing packet
     g_manager->packet_handling_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
   }
   return len;
@@ -456,8 +534,13 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
   peer["status"] = "offline";
   if (uid_map_.find(uid) != uid_map_.end()) {
     peer["fpr"] = uid_map_[uid]->fingerprint;
+
+    // time_diff gives the amount of time since connection was created
     uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
     peer["last_time"] = time_diff/1000;
+
+    // if transport is readable and writable that means P2P connection 
+    // is online and ready to send packets
     if (uid_map_[uid]->transport->readable() && 
         uid_map_[uid]->transport->writable()) {
       peer["status"] = "online";
