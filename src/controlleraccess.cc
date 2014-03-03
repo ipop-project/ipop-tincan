@@ -25,6 +25,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "talk/base/base64.h"
 #include "talk/base/json.h"
 
 #include "controlleraccess.h"
@@ -36,6 +37,7 @@ static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
 static const int kUdpPort = 5800;
 static const int kBufferSize = 1024;
+static const size_t kIdBytesLen = 20;
 static std::map<std::string, int> rpc_calls;
 
 enum {
@@ -48,6 +50,7 @@ enum {
   SEND_MSG,
   GET_STATE,
   SET_LOGGING,
+  INJECT_TO_CHANNEL
 };
 
 static void init_map() {
@@ -60,6 +63,7 @@ static void init_map() {
   rpc_calls["send_msg"] = SEND_MSG;
   rpc_calls["get_state"] = GET_STATE;
   rpc_calls["set_logging"] = SET_LOGGING;
+  rpc_calls["inject_to_channel"] = INJECT_TO_CHANNEL;
 }
 
 ControllerAccess::ControllerAccess(
@@ -226,6 +230,24 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         else if (logging == 3) {
           talk_base::LogMessage::LogToDebug(talk_base::LS_SENSITIVE);
         }
+      }
+      break;
+    case INJECT_TO_CHANNEL: {
+        LOG_TS(INFO) << "INJECT TO CHANNEL";
+        std::string src_uid = root["src_uid"].asString();
+        std::string dest_uid = root["dest_uid"].asString();
+        std::string data = talk_base::Base64::Decode(root["data"].asString(), 
+                                           talk_base::Base64::DO_PARSE_STRICT);
+        char packet[2*kIdBytesLen + data.size()];
+        talk_base::hex_decode(packet, 2 * kIdBytesLen, src_uid + dest_uid);
+        memcpy(packet + 2*kIdBytesLen, data.c_str(), data.size());
+
+        LOG_TS(INFO) << "INJECT TO CHANNEL src_uid:" << src_uid << " dest: "
+                     << dest_uid << " data.size:" << data.size();
+        //TODO Couldn't pass null argument. Find a way to not declare socketaddr
+        talk_base::SocketAddress nullnull;
+        manager_.HandlePacket(NULL, packet, 2*kIdBytesLen + data.size(), 
+                              nullnull);
       }
       break;
     default: {
