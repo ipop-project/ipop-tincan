@@ -238,6 +238,8 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
     tincan_task_->set_xmpp_id(uid_key, uid);
     LOG_TS(INFO) << "uid_key:" << uid_key << " uid" << uid << " status:" << fpr;
     // TODO - Decide what message type to assign to presence messages
+    // Presence message integrity test. Currently, we simply drop presence 
+    // message only with the size
     if (fpr.size() == kFprSize)
         HandlePeer(uid_key, fpr, "");
   }
