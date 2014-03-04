@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
   opts.win32_tap = open_tap(tincan::kTapName, opts.mac);
   if (opts.win32_tap < 0) return -1;
 #endif
-  opts.translate = 1;
+  opts.translate = 0;
 
   talk_base::Thread packet_handling_thread, send_thread, recv_thread;
   talk_base::AutoThread link_setup_thread;
