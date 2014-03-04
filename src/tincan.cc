@@ -104,14 +104,6 @@ bool SSLVerificationCallback(void* cert) {
 int main(int argc, char **argv) {
   talk_base::InitializeSSL(SSLVerificationCallback);
   peerlist_init();
-  int translate = 1;
-
-  for (int i = argc - 1; i > 0; i--) {
-    if (strncmp(argv[i], "-nt", 3) == 0) {
-      translate = 0;
-    }
-  }
-
   thread_opts_t opts;
 #if defined(LINUX) || defined(ANDROID)
   opts.tap = tap_open(tincan::kTapName, opts.mac);
@@ -120,7 +112,7 @@ int main(int argc, char **argv) {
   opts.win32_tap = open_tap(tincan::kTapName, opts.mac);
   if (opts.win32_tap < 0) return -1;
 #endif
-  opts.translate = translate;
+  opts.translate = 1;
 
   talk_base::Thread packet_handling_thread, send_thread, recv_thread;
   talk_base::AutoThread link_setup_thread;
@@ -133,7 +125,7 @@ int main(int argc, char **argv) {
   xmpp.HandlePeer.connect(&manager,
       &tincan::TinCanConnectionManager::HandlePeer);
   talk_base::BasicPacketSocketFactory packet_factory;
-  tincan::ControllerAccess controller(manager, xmpp, &packet_factory);
+  tincan::ControllerAccess controller(manager, xmpp, &packet_factory, &opts);
   signal_sender.add_service(0, &controller);
   signal_sender.add_service(1, &xmpp);
   opts.send_func = &tincan::TinCanConnectionManager::DoPacketSend;

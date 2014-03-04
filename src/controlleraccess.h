@@ -43,7 +43,8 @@ class ControllerAccess : public PeerSignalSenderInterface,
                          public sigslot::has_slots<> {
  public:
   ControllerAccess(TinCanConnectionManager& manager, XmppNetwork& network,
-         talk_base::BasicPacketSocketFactory* packet_factory);
+         talk_base::BasicPacketSocketFactory* packet_factory,
+         thread_opts_t* opts);
 
   // Inherited from PeerSignalSenderInterface
   virtual void SendToPeer(int overlay_id, const std::string& uid,
@@ -62,6 +63,7 @@ class ControllerAccess : public PeerSignalSenderInterface,
   void SendState(const std::string& uid, bool get_stats,
                  const talk_base::SocketAddress& addr);
 
+  thread_opts_t* opts_;
   XmppNetwork& network_;
   TinCanConnectionManager& manager_;
   talk_base::SocketAddress remote_addr_;

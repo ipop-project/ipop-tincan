@@ -43,6 +43,10 @@ namespace tincan {
 static const int kXmppPort = 5222;
 static const int kInterval = 15000;
 
+// kPresenceInterval is kInterval * 8 = 120 secs meaning that
+// presence message is sent to XMPP server every 2 minutes
+static const int kPresenceInterval = 8;
+
 static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const buzz::StaticQName QN_TINCAN_DATA = { "jabber:iq:tincan", "data" };
 static const buzz::StaticQName QN_TINCAN_TYPE = { "jabber:iq:tincan", "type" };
@@ -50,10 +54,10 @@ static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
 
 static const int kPingPeriod = 10000;
-static const int kPingTimeout = 500;
+static const int kPingTimeout = 1000;
 
-// Predetermined size of fingerprint string from RFC 4572
-static const int kFprSize = 59;
+// TODO - we should not be storing in global map, need to move to a class
+static std::map<std::string, std::string> g_uid_map;
 
 static std::string get_key(const std::string& uid) {
   size_t idx = uid.find('/') + sizeof(kXmppPrefix);
@@ -62,7 +66,6 @@ static std::string get_key(const std::string& uid) {
   }
   return uid;
 }
-
 
 TinCanTask::TinCanTask(buzz::XmppClient* client,
                        PeerHandlerInterface* handler)
@@ -73,7 +76,8 @@ TinCanTask::TinCanTask(buzz::XmppClient* client,
 void TinCanTask::SendToPeer(int overlay_id, const std::string &uid,
                             const std::string &data,
                             const std::string &type) {
-  const buzz::Jid to(get_xmpp_id(uid));
+  if (g_uid_map.find(uid) == g_uid_map.end()) return;
+  const buzz::Jid to(g_uid_map[uid]);
   talk_base::scoped_ptr<buzz::XmlElement> get(
       MakeIq(buzz::STR_GET, to, task_id()));
   // TODO - Figure out how to build from QN_TINCAN instead of template
@@ -90,6 +94,8 @@ void TinCanTask::SendToPeer(int overlay_id, const std::string &uid,
 
   get->AddElement(element);
   SendStanza(get.get());
+  LOG_TS(INFO) << "XMPP SEND uid " << uid << " data " << data
+               << " type " << type;
 }
 
 int TinCanTask::ProcessStart() {
@@ -103,8 +109,8 @@ int TinCanTask::ProcessStart() {
       from != GetClient()->jid()) {
     std::string uid = stanza->Attr(buzz::QN_FROM);
     std::string uid_key = get_key(uid);
-    set_xmpp_id(uid_key, uid);
-    LOG_TS(INFO) << "uid_key:" << uid_key << " uid:" << uid;
+    // map each uid to a uid_key
+    g_uid_map[uid_key] = uid;
 
     const buzz::XmlElement* msg = stanza->FirstNamed(QN_TINCAN);
     if (msg != NULL) {
@@ -202,29 +208,21 @@ void XmppNetwork::OnSignOn() {
 
 void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   xmpp_state_ = state;
-  std::string str_state;
   switch (state) {
     case buzz::XmppEngine::STATE_START:
       LOG_TS(INFO) << "START";
-      str_state = "START";
       break;
     case buzz::XmppEngine::STATE_OPENING:
       LOG_TS(INFO) << "OPENING";
-      str_state = "OPENING";
       break;
     case buzz::XmppEngine::STATE_OPEN:
       LOG_TS(INFO) << "OPEN";
-      str_state = "OPEN";
       OnSignOn();
       break;
     case buzz::XmppEngine::STATE_CLOSED:
       LOG_TS(INFO) << "CLOSED";
-      str_state = "CLOSED";
       break;
   }
-  buzz::Jid local_jid(xcs_.user(), xcs_.host(), xcs_.resource());
-  std::string uid_key = get_key(local_jid.Str());
-  HandlePeer(uid_key, "1000:xmpp_state", str_state);
 }
 
 void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
@@ -234,12 +232,12 @@ void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
       kXmppPrefix) == 0 && status.jid() != pump_->client()->jid()) {
     std::string uid = status.jid().Str();
     std::string uid_key = get_key(uid);
-    std::string fpr = status.status();
-    tincan_task_->set_xmpp_id(uid_key, uid);
-    LOG_TS(INFO) << "uid_key:" << uid_key << " uid" << uid << " status:" << fpr;
-    // TODO - Decide what message type to assign to presence messages
-    if (fpr.size() == kFprSize)
-        HandlePeer(uid_key, fpr, "");
+
+    // Simply update the timestamp of this presence message by uid
+    presence_time_[uid_key] = talk_base::Time();
+    g_uid_map[uid_key] = uid;
+
+    LOG_TS(INFO) << "uid " << uid << " status " << status.status();
   }
 }
 
@@ -253,14 +251,6 @@ void XmppNetwork::OnTimeout() {
 
 void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
-    // Resend presence every 3 min necessary for reconnections
-    if (on_msg_counter_++ % 12 == 0) {
-      presence_out_.release();
-      presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
-      presence_out_->Send(status_);
-      presence_out_->Start();
-    }
-
     if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
         xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
       pump_->DoDisconnect();
@@ -282,6 +272,15 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
       //pump_.release();
       Connect();
     }
+    else if (xmpp_state_ == buzz::XmppEngine::STATE_OPEN &&
+             on_msg_counter_++ % kPresenceInterval == 0) {
+      // Resend presence every 2 min necessary for reconnections
+      presence_out_.release();
+      presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
+      presence_out_->Send(status_);
+      presence_out_->Start();
+    }
+
   }
   main_thread_->PostDelayed(kInterval, this, 0, 0);
 }

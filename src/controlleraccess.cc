@@ -39,15 +39,15 @@ static const int kBufferSize = 1024;
 static std::map<std::string, int> rpc_calls;
 
 enum {
-  REGISTER_SVC,
-  CREATE_LINK,
-  SET_LOCAL_IP,
-  SET_REMOTE_IP,
-  TRIM_LINK,
-  SET_CB_ENDPOINT,
-  SEND_MSG,
-  GET_STATE,
-  SET_LOGGING,
+  REGISTER_SVC = 1,
+  CREATE_LINK = 2,
+  SET_LOCAL_IP = 3,
+  SET_REMOTE_IP = 4,
+  TRIM_LINK = 5,
+  SET_CB_ENDPOINT = 6,
+  GET_STATE = 7,
+  SET_LOGGING = 8,
+  SET_TRANSLATION = 9,
 };
 
 static void init_map() {
@@ -57,16 +57,18 @@ static void init_map() {
   rpc_calls["set_remote_ip"] = SET_REMOTE_IP;
   rpc_calls["trim_link"] = TRIM_LINK;
   rpc_calls["set_cb_endpoint"] = SET_CB_ENDPOINT;
-  rpc_calls["send_msg"] = SEND_MSG;
   rpc_calls["get_state"] = GET_STATE;
   rpc_calls["set_logging"] = SET_LOGGING;
+  rpc_calls["set_translation"] = SET_TRANSLATION;
 }
 
 ControllerAccess::ControllerAccess(
     TinCanConnectionManager& manager, XmppNetwork& network,
-    talk_base::BasicPacketSocketFactory* packet_factory)
+    talk_base::BasicPacketSocketFactory* packet_factory,
+    thread_opts_t* opts)
     : manager_(manager),
-      network_(network) {
+      network_(network),
+      opts_(opts) {
   socket_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
@@ -106,7 +108,7 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
 
 void ControllerAccess::SendState(const std::string& uid, bool get_stats,
                                  const talk_base::SocketAddress& addr) {
-  Json::Value state = manager_.GetState(uid, get_stats);
+  Json::Value state = manager_.GetState(network_.friends(), get_stats);
   Json::Value local_state;
   local_state["_uid"] = manager_.uid();
   local_state["_ip4"] = manager_.ipv4();
@@ -137,12 +139,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
 
   // TODO - input sanitazation for security purposes
   std::string method = root["m"].asString();
+
   switch (rpc_calls[method]) {
     case REGISTER_SVC: {
         std::string user = root["username"].asString();
         std::string pass = root["password"].asString();
         std::string host = root["host"].asString();
-        network_.set_status(manager_.fingerprint());
         bool res = network_.Login(user, pass, manager_.uid(), host);
       }
       break;
@@ -199,13 +201,6 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         manager_.set_forward_addr(remote_addr_);
       }
       break;
-    case SEND_MSG: {
-        int overlay_id = root["overlay_id"].asInt();
-        std::string uid = root["uid"].asString();
-        std::string fpr = root["data"].asString();
-        network_.SendToPeer(overlay_id, uid, fpr, "send_msg");
-      }
-      break;
     case GET_STATE: {
         std::string uid = root["uid"].asString();
         bool get_stats = root["stats"].asBool();
@@ -228,7 +223,16 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         }
       }
       break;
+    case SET_TRANSLATION: {
+        int translate = root["translate"].asInt();
+        opts_->translate = translate;
+      }
+      break;
     default: {
+        int overlay_id = root["overlay_id"].asInt();
+        std::string uid = root["uid"].asString();
+        std::string fpr = root["data"].asString();
+        network_.SendToPeer(overlay_id, uid, fpr, method);
       }
       break;
   }

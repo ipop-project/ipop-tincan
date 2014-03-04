@@ -33,7 +33,6 @@
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
-
 namespace tincan {
 
 static const char kIpv4[] = "172.31.0.100";
@@ -485,14 +484,7 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
 
 void TinCanConnectionManager::HandlePeer(const std::string& uid, 
     const std::string& data, const std::string& type) {
-  // This is a callback message to the controller indicating a new
-  // connection request sent over XMPP
-  if (type.size() > 0) {
-    signal_sender_->SendToPeer(kLocalControllerId, uid, data, type);
-  }
-  else {
-    signal_sender_->SendToPeer(kLocalControllerId, uid, data, kConReq);
-  }
+  signal_sender_->SendToPeer(kLocalControllerId, uid, data, type);
   LOG_TS(INFO) << "uid:" << uid << " data:" << data << " type:" << type;
 }
 
@@ -525,18 +517,23 @@ void TinCanConnectionManager::HandleQueueSignal_w() {
 }
 
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
-                                                 const PeerIPs& ips,
+                                                 uint32 xmpp_time,
                                                  bool get_stats) {
   Json::Value peer(Json::objectValue);
   peer["uid"] = uid;
-  peer["ip4"] = ips.ip4;
-  peer["ip6"] = ips.ip6;
   peer["status"] = "offline";
+
+  // time_diff gives the amount of time since last xmpp presense message
+  uint32 time_diff = talk_base::Time() - xmpp_time;
+  peer["xmpp_time"] = time_diff/1000;
+
   if (uid_map_.find(uid) != uid_map_.end()) {
+    peer["ip4"] = ip_map_[uid].ip4;
+    peer["ip6"] = ip_map_[uid].ip6;
     peer["fpr"] = uid_map_[uid]->fingerprint;
 
     // time_diff gives the amount of time since connection was created
-    uint32 time_diff = talk_base::Time() - uid_map_[uid]->last_time;
+    time_diff = talk_base::Time() - uid_map_[uid]->last_time;
     peer["last_time"] = time_diff/1000;
 
     // if transport is readable and writable that means P2P connection 
@@ -578,18 +575,12 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
   return peer;
 }
 
-Json::Value TinCanConnectionManager::GetState(const std::string& uid,
-                                              bool get_stats) {
+Json::Value TinCanConnectionManager::GetState(
+    const std::map<std::string, uint32>& friends, bool get_stats) {
   Json::Value peers(Json::objectValue);
-  if (uid.size() == this->uid().size()  &&
-      ip_map_.find(uid) != ip_map_.end()) {
-    peers[uid] = StateToJson(uid, ip_map_[uid], get_stats);
-  }
-  else if (uid.size() != this->uid().size() ) {
-    for (std::map<std::string, PeerIPs>::const_iterator it =
-         ip_map_.begin(); it != ip_map_.end(); ++it) {
-      peers[it->first] = StateToJson(it->first, it->second, get_stats);
-    }
+  for (std::map<std::string, uint32>::const_iterator it =
+       friends.begin(); it != friends.end(); ++it) {
+    peers[it->first] = StateToJson(it->first, it->second, get_stats);
   }
   return peers;
 }
