@@ -60,18 +60,6 @@ class TinCanTask
   explicit TinCanTask(buzz::XmppClient* client,
                       PeerHandlerInterface* handler);
 
-  virtual void set_xmpp_id(const std::string& uid_key,
-                           const std::string& uid) {
-    LOG_TS(INFO) << "SET_XMPP_ID " << uid;
-    xmpp_id_map_[uid_key] = uid;
-  }
-
-  virtual const std::string get_xmpp_id(const std::string& uid) {
-    return xmpp_id_map_[uid];
-  }
-
-  //virtual const std::string uid() { return GetClient()->jid().Str(); }
-
   virtual void SendToPeer(int overlay_id, const std::string& uid,
                           const std::string& data, const std::string& type);
 
@@ -80,7 +68,6 @@ class TinCanTask
   virtual bool HandleStanza(const buzz::XmlElement* stanza);
 
  private:
-  std::map<std::string, std::string> xmpp_id_map_;
   PeerHandlerInterface* handler_;
 };
 
@@ -102,6 +89,10 @@ class XmppNetwork
     return uid_;
   }
 
+  virtual const std::map<std::string, uint32> friends() {
+    return presence_time_;
+  }
+
   // inherited from PeerHandler
   virtual void DoHandlePeer(std::string& uid, std::string& data,
                             std::string& type) {
@@ -119,10 +110,6 @@ class XmppNetwork
   }
 
   virtual void OnMessage(talk_base::Message* msg);
-
-  virtual void set_status(const std::string& status) {
-    status_.set_status(status);
-  }
 
   bool Login(std::string username, std::string password,
              std::string pcid, std::string host);
@@ -144,6 +131,7 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
   talk_base::scoped_ptr<buzz::PingTask> ping_task_;
   talk_base::scoped_ptr<TinCanTask> tincan_task_;
+  std::map<std::string, uint32> presence_time_;
   buzz::XmppEngine::State xmpp_state_;
   int on_msg_counter_;
   std::string uid_;
