@@ -527,9 +527,12 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
   uint32 time_diff = talk_base::Time() - xmpp_time;
   peer["xmpp_time"] = time_diff/1000;
 
-  if (uid_map_.find(uid) != uid_map_.end()) {
+  if (ip_map_.find(uid) != ip_map_.end()) {
     peer["ip4"] = ip_map_[uid].ip4;
     peer["ip6"] = ip_map_[uid].ip6;
+  }
+
+  if (uid_map_.find(uid) != uid_map_.end()) {
     peer["fpr"] = uid_map_[uid]->fingerprint;
 
     // time_diff gives the amount of time since connection was created
