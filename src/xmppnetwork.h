@@ -101,8 +101,9 @@ class XmppNetwork
 
   virtual void SendToPeer(int overlay_id, const std::string& uid,
                           const std::string& data, const std::string& type) {
-    if (tincan_task_.get()) tincan_task_->SendToPeer(overlay_id, uid, data, 
-                                                     type);
+    if (xmpp_state_ == buzz::XmppEngine::STATE_OPEN && tincan_task_.get()) {
+      tincan_task_->SendToPeer(overlay_id, uid, data, type);
+    }
   }
 
   void OnLogging(const char* data, int len) {
