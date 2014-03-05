@@ -464,6 +464,12 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
     uid_map_[uid]->port_allocator.release();
   }
 
+#if defined(WIN32)
+  // For some reason on windows this causes a segfault when destroying the
+  // port allocator object, maybe it gets cleaned up by P2P transport
+  uid_map_[uid]->port_allocator.release();
+#endif
+
   // This call destroys the P2P connection and deletes connection
   // because this calls destructor of PeerState which in turn calls the
   // destructors of all internal objects
