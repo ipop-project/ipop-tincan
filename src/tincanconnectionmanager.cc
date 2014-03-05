@@ -460,9 +460,9 @@ bool TinCanConnectionManager::CreateConnections(
 bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   // TODO - This is a memory leak, we don't always have to release
-  if (uid_map_[uid]->transport->was_writable()) {
-    uid_map_[uid]->port_allocator.release();
-  }
+  // For some reason, this causes a segfault when destroying the
+  // port allocator object, maybe it gets cleaned up by P2P transport
+  uid_map_[uid]->port_allocator.release();
 
   // This call destroys the P2P connection and deletes connection
   // because this calls destructor of PeerState which in turn calls the
