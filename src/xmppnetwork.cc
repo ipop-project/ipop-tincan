@@ -53,8 +53,9 @@ static const buzz::StaticQName QN_TINCAN_TYPE = { "jabber:iq:tincan", "type" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
 
-static const int kPingPeriod = 10000;
-static const int kPingTimeout = 1000;
+static const int kPingPeriod = 15000;
+// should be half of ping period
+static const int kPingTimeout = 7500;
 
 // TODO - we should not be storing in global map, need to move to a class
 static std::map<std::string, std::string> g_uid_map;
