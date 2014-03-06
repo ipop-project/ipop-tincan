@@ -40,21 +40,22 @@
 
 namespace tincan {
 
-static const int kXmppPort = 5222;
+// this timeout sets how frequent XMPP server is pinged (ms)
+static const int kPingPeriod = 15000;
+// this timeout sets how long to wait for XMPP server response (ms)
+static const int kPingTimeout = 5000;
+// this constant sets how often XMPP state is checked by OnMessage (ms)
 static const int kInterval = 15000;
+// this constant sets how often presense message is sent (sec)
+static const int kPresenceInterval = 120;
 
-// kPresenceInterval is kInterval * 8 = 120 secs meaning that
-// presence message is sent to XMPP server every 2 minutes
-static const int kPresenceInterval = 8;
+static const int kXmppPort = 5222;
 
 static const buzz::StaticQName QN_TINCAN = { "jabber:iq:tincan", "query" };
 static const buzz::StaticQName QN_TINCAN_DATA = { "jabber:iq:tincan", "data" };
 static const buzz::StaticQName QN_TINCAN_TYPE = { "jabber:iq:tincan", "type" };
 static const char kTemplate[] = "<query xmlns=\"jabber:iq:tincan\" />";
 static const char kErrorMsg[] = "error";
-
-static const int kPingPeriod = 10000;
-static const int kPingTimeout = 1000;
 
 // TODO - we should not be storing in global map, need to move to a class
 static std::map<std::string, std::string> g_uid_map;
@@ -253,11 +254,15 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
     if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
         xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
+#if !defined(WIN32)
+      // currently disconnections are disabled for WIN32
+      // because code crashes when cleaning up presence_receive_task
       pump_->DoDisconnect();
     }
     else if (pump_->client()->AnyChildError() &&
              xmpp_state_ != buzz::XmppEngine::STATE_CLOSED) {
       pump_->DoDisconnect();
+#endif
     }
     else if (xmpp_state_ == buzz::XmppEngine::STATE_NONE) {
       xmpp_socket_.release();
@@ -273,7 +278,7 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
       Connect();
     }
     else if (xmpp_state_ == buzz::XmppEngine::STATE_OPEN &&
-             on_msg_counter_++ % kPresenceInterval == 0) {
+             on_msg_counter_ % kPresenceInterval == 0) {
       // Resend presence every 2 min necessary for reconnections
       presence_out_.release();
       presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
@@ -283,6 +288,7 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
 
   }
   main_thread_->PostDelayed(kInterval, this, 0, 0);
+  on_msg_counter_ += kInterval/1000;
 }
 
 }  // namespace tincan
