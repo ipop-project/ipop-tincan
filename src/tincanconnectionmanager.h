@@ -176,6 +176,10 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
+    ~PeerState() {
+      transport.reset();
+      port_allocator.reset();
+    }
   };
 
   struct PeerIPs {
