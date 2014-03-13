@@ -29,11 +29,12 @@
 #include <sstream>
 
 #include "talk/base/logging.h"
-
+#include "talk/base/bind.h"
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
 namespace tincan {
+using talk_base::Bind;
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
@@ -525,6 +526,17 @@ void TinCanConnectionManager::HandleQueueSignal_w() {
   HandlePacket(0, packet->data(), packet->length(), forward_addr_);
 }
 
+void TinCanConnectionManager::GetChannelStats_w(const std::string &uid,
+                                                cricket::ConnectionInfos *infos)
+{
+  cricket::TransportChannelImpl* channel;
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+
+  // Invoke by link_setup_thread_, so we are safe to access uid_map_ here
+  channel = uid_map_[uid]->transport->GetChannel(component);
+  channel->GetStats(infos);
+}
+
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
                                                  uint32 xmpp_time,
                                                  bool get_stats) {
@@ -558,8 +570,10 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
         // For some odd reason, GetStats fails on WIN32
       if (get_stats) {
         cricket::ConnectionInfos infos;
-        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-        uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+        packet_handling_thread_->Invoke<void>(
+          Bind(&TinCanConnectionManager::GetChannelStats_w, this,
+               uid,&infos));
+
         Json::Value stats(Json::arrayValue);
         for (int i = 0; i < infos.size(); i++) {
           Json::Value stat(Json::objectValue);
