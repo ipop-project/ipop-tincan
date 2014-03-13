@@ -29,11 +29,12 @@
 #include <sstream>
 
 #include "talk/base/logging.h"
-
+#include "talk/base/bind.h"
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
 namespace tincan {
+using talk_base::Bind;
 
 static const char kIpv4[] = "172.31.0.100";
 static const char kIpv6[] = "fd50:0dbc:41f2:4a3c:0000:0000:0000:0000";
@@ -156,6 +157,7 @@ void TinCanConnectionManager::Setup(
 }
 
 void TinCanConnectionManager::OnNetworksChanged() {
+  ASSERT(packet_handling_thread_->IsCurrent());
   talk_base::NetworkManager::NetworkList networks;
   talk_base::SocketAddress ip6_addr(tincan_ip6_, 0);
   network_manager_.GetNetworks(&networks);
@@ -174,12 +176,14 @@ void TinCanConnectionManager::OnNetworksChanged() {
 
 void TinCanConnectionManager::OnRequestSignaling(
     cricket::Transport* transport) {
+  ASSERT(link_setup_thread_->IsCurrent());
   // boiler plate libjingle code
   transport->OnSignalingReady();
 }
 
 void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
+  ASSERT(link_setup_thread_->IsCurrent());
   std::string uid = transport_map_[transport];
   std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
@@ -196,6 +200,7 @@ void TinCanConnectionManager::OnRWChangeState(
 
 void TinCanConnectionManager::OnCandidatesReady(
     cricket::Transport* transport, const cricket::Candidates& candidates) {
+  ASSERT(link_setup_thread_->IsCurrent());
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidate_list = uid_map_[uid]->candidate_list;
   for (size_t i = 0; i < candidates.size(); i++) {
@@ -225,6 +230,7 @@ void TinCanConnectionManager::OnCandidatesReady(
 
 void TinCanConnectionManager::OnCandidatesAllocationDone(
     cricket::Transport* transport) {
+  ASSERT(link_setup_thread_->IsCurrent());
   std::string uid = transport_map_[transport];
   std::set<std::string>& candidates = uid_map_[uid]->candidate_list;
   int overlay_id = uid_map_[uid]->overlay_id;
@@ -246,6 +252,7 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
 
 void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
     const char* data, size_t len, int flags) {
+  ASSERT(packet_handling_thread_->IsCurrent());
   if (len < kHeaderSize) return;
 
   // we are processing incoming code from the P2P network, first we convert
@@ -267,6 +274,7 @@ void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 
 void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
+  ASSERT(packet_handling_thread_->IsCurrent());
   if (len < (kHeaderSize)) return;
   std::string source = talk_base::hex_encode(data, kShortLen);
   std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
@@ -412,6 +420,7 @@ bool TinCanConnectionManager::CreateTransport(
 
 bool TinCanConnectionManager::AddIPMapping(
     const std::string& uid, const std::string& ip4, const std::string& ip6) {
+  ASSERT(link_setup_thread_->IsCurrent());
   if (ip4.empty() || ip6.empty() || uid.size() != kIdSize || 
       ip_map_.find(uid) != ip_map_.end()) return false;
   char uid_str[kIdBytesLen];
@@ -432,6 +441,7 @@ bool TinCanConnectionManager::AddIPMapping(
 
 bool TinCanConnectionManager::CreateConnections(
     const std::string& uid, const std::string& candidates_string) {
+  ASSERT(link_setup_thread_->IsCurrent());
   if (uid_map_.find(uid) == uid_map_.end()) return false;
   cricket::Candidates& candidates = uid_map_[uid]->candidates;
   if (candidates.size() > 0) return false;
@@ -458,6 +468,7 @@ bool TinCanConnectionManager::CreateConnections(
 }
 
 bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
+  ASSERT(link_setup_thread_->IsCurrent());
   if (uid_map_.find(uid) == uid_map_.end()) return false;
 
   // This call destroys the P2P connection and deletes connection
@@ -470,6 +481,7 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
 }
 
 void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
+  ASSERT(packet_handling_thread_->IsCurrent());
   switch (msg->message_id) {
     case MSG_QUEUESIGNAL: {
         HandleQueueSignal_w();
@@ -480,6 +492,7 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
 
 void TinCanConnectionManager::HandlePeer(const std::string& uid, 
     const std::string& data, const std::string& type) {
+  ASSERT(link_setup_thread_->IsCurrent());
   signal_sender_->SendToPeer(kLocalControllerId, uid, data, type);
   LOG_TS(INFO) << "uid:" << uid << " data:" << data << " type:" << type;
 }
@@ -508,8 +521,20 @@ int TinCanConnectionManager::SendToTap(const char* buf, size_t len) {
 }
 
 void TinCanConnectionManager::HandleQueueSignal_w() {
+  ASSERT(packet_handling_thread_->IsCurrent());
   talk_base::scoped_ptr<talk_base::Buffer> packet(g_send_queue.remove());
   HandlePacket(0, packet->data(), packet->length(), forward_addr_);
+}
+
+void TinCanConnectionManager::GetChannelStats_w(const std::string &uid,
+                                                cricket::ConnectionInfos *infos)
+{
+  cricket::TransportChannelImpl* channel;
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+
+  // Invoke by link_setup_thread_, so we are safe to access uid_map_ here
+  channel = uid_map_[uid]->transport->GetChannel(component);
+  channel->GetStats(infos);
 }
 
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
@@ -545,8 +570,10 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
         // For some odd reason, GetStats fails on WIN32
       if (get_stats) {
         cricket::ConnectionInfos infos;
-        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-        uid_map_[uid]->transport->GetChannel(component)->GetStats(&infos);
+        packet_handling_thread_->Invoke<void>(
+          Bind(&TinCanConnectionManager::GetChannelStats_w, this,
+               uid,&infos));
+
         Json::Value stats(Json::arrayValue);
         for (int i = 0; i < infos.size(); i++) {
           Json::Value stat(Json::objectValue);
@@ -576,6 +603,7 @@ Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
 
 Json::Value TinCanConnectionManager::GetState(
     const std::map<std::string, uint32>& friends, bool get_stats) {
+  ASSERT(link_setup_thread_->IsCurrent());
   Json::Value peers(Json::objectValue);
   for (std::map<std::string, uint32>::const_iterator it =
        friends.begin(); it != friends.end(); ++it) {

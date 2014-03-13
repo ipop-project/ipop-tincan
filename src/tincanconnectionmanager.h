@@ -198,6 +198,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                           bool get_stats);
   bool SetRelay(PeerState* peer_state, const std::string& turn_server,
                 const std::string& username, const std::string& password);
+  void GetChannelStats_w(const std::string &uid,
+                         cricket::ConnectionInfos *infos);
 
   const std::string content_name_;
   PeerSignalSenderInterface* signal_sender_;

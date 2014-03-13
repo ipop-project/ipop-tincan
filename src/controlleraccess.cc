@@ -26,7 +26,6 @@
  */
 
 #include "talk/base/json.h"
-
 #include "controlleraccess.h"
 #include "tincan_utils.h"
 
@@ -69,6 +68,7 @@ ControllerAccess::ControllerAccess(
     : manager_(manager),
       network_(network),
       opts_(opts) {
+  signal_thread_ = talk_base::Thread::Current();
   socket_.reset(packet_factory->CreateUdpSocket(
       talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
@@ -81,11 +81,13 @@ ControllerAccess::ControllerAccess(
 
 void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
+  ASSERT(signal_thread_->Current());
   manager_.SendToTap(data, len);
 }
 
 void ControllerAccess::SendTo(const char* pv, size_t cb,
                               const talk_base::SocketAddress& addr) {
+  ASSERT(signal_thread_->Current());
   if (addr.family() == AF_INET) {
     socket_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
   }
@@ -97,6 +99,7 @@ void ControllerAccess::SendTo(const char* pv, size_t cb,
 void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
                                   const std::string& data,
                                   const std::string& type) {
+  ASSERT(signal_thread_->Current());
   Json::Value json(Json::objectValue);
   json["uid"] = uid;
   json["data"] = data;
@@ -108,6 +111,7 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
 
 void ControllerAccess::SendState(const std::string& uid, bool get_stats,
                                  const talk_base::SocketAddress& addr) {
+  ASSERT(signal_thread_->Current());
   Json::Value state = manager_.GetState(network_.friends(), get_stats);
   Json::Value local_state;
   local_state["_uid"] = manager_.uid();
@@ -128,6 +132,7 @@ void ControllerAccess::SendState(const std::string& uid, bool get_stats,
 
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
+  ASSERT(signal_thread_->Current());
   if (data[0] != '{') return ProcessIPPacket(socket, data, len, addr);
   std::string result;
   std::string message(data, 0, len);
