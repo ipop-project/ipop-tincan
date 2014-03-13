@@ -69,6 +69,7 @@ class ControllerAccess : public PeerSignalSenderInterface,
   talk_base::SocketAddress remote_addr_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket6_;
+  talk_base::Thread *signal_thread_;
 };
 
 }  // namespace tincan
