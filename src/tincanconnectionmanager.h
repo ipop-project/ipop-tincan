@@ -194,6 +194,9 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
+  void InsertTransportMap_w(const std::string sub_uid,
+                            cricket::Transport* transport);
+  void DeleteTransportMap_w(const std::string sub_uid);
   Json::Value StateToJson(const std::string& uid, uint32 xmpp_time,
                           bool get_stats);
   bool SetRelay(PeerState* peer_state, const std::string& turn_server,

@@ -411,10 +411,15 @@ bool TinCanConnectionManager::CreateTransport(
 
   SetupTransport(peer_state.get());
   peer_state->transport->ConnectChannels();
+
+  LOG_TS(INFO) << "Start creating " << uid;
   uid_map_[uid] = peer_state;
   transport_map_[peer_state->transport.get()] = uid;
   // TODO: This is speed hack
-  short_uid_map_[uid.substr(0, kShortLen * 2)] = peer_state->transport.get();
+  packet_handling_thread_->Invoke<void>(
+    Bind(&TinCanConnectionManager::InsertTransportMap_w, this,
+         uid.substr(0, kShortLen * 2), peer_state->transport.get()));
+  LOG_TS(INFO) << "CREATED " << uid;
   return true;
 }
 
@@ -474,8 +479,18 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   // This call destroys the P2P connection and deletes connection
   // because this calls destructor of PeerState which in turn calls the
   // destructors of all internal objects
+
+  // We can't use async message posting, or there may be a window that
+  // transport has been deleted, but short_uid_map_ still contains the
+  // pointer. For the same reason, we must call short_uid_map_.erase
+  // before destroy the transport
+  // We can't use lock either, because destroying transport need invoke
+  // worker thread to do the real work.
+  LOG_TS(INFO) << "Start destroying " << uid;
+  packet_handling_thread_->Invoke<void>(
+    Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
+         uid.substr(0, kShortLen * 2)));
   uid_map_.erase(uid);
-  short_uid_map_.erase(uid.substr(0, kShortLen * 2));
   LOG_TS(INFO) << "DESTROYED " << uid;
   return true;
 }
@@ -535,6 +550,25 @@ void TinCanConnectionManager::GetChannelStats_w(const std::string &uid,
   // Invoke by link_setup_thread_, so we are safe to access uid_map_ here
   channel = uid_map_[uid]->transport->GetChannel(component);
   channel->GetStats(infos);
+}
+
+void TinCanConnectionManager::InsertTransportMap_w(const std::string sub_uid,
+                                                   cricket::Transport* transport)
+{
+  if (short_uid_map_.find(sub_uid) != short_uid_map_.end()) {
+    LOG_TS(LERROR) << "uid: " << sub_uid << " already exists" << endl;
+  }
+  short_uid_map_[sub_uid] = transport;
+}
+
+void TinCanConnectionManager::DeleteTransportMap_w(const std::string sub_uid)
+{
+  if (short_uid_map_.find(sub_uid) == short_uid_map_.end()) {
+    // There is some bug here. So log it.
+    LOG_TS(LERROR) << "Can't find uid: " << sub_uid;
+  } else {
+    short_uid_map_.erase(sub_uid);
+  }
 }
 
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
