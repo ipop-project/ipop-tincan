@@ -283,7 +283,13 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (dest.compare(0, 3, kNullPeerId) == 0 ||
       short_uid_map_.find(dest) == short_uid_map_.end()) {
     // forward_addr_ is the address of the forwarder/controller
-    forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT);
+    char * msg = new char[len + tincan_header_size];
+    msg[0] = ipop_ver;
+    msg[1] = tincan_packet;
+    memcpy(msg + tincan_header_size, data, len);
+    forward_socket_->SendTo(msg, len + tincan_header_size,
+                            forward_addr_,talk_base::DSCP_DEFAULT);
+    delete msg;
   } 
   else if (short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
