@@ -88,17 +88,16 @@ void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
 void ControllerAccess::SendTo(const char* pv, size_t cb,
                               const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  char * msg = new char[cb + tincan_header_size];
-  msg[0] = ipop_ver;
-  msg[1] = tincan_control;
-  memcpy(msg + tincan_header_size, pv, cb);
+  talk_base::scoped_ptr<char[]> msg(new char[cb + tincan_header_size]);
+  *(msg.get() + tincan_ver_offset) = ipop_ver;
+  *(msg.get() + tincan_msg_type_offset) = tincan_control;
+  memcpy(msg.get() + tincan_header_size, pv, cb);
   if (addr.family() == AF_INET) {
-    socket_->SendTo(msg, cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
+    socket_->SendTo(msg.get(), cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
   }
   else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(msg, cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
+    socket6_->SendTo(msg.get(), cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
   }
-  delete[] msg;
 }
 
 void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
