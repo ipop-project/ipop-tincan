@@ -82,17 +82,21 @@ ControllerAccess::ControllerAccess(
 void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  manager_.SendToTap(data, len);
+  manager_.SendToTap(data + tincan_header_size, len - tincan_header_size);
 }
 
 void ControllerAccess::SendTo(const char* pv, size_t cb,
                               const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
+  talk_base::scoped_ptr<char[]> msg(new char[cb + tincan_header_size]);
+  *(msg.get() + tincan_ver_offset) = ipop_ver;
+  *(msg.get() + tincan_msg_type_offset) = tincan_control;
+  memcpy(msg.get() + tincan_header_size, pv, cb);
   if (addr.family() == AF_INET) {
-    socket_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
+    socket_->SendTo(msg.get(), cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
   }
   else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
+    socket6_->SendTo(msg.get(), cb + tincan_header_size, addr, talk_base::DSCP_DEFAULT);
   }
 }
 
@@ -133,9 +137,16 @@ void ControllerAccess::SendState(const std::string& uid, bool get_stats,
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  if (data[0] != '{') return ProcessIPPacket(socket, data, len, addr);
+  if (data[0] != ipop_ver) {
+    LOG_TS(LS_ERROR) << "IPOP version mismatch tincan:" << ipop_ver 
+                     << " controller:" << data[0];
+  }
+  if (data[1] == tincan_packet) return ProcessIPPacket(socket, data, len, addr);
+  if (data[1] != tincan_control) {
+    LOG_TS(LS_ERROR) << "Unknown message type"; 
+  }
   std::string result;
-  std::string message(data, 0, len);
+  std::string message(data, 2, len);
   Json::Reader reader;
   Json::Value root;
   if (!reader.parse(message, root)) {
