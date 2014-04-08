@@ -43,19 +43,22 @@
 namespace tincan {
 
 /*
-ipop_ver 0x01 for 14.01.1
-ipop_ver 0x02 for 14.01.2
+ipop version 0x01 for 14.01.1
+ipop version 0x02 for 14.01.2
 */
-static const char ipop_ver = 0x02;
+static const char kIpopVer = 0x02;
 
 /*
-tincan_control : control message between controller and tincan
-tincan_packet  : data packet forward from/to controllers
+Tincan Control : control message between controller and tincan
+Tincan Packet  : data packet forward from/to controllers
 */
-static const char tincan_control = 0x01;
-static const char tincan_packet = 0x02;
+static const char kTincanControl = 0x01;
+static const char kTincanPacket = 0x02;
 
-static const int tincan_header_size = 2;
+static const int kTincanVerOffset = 0;
+static const int kTincanMsgTypeOffset = 1;
+
+static const int kTincanHeaderSize = 2;
 
 class CurrentTime {
   friend std::ostream & operator << (std::ostream &, const CurrentTime &);
