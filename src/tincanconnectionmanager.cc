@@ -30,6 +30,7 @@
 
 #include "talk/base/logging.h"
 #include "talk/base/bind.h"
+#include "talk/base/stringencode.h"
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
@@ -106,7 +107,8 @@ TinCanConnectionManager::TinCanConnectionManager(
       tiebreaker_(talk_base::CreateRandomId64()),
       tincan_ip4_(kIpv4),
       tincan_ip6_(kIpv6),
-      tap_name_(kTapName) {
+      tap_name_(kTapName),
+      packet_options_(talk_base::DSCP_DEFAULT) {
   // we have to set the global point for ipop-tap communication
   g_manager = this;
 
@@ -251,7 +253,8 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
 }
 
 void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
-    const char* data, size_t len, int flags) {
+    const char* data, size_t len, const talk_base::PacketTime& ptime,
+    int flags) {
   ASSERT(packet_handling_thread_->IsCurrent());
   if (len < kHeaderSize) return;
 
@@ -288,14 +291,14 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
     *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
     memcpy(msg.get() + kTincanHeaderSize, data, len);
     forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
-                            forward_addr_,talk_base::DSCP_DEFAULT);
+        forward_addr_, packet_options_);
   } 
   else if (short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
     // Send packet over Tincan P2P connection
-    int count = channel->SendPacket(data, len, talk_base::DSCP_DEFAULT, 0);
+    int count = channel->SendPacket(data, len, packet_options_, 0);
   }
 }
 
@@ -346,16 +349,16 @@ void TinCanConnectionManager::SetupTransport(PeerState* peer_state) {
   if (peer_state->uid.compare(tincan_id_) < 0) {
     peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLING);
     peer_state->transport->SetLocalTransportDescription(
-        *peer_state->local_description, cricket::CA_OFFER);
+        *peer_state->local_description, cricket::CA_OFFER, NULL);
     peer_state->transport->SetRemoteTransportDescription(
-        *peer_state->remote_description, cricket::CA_ANSWER);
+        *peer_state->remote_description, cricket::CA_ANSWER, NULL);
   }
   else {
     peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLED);
     peer_state->transport->SetRemoteTransportDescription(
-        *peer_state->remote_description, cricket::CA_OFFER);
+        *peer_state->remote_description, cricket::CA_OFFER, NULL);
     peer_state->transport->SetLocalTransportDescription(
-        *peer_state->local_description, cricket::CA_ANSWER);
+        *peer_state->local_description, cricket::CA_ANSWER, NULL);
   }
 }
 

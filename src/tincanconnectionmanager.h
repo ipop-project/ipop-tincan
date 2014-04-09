@@ -119,7 +119,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                                  const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
-                            const char* data, size_t len, int flags);
+                            const char* data, size_t len,
+                            const talk_base::PacketTime& ptime, int flags);
 
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
@@ -224,6 +225,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   std::string tap_name_;
   talk_base::AsyncPacketSocket* forward_socket_;
   talk_base::SocketAddress forward_addr_;
+  talk_base::PacketOptions packet_options_;
 };
 
 }  // namespace tincan
