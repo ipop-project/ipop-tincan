@@ -42,17 +42,6 @@
       ],
     },  # target turnserver
     {
-      'target_name': 'xmpp-test',
-      'type': 'executable',
-      'dependencies': [
-        'libjingle.gyp:libjingle',
-        #'libjingle.gyp:libjingle_p2p',
-      ],
-      'sources': [
-        'examples/test/jingle_xmpp_test.cc',
-      ],
-    },  # target turnserver
-    {
       'target_name': 'ipop-tap',
       'type': 'static_library',
       'cflags' : [
