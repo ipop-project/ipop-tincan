@@ -39,6 +39,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sys/time.h>
+#endif //if defined(LINUX)
 
 namespace tincan {
 
@@ -66,5 +67,4 @@ class CurrentTime {
 
 } //namespace tincan
 
-#endif //if defined(LINUX)
 #endif //ifndef TINCAN_UTILS_H_
