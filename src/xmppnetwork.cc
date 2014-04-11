@@ -159,7 +159,7 @@ bool XmppNetwork::Login(std::string username, std::string password,
 }
 
 bool XmppNetwork::Connect() {
-  xmpp_socket_.reset(new buzz::XmppSocket(buzz::TLS_REQUIRED));
+  xmpp_socket_.reset(new TinCanXmppSocket(buzz::TLS_REQUIRED));
   xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
   pump_.reset(new buzz::XmppPump());
@@ -254,15 +254,11 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
     if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
         xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
-#if !defined(WIN32)
-      // currently disconnections are disabled for WIN32
-      // because code crashes when cleaning up presence_receive_task
       pump_->DoDisconnect();
     }
     else if (pump_->client()->AnyChildError() &&
              xmpp_state_ != buzz::XmppEngine::STATE_CLOSED) {
       pump_->DoDisconnect();
-#endif
     }
     else if (xmpp_state_ == buzz::XmppEngine::STATE_NONE) {
       xmpp_socket_.release();

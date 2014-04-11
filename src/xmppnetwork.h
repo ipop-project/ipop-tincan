@@ -36,10 +36,10 @@
 #include "talk/xmpp/presenceouttask.h"
 #include "talk/xmpp/pingtask.h"
 #include "talk/xmpp/xmppclient.h"
-#include "talk/xmpp/xmppsocket.h"
 #include "talk/xmpp/xmpppump.h"
 #include "talk/base/logging.h"
 
+#include "tincanxmppsocket.h"
 #include "peersignalsender.h"
 #include "tincan_utils.h"
 
@@ -127,7 +127,7 @@ class XmppNetwork
   buzz::XmppClientSettings xcs_;
   buzz::PresenceStatus status_;
   talk_base::scoped_ptr<buzz::XmppPump> pump_;
-  talk_base::scoped_ptr<buzz::XmppSocket> xmpp_socket_;
+  talk_base::scoped_ptr<TinCanXmppSocket> xmpp_socket_;
   talk_base::scoped_ptr<buzz::PresenceReceiveTask> presence_receive_;
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
   talk_base::scoped_ptr<buzz::PingTask> ping_task_;

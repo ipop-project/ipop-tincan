@@ -71,19 +71,17 @@
       'cflags' : [
         '-Wall',
       ],
+      'dependencies': [
+        'libjingle.gyp:libjingle_p2p',
+        '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
+      ],
       'conditions': [
         ['OS=="linux" or OS=="android"', {
           'dependencies': [
-            'libjingle.gyp:libjingle_p2p',
-            '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
             'ipop-tap',
           ],
         }],
         ['OS=="win"', {
-          'dependencies': [
-            'libjingle.gyp:libjingle_p2p',
-            '<(DEPTH)/third_party/jsoncpp/jsoncpp.gyp:jsoncpp',
-          ],
           'include_dirs': [
             '<(DEPTH)/third_party/pthreads_win32/include',
           ],
@@ -114,6 +112,8 @@
         'ipop-project/ipop-tincan/src/xmppnetwork.h',
         'ipop-project/ipop-tincan/src/controlleraccess.cc',
         'ipop-project/ipop-tincan/src/controlleraccess.h',
+        'ipop-project/ipop-tincan/src/tincanxmppsocket.cc',
+        'ipop-project/ipop-tincan/src/tincanxmppsocket.h',
         'ipop-project/ipop-tincan/src/tincan_utils.h',
         'ipop-project/ipop-tincan/src/tincan_utils.cc',
         'xmpp/jingleinfotask.cc',
