@@ -67,6 +67,7 @@ ControllerAccess::ControllerAccess(
     thread_opts_t* opts)
     : manager_(manager),
       network_(network),
+      packet_options_(talk_base::DSCP_DEFAULT),
       opts_(opts) {
   signal_thread_ = talk_base::Thread::Current();
   socket_.reset(packet_factory->CreateUdpSocket(
@@ -93,10 +94,12 @@ void ControllerAccess::SendTo(const char* pv, size_t cb,
   *(msg.get() + kTincanMsgTypeOffset) = kTincanControl;
   memcpy(msg.get() + kTincanHeaderSize, pv, cb);
   if (addr.family() == AF_INET) {
-    socket_->SendTo(msg.get(), cb + kTincanHeaderSize, addr, talk_base::DSCP_DEFAULT);
+    socket_->SendTo(msg.get(), cb + kTincanHeaderSize, addr,
+                    packet_options_);
   }
   else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(msg.get(), cb + kTincanHeaderSize, addr, talk_base::DSCP_DEFAULT);
+    socket6_->SendTo(msg.get(), cb + kTincanHeaderSize, addr,
+                     packet_options_);
   }
 }
 
@@ -135,7 +138,8 @@ void ControllerAccess::SendState(const std::string& uid, bool get_stats,
 }
 
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
-    const char* data, size_t len, const talk_base::SocketAddress& addr) {
+    const char* data, size_t len, const talk_base::SocketAddress& addr,
+    const talk_base::PacketTime& ptime) {
   ASSERT(signal_thread_->Current());
   if (data[0] != kIpopVer) {
     LOG_TS(LS_ERROR) << "IPOP version mismatch tincan:" << kIpopVer 
