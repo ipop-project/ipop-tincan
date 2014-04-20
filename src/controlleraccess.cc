@@ -47,6 +47,7 @@ enum {
   GET_STATE = 7,
   SET_LOGGING = 8,
   SET_TRANSLATION = 9,
+  SET_SWITCHMODE = 10,
 };
 
 static void init_map() {
@@ -59,6 +60,7 @@ static void init_map() {
   rpc_calls["get_state"] = GET_STATE;
   rpc_calls["set_logging"] = SET_LOGGING;
   rpc_calls["set_translation"] = SET_TRANSLATION;
+  rpc_calls["set_switchmode"] = SET_SWITCHMODE;
 }
 
 ControllerAccess::ControllerAccess(
@@ -126,6 +128,15 @@ void ControllerAccess::SendState(const std::string& uid, bool get_stats,
   local_state["_ip6"] = manager_.ipv6();
   local_state["_fpr"] = manager_.fingerprint();
   local_state["type"] = "local_state";
+  std::ostringstream mac;
+  int i;
+  for (i=0; i<6; ++i) {
+    if (i != 0) mac << ':';
+    mac.width(2); 
+    mac.fill('0'); 
+    mac << std::hex << ((int) *(opts_->mac+i) & 0xff);
+  }
+  local_state["_mac"] = mac.str();
   std::string msg = local_state.toStyledString();
   SendTo(msg.c_str(), msg.size(), addr);
 
@@ -246,6 +257,11 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_TRANSLATION: {
         int translate = root["translate"].asInt();
         opts_->translate = translate;
+      }
+      break;
+    case SET_SWITCHMODE: {
+        int switchmode = root["switchmode"].asInt();
+        opts_->switchmode = switchmode;
       }
       break;
     default: {
