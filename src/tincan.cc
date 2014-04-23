@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
   if (opts.win32_tap < 0) return -1;
 #endif
   opts.translate = 0;
+  opts.switchmode = 0;
 
   talk_base::Thread packet_handling_thread, send_thread, recv_thread;
   talk_base::AutoThread link_setup_thread;
