@@ -31,6 +31,7 @@
 #include "talk/base/logging.h"
 #include "talk/base/bind.h"
 #include "talk/base/stringencode.h"
+#include "talk/p2p/base/p2ptransportchannel.h"
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
@@ -84,7 +85,16 @@ static const char kConResp[] = "con_resp";
 // enumeration used by OnMessage function
 enum {
   MSG_QUEUESIGNAL = 0,
-  MSG_CONTROLLERSIGNAL = 1
+  MSG_TRIMSIGNAL = 1
+};
+
+struct TrimParams : public talk_base::MessageData {
+  TrimParams(cricket::Transport* transport, bool secure)
+  : transport(transport), secure(secure) {
+  }
+
+  cricket::Transport* transport;
+  bool secure;
 };
 
 TinCanConnectionManager::TinCanConnectionManager(
@@ -132,9 +142,7 @@ void TinCanConnectionManager::Setup(
   identity_.reset(talk_base::SSLIdentity::Generate(tincan_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
-  // On WIN32, local_fingerprint is set to null because we do not
-  // support DTLS on WIN32 at the moment
-  // TODO - Support DTLS on WIN32
+
   if (local_fingerprint_.get()) {
     fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
   }
@@ -183,12 +191,49 @@ void TinCanConnectionManager::OnRequestSignaling(
   transport->OnSignalingReady();
 }
 
+void TinCanConnectionManager::HandleTrimSignal_w(
+    cricket::Transport* transport, bool secure) {
+  ASSERT(packet_handling_thread_->IsCurrent());
+  
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+  cricket::DtlsTransportChannelWrapper *dtls_channel = 
+      static_cast<cricket::DtlsTransportChannelWrapper*>(
+          transport->GetChannel(component));
+  cricket::P2PTransportChannel *channel;
+  if (secure) { 
+    channel = static_cast<cricket::P2PTransportChannel*>(
+          dtls_channel->channel());
+  }
+  else {
+    channel = reinterpret_cast<cricket::P2PTransportChannel*>(
+          dtls_channel);
+  }
+
+  const std::vector<cricket::PortInterface*>& ports = channel->ports();
+  for (int i = 0; i < ports.size(); i++) {
+    cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
+    for (cricket::Port::AddressMap::const_iterator it =
+         port->connections().begin();
+         it != port->connections().end(); ++it) {
+      if (it->second != channel->best_connection()) {
+        it->second->Destroy();
+        LOG_TS(INFO) << "TRIMMING " << it->first.ToString();
+      }
+    }
+  }
+}
+
 void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   ASSERT(link_setup_thread_->IsCurrent());
   std::string uid = transport_map_[transport];
+  bool secure = (uid_map_[uid]->connection_security == "dtls");
   std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
+    TrimParams* params = new TrimParams(transport, secure);
+    // Wait 30 seconds after node goes online to trim connections
+    packet_handling_thread_->PostDelayed(30000, this, MSG_TRIMSIGNAL,
+                                         params);
     status = "online";
     LOG_TS(INFO) << "ONLINE " << uid << " " << talk_base::Time();
   }
@@ -405,7 +450,7 @@ bool TinCanConnectionManager::CreateTransport(
   }
 
   channel->SignalReadPacket.connect(
-    this, &TinCanConnectionManager::OnReadPacket);
+      this, &TinCanConnectionManager::OnReadPacket);
   peer_state->transport->SignalRequestSignaling.connect(
       this, &TinCanConnectionManager::OnRequestSignaling);
   peer_state->transport->SignalCandidatesReady.connect(
@@ -420,7 +465,6 @@ bool TinCanConnectionManager::CreateTransport(
   SetupTransport(peer_state.get());
   peer_state->transport->ConnectChannels();
 
-  LOG_TS(INFO) << "Start creating " << uid;
   uid_map_[uid] = peer_state;
   transport_map_[peer_state->transport.get()] = uid;
   // TODO: This is speed hack
@@ -494,7 +538,6 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   // before destroy the transport
   // We can't use lock either, because destroying transport need invoke
   // worker thread to do the real work.
-  LOG_TS(INFO) << "Start destroying " << uid;
   packet_handling_thread_->Invoke<void>(
     Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
          uid.substr(0, kShortLen * 2)));
@@ -508,6 +551,12 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_QUEUESIGNAL: {
         HandleQueueSignal_w();
+      }
+      break;
+    case MSG_TRIMSIGNAL: {
+        TrimParams* params = static_cast<TrimParams*>(msg->pdata);
+        HandleTrimSignal_w(params->transport, params->secure);
+        delete params;
       }
       break;
   }
