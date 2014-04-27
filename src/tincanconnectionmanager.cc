@@ -49,6 +49,7 @@ static const int kBufferSize = 1500;
 static const size_t kIdBytesLen = 20;
 static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
+static const uint32 kTrimDelay = 30000;
 
 // this is an optimization for decode 20-byte hearders, we only
 // decode 8 bytes instead of 20-bytes because hex_decode is
@@ -232,7 +233,7 @@ void TinCanConnectionManager::OnRWChangeState(
   if (transport->readable() && transport->writable()) {
     TrimParams* params = new TrimParams(transport, secure);
     // Wait 30 seconds after node goes online to trim connections
-    packet_handling_thread_->PostDelayed(30000, this, MSG_TRIMSIGNAL,
+    packet_handling_thread_->PostDelayed(kTrimDelay, this, MSG_TRIMSIGNAL,
                                          params);
     status = "online";
     LOG_TS(INFO) << "ONLINE " << uid << " " << talk_base::Time();
