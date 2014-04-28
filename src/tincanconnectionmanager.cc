@@ -90,11 +90,12 @@ enum {
 };
 
 struct TrimParams : public talk_base::MessageData {
-  TrimParams(cricket::Transport* transport, bool secure)
-  : transport(transport), secure(secure) {
+  TrimParams(cricket::Transport* transport, std::string& uid, bool secure)
+  : transport(transport), uid(uid), secure(secure) {
   }
 
   cricket::Transport* transport;
+  std::string uid;
   bool secure;
 };
 
@@ -144,6 +145,7 @@ void TinCanConnectionManager::Setup(
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
 
+  // verifies that local_fingerprint is not null before calling function
   if (local_fingerprint_.get()) {
     fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
   }
@@ -193,23 +195,35 @@ void TinCanConnectionManager::OnRequestSignaling(
 }
 
 void TinCanConnectionManager::HandleTrimSignal_w(
-    cricket::Transport* transport, bool secure) {
+    cricket::Transport* transport, std::string& uid, bool secure) {
   ASSERT(packet_handling_thread_->IsCurrent());
+
+  if (short_uid_map_.find(uid.substr(0, kShortLen * 2)) ==
+      short_uid_map_.end()) {
+    // This means that the connection has been deleted so no need
+    // to trim the connection to avoid segfault
+    return;
+  }
   
   int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   cricket::DtlsTransportChannelWrapper *dtls_channel = 
       static_cast<cricket::DtlsTransportChannelWrapper*>(
           transport->GetChannel(component));
   cricket::P2PTransportChannel *channel;
-  if (secure) { 
+  if (secure) {
+    // if secure, P2PTransportChannel is inside of DTLSTranport
     channel = static_cast<cricket::P2PTransportChannel*>(
           dtls_channel->channel());
   }
   else {
+    // if not secure, dtls_channel is actually a P2PTransportChannel
     channel = reinterpret_cast<cricket::P2PTransportChannel*>(
           dtls_channel);
   }
 
+  // Each Transport has one channel with many ports and each port
+  // can have many connections, so we iterate through each port
+  // and delete all connections except for best connection
   const std::vector<cricket::PortInterface*>& ports = channel->ports();
   for (int i = 0; i < ports.size(); i++) {
     cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
@@ -217,7 +231,7 @@ void TinCanConnectionManager::HandleTrimSignal_w(
          port->connections().begin();
          it != port->connections().end(); ++it) {
       if (it->second != channel->best_connection()) {
-        it->second->Destroy();
+        it->second->Prune();
         LOG_TS(INFO) << "TRIMMING " << it->first.ToString();
       }
     }
@@ -228,10 +242,11 @@ void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   ASSERT(link_setup_thread_->IsCurrent());
   std::string uid = transport_map_[transport];
+  // determine whether or not the connection is secure or not
   bool secure = (uid_map_[uid]->connection_security == "dtls");
   std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
-    TrimParams* params = new TrimParams(transport, secure);
+    TrimParams* params = new TrimParams(transport, uid, secure);
     // Wait 30 seconds after node goes online to trim connections
     packet_handling_thread_->PostDelayed(kTrimDelay, this, MSG_TRIMSIGNAL,
                                          params);
@@ -293,6 +308,8 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     data += *it;
   }
   if (transport_map_.find(transport) != transport_map_.end()) {
+    // for now overlay_id is typically 1 meaning send over XMPP if it
+    // is 0 that means send through the controller
     signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
                                data, kConResp);
   }
@@ -542,6 +559,7 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   packet_handling_thread_->Invoke<void>(
     Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
          uid.substr(0, kShortLen * 2)));
+  transport_map_.erase(uid_map_[uid]->transport.get());
   uid_map_.erase(uid);
   LOG_TS(INFO) << "DESTROYED " << uid;
   return true;
@@ -556,7 +574,7 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
       break;
     case MSG_TRIMSIGNAL: {
         TrimParams* params = static_cast<TrimParams*>(msg->pdata);
-        HandleTrimSignal_w(params->transport, params->secure);
+        HandleTrimSignal_w(params->transport, params->uid, params->secure);
         delete params;
       }
       break;

@@ -192,7 +192,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
-  void HandleTrimSignal_w(cricket::Transport* transport, bool secure);
+  void HandleTrimSignal_w(cricket::Transport* transport, std::string& uid,
+                          bool secure);
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
