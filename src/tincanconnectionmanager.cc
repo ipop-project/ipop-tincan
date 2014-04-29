@@ -232,7 +232,7 @@ void TinCanConnectionManager::HandleTrimSignal_w(
       if (it->second != best_connection &&
           it->second->readable() && it->second->writable()) {
         it->second->Prune();
-        LOG_TS(INFO) << "TRIMMING " << it->first.ToString() << " " << uid;
+        LOG_TS(INFO) << "TRIMMING " << it->second->ToString() << " " << uid;
       }
     }
   }
