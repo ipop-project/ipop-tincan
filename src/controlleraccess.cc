@@ -169,6 +169,9 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (!reader.parse(message, root)) {
     result = "{\"error\":\"json parsing failed\"}";
   }
+  else {
+    LOG_TS(LS_VERBOSE) << "JSONRPC " << message;
+  }
 
   // TODO - input sanitazation for security purposes
   std::string method = root["m"].asString();
