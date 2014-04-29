@@ -109,6 +109,10 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     forward_socket_ = socket;
   }
 
+  void set_trim_connection(bool trim) {
+    trim_enabled_ = trim;
+  }
+
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
 
@@ -192,6 +196,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
+  void HandleTrimSignal_w(cricket::Transport* transport, std::string& uid,
+                          bool secure);
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
@@ -226,6 +232,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::AsyncPacketSocket* forward_socket_;
   talk_base::SocketAddress forward_addr_;
   talk_base::PacketOptions packet_options_;
+  bool trim_enabled_;
 };
 
 }  // namespace tincan

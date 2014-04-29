@@ -48,6 +48,7 @@ enum {
   SET_LOGGING = 8,
   SET_TRANSLATION = 9,
   SET_SWITCHMODE = 10,
+  SET_TRIMPOLICY = 11,
 };
 
 static void init_map() {
@@ -61,6 +62,7 @@ static void init_map() {
   rpc_calls["set_logging"] = SET_LOGGING;
   rpc_calls["set_translation"] = SET_TRANSLATION;
   rpc_calls["set_switchmode"] = SET_SWITCHMODE;
+  rpc_calls["set_trimpolicy"] = SET_TRIMPOLICY;
 }
 
 ControllerAccess::ControllerAccess(
@@ -167,6 +169,9 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (!reader.parse(message, root)) {
     result = "{\"error\":\"json parsing failed\"}";
   }
+  else {
+    LOG_TS(LS_VERBOSE) << "JSONRPC " << message;
+  }
 
   // TODO - input sanitazation for security purposes
   std::string method = root["m"].asString();
@@ -262,6 +267,11 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_SWITCHMODE: {
         int switchmode = root["switchmode"].asInt();
         opts_->switchmode = switchmode;
+      }
+      break;
+    case SET_TRIMPOLICY: {
+        bool trim = root["trim_enabled"].asBool();
+        manager_.set_trim_connection(trim);
       }
       break;
     default: {
