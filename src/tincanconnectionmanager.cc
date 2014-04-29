@@ -48,6 +48,11 @@ static const int kBufferSize = 1500;
 static const size_t kIdBytesLen = 20;
 static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
+
+// This is the delay for trimming which is currently set to 10 secs
+// this is a very sensitive delay because setting it too high increases
+// the likelihood of segfaults, and setting too minimizes the efficiency
+// for trimming. More testing is needed here
 static const uint32 kTrimDelay = 10000;
 
 // this is an optimization for decode 20-byte hearders, we only
@@ -241,7 +246,6 @@ void TinCanConnectionManager::OnRWChangeState(
   if (transport->readable() && transport->writable()) {
     if (trim_enabled_) {
       TrimParams* params = new TrimParams(uid_map_[uid]->channel, uid);
-      // Wait 60 seconds after node goes online to trim connections
       packet_handling_thread_->PostDelayed(kTrimDelay, this, MSG_TRIMSIGNAL,
                                            params);
     }
