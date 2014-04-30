@@ -38,6 +38,7 @@
 #include "talk/p2p/client/basicportallocator.h"
 #include "talk/p2p/base/transportdescription.h"
 #include "talk/p2p/base/transportchannelimpl.h"
+#include "talk/p2p/base/p2ptransportchannel.h"
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
@@ -109,6 +110,10 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     forward_socket_ = socket;
   }
 
+  void set_trim_connection(bool trim) {
+    trim_enabled_ = trim;
+  }
+
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
 
@@ -175,6 +180,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;
     talk_base::scoped_ptr<cricket::TransportDescription> local_description;
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
+    cricket::P2PTransportChannel* channel;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
     ~PeerState() {
@@ -192,6 +198,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
+  void HandleTrimSignal_w(cricket::P2PTransportChannel* channel,
+                          std::string& uid);
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
@@ -226,6 +234,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::AsyncPacketSocket* forward_socket_;
   talk_base::SocketAddress forward_addr_;
   talk_base::PacketOptions packet_options_;
+  bool trim_enabled_;
 };
 
 }  // namespace tincan
