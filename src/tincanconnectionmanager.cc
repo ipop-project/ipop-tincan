@@ -49,12 +49,6 @@ static const size_t kIdBytesLen = 20;
 static const uint32 kFlags = 0;
 static const uint32 kLocalControllerId = 0;
 
-// This is the delay for trimming which is currently set to 10 secs
-// this is a very sensitive delay because setting it too high increases
-// the likelihood of segfaults, and setting too minimizes the efficiency
-// for trimming. More testing is needed here
-static const uint32 kTrimDelay = 10000;
-
 // this is an optimization for decode 20-byte hearders, we only
 // decode 8 bytes instead of 20-bytes because hex_decode is
 // costly operation and 8 bytes is enough entropy for small
@@ -90,16 +84,6 @@ static const char kConResp[] = "con_resp";
 // enumeration used by OnMessage function
 enum {
   MSG_QUEUESIGNAL = 0,
-  MSG_TRIMSIGNAL = 1
-};
-
-struct TrimParams : public talk_base::MessageData {
-  TrimParams(cricket::P2PTransportChannel* channel, std::string& uid)
-  : channel(channel), uid(uid) {
-  }
-
-  cricket::P2PTransportChannel* channel;
-  std::string uid;
 };
 
 TinCanConnectionManager::TinCanConnectionManager(
@@ -198,43 +182,17 @@ void TinCanConnectionManager::OnRequestSignaling(
   transport->OnSignalingReady();
 }
 
-void TinCanConnectionManager::HandleTrimSignal_w(
-    cricket::P2PTransportChannel* channel, std::string& uid) {
+void TinCanConnectionManager::HandleConnectionSignal(
+    cricket::Port* port, cricket::Connection* connection) {
   ASSERT(packet_handling_thread_->IsCurrent());
-  LOG_TS(INFO) << "TRIM " << uid;
-
-  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-  if (short_uid_map_.find(uid.substr(0, kShortLen * 2)) ==
-      short_uid_map_.end()) {
-    // This means that the connection has been deleted so no need
-    // to trim the connection to avoid segfault
-    return;
-  } 
-  // Each Transport has one channel with many ports and each port
-  // can have many connections, so we iterate through each port
-  // and delete all connections except for best connection
+  cricket::P2PTransportChannel* channel = port_channel_map_[port];
   const cricket::Connection* best_connection = channel->best_connection();
-  const std::vector<cricket::PortInterface*>& ports = channel->ports();
-  for (std::vector<cricket::PortInterface*>::const_iterator iit =
-       ports.begin(); iit != ports.end(); ++iit) {
-    cricket::Port* port = static_cast<cricket::Port*>(*iit);
-    LOG_TS(INFO) << "PORTTYPE " << port->Type() << " " << uid;
-    // Only trim relay connections
-    if (port->Type() != cricket::RELAY_PORT_TYPE) {
-      continue;
-    }
+  LOG_TS(INFO) << "PORTTYPE " << port->Type();
 
-    for (cricket::Port::AddressMap::const_iterator it =
-         port->connections().begin();
-         it != port->connections().end(); ++it) {
-      // Only prune readable and writable connections since dead
-      // connections will automatically get deleted
-      if (it->second != best_connection &&
-          it->second->readable() && it->second->writable()) {
-        it->second->Prune();
-        LOG_TS(INFO) << "TRIMMING " << it->second->ToString() << " " << uid;
-      }
-    }
+  if (trim_enabled_ && port->Type() == cricket::RELAY_PORT_TYPE &&
+      channel->writable() && best_connection != connection) {
+    connection->Destroy();
+    LOG_TS(INFO) << "TRIMMING " << connection->ToString();
   }
 }
 
@@ -244,11 +202,6 @@ void TinCanConnectionManager::OnRWChangeState(
   std::string uid = transport_map_[transport];
   std::string status = "unknown";
   if (transport->readable() && transport->writable()) {
-    if (trim_enabled_) {
-      TrimParams* params = new TrimParams(uid_map_[uid]->channel, uid);
-      packet_handling_thread_->PostDelayed(kTrimDelay, this, MSG_TRIMSIGNAL,
-                                           params);
-    }
     status = "online";
     LOG_TS(INFO) << "ONLINE " << uid << " " << talk_base::Time();
   }
@@ -311,6 +264,19 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     // is 0 that means send through the controller
     signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
                                data, kConResp);
+  }
+
+  // Go through all of the ports and bind to each new connection
+  // creation this will be useful for trimming and other things
+  const std::vector<cricket::PortInterface*>& ports =
+      uid_map_[uid]->channel->ports();
+  uid_map_[uid]->ports = ports;
+  for (std::vector<cricket::PortInterface*>::const_iterator it =
+       ports.begin(); it != ports.end(); ++it) {
+    cricket::Port* port = static_cast<cricket::Port*>(*it);
+    port_channel_map_[port] = uid_map_[uid]->channel;
+    port->SignalConnectionCreated.connect(
+        this, &TinCanConnectionManager::HandleConnectionSignal);
   }
 }
 
@@ -567,7 +533,11 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   packet_handling_thread_->Invoke<void>(
     Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
          uid.substr(0, kShortLen * 2)));
-  transport_map_.erase(uid_map_[uid]->transport.get());
+  PeerStatePtr peer = uid_map_[uid];
+  for (int i = 0; i < peer->ports.size(); i++) {
+    port_channel_map_.erase(peer->ports[i]);
+  }
+  transport_map_.erase(peer->transport.get());
   uid_map_.erase(uid);
   LOG_TS(INFO) << "DESTROYED " << uid;
   return true;
@@ -578,12 +548,6 @@ void TinCanConnectionManager::OnMessage(talk_base::Message* msg) {
   switch (msg->message_id) {
     case MSG_QUEUESIGNAL: {
         HandleQueueSignal_w();
-      }
-      break;
-    case MSG_TRIMSIGNAL: {
-        TrimParams* params = static_cast<TrimParams*>(msg->pdata);
-        HandleTrimSignal_w(params->channel, params->uid);
-        delete params;
       }
       break;
   }
