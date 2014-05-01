@@ -189,10 +189,9 @@ void TinCanConnectionManager::HandleConnectionSignal(
   // This function is called after a connection is already online and
   // therefore it prunes every additional relay connection because
   // they are not necessary
-  LOG_TS(INFO) << "PORTTYPE " << port->Type();
   if (trim_enabled_ && port->Type() == cricket::RELAY_PORT_TYPE) {
     connection->Prune();
-    LOG_TS(INFO) << "TRIMMING " << connection->ToString();
+    LOG_TS(LS_VERBOSE) << "TRIMMING " << connection->ToString();
   }
 }
 
