@@ -183,7 +183,6 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     cricket::P2PTransportChannel* channel;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
-    std::vector<cricket::PortInterface*> ports;
     ~PeerState() {
       transport.reset();
       port_allocator.reset();
@@ -220,8 +219,6 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   std::map<std::string, PeerStatePtr> uid_map_;
   std::map<std::string, cricket::Transport*> short_uid_map_;
   std::map<cricket::Transport*, std::string> transport_map_;
-  std::map<cricket::PortInterface*,
-           cricket::P2PTransportChannel*> port_channel_map_;
   std::map<std::string, PeerIPs> ip_map_;
   talk_base::Thread* link_setup_thread_;
   talk_base::Thread* packet_handling_thread_;

@@ -185,13 +185,13 @@ void TinCanConnectionManager::OnRequestSignaling(
 void TinCanConnectionManager::HandleConnectionSignal(
     cricket::Port* port, cricket::Connection* connection) {
   ASSERT(packet_handling_thread_->IsCurrent());
-  cricket::P2PTransportChannel* channel = port_channel_map_[port];
-  const cricket::Connection* best_connection = channel->best_connection();
-  LOG_TS(INFO) << "PORTTYPE " << port->Type();
 
-  if (trim_enabled_ && port->Type() == cricket::RELAY_PORT_TYPE &&
-      channel->writable() && best_connection != connection) {
-    connection->Destroy();
+  // This function is called after a connection is already online and
+  // therefore it prunes every additional relay connection because
+  // they are not necessary
+  LOG_TS(INFO) << "PORTTYPE " << port->Type();
+  if (trim_enabled_ && port->Type() == cricket::RELAY_PORT_TYPE) {
+    connection->Prune();
     LOG_TS(INFO) << "TRIMMING " << connection->ToString();
   }
 }
@@ -211,6 +211,20 @@ void TinCanConnectionManager::OnRWChangeState(
   }
   // callback message sent to local controller for connection status
   signal_sender_->SendToPeer(kLocalControllerId, uid, status, kConStat);
+
+  if (status == "online") {
+    // Go through all of the ports and bind to each new connection
+    // creation this will be useful for trimming and other things
+    const std::vector<cricket::PortInterface*>& ports =
+        uid_map_[uid]->channel->ports();
+    for (int i = 0; i < ports.size(); i++) {
+      LOG_TS(INFO) << "DEBUG1";
+      cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
+      port->SignalConnectionCreated.connect(
+            this, &TinCanConnectionManager::HandleConnectionSignal);
+      LOG_TS(INFO) << "DEBUG1 TYPE" << port->Type();
+    }
+  }
 }
 
 void TinCanConnectionManager::OnCandidatesReady(
@@ -264,19 +278,6 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     // is 0 that means send through the controller
     signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
                                data, kConResp);
-  }
-
-  // Go through all of the ports and bind to each new connection
-  // creation this will be useful for trimming and other things
-  const std::vector<cricket::PortInterface*>& ports =
-      uid_map_[uid]->channel->ports();
-  uid_map_[uid]->ports = ports;
-  for (std::vector<cricket::PortInterface*>::const_iterator it =
-       ports.begin(); it != ports.end(); ++it) {
-    cricket::Port* port = static_cast<cricket::Port*>(*it);
-    port_channel_map_[port] = uid_map_[uid]->channel;
-    port->SignalConnectionCreated.connect(
-        this, &TinCanConnectionManager::HandleConnectionSignal);
   }
 }
 
@@ -534,9 +535,6 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
     Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
          uid.substr(0, kShortLen * 2)));
   PeerStatePtr peer = uid_map_[uid];
-  for (int i = 0; i < peer->ports.size(); i++) {
-    port_channel_map_.erase(peer->ports[i]);
-  }
   transport_map_.erase(peer->transport.get());
   uid_map_.erase(uid);
   LOG_TS(INFO) << "DESTROYED " << uid;
