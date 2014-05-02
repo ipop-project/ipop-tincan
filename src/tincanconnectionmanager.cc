@@ -217,11 +217,9 @@ void TinCanConnectionManager::OnRWChangeState(
     const std::vector<cricket::PortInterface*>& ports =
         uid_map_[uid]->channel->ports();
     for (int i = 0; i < ports.size(); i++) {
-      LOG_TS(INFO) << "DEBUG1";
       cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
       port->SignalConnectionCreated.connect(
             this, &TinCanConnectionManager::HandleConnectionSignal);
-      LOG_TS(INFO) << "DEBUG1 TYPE" << port->Type();
     }
   }
 }
