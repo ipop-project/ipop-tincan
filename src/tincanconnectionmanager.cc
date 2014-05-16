@@ -216,7 +216,7 @@ void TinCanConnectionManager::OnRWChangeState(
     // creation this will be useful for trimming and other things
     const std::vector<cricket::PortInterface*>& ports =
         uid_map_[uid]->channel->ports();
-    for (int i = 0; i < ports.size(); i++) {
+    for (size_t i = 0; i < ports.size(); i++) {
       cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
       port->SignalConnectionCreated.connect(
             this, &TinCanConnectionManager::HandleConnectionSignal);
