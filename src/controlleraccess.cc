@@ -49,6 +49,8 @@ enum {
   SET_TRANSLATION = 9,
   SET_SWITCHMODE = 10,
   SET_TRIMPOLICY = 11,
+  ECHO_REQUEST = 12,
+  ECHO_REPLY = 13,
 };
 
 static void init_map() {
@@ -63,6 +65,8 @@ static void init_map() {
   rpc_calls["set_translation"] = SET_TRANSLATION;
   rpc_calls["set_switchmode"] = SET_SWITCHMODE;
   rpc_calls["set_trimpolicy"] = SET_TRIMPOLICY;
+  rpc_calls["echo_request"] = ECHO_REQUEST;
+  rpc_calls["echo_reply"] = ECHO_REPLY;
 }
 
 ControllerAccess::ControllerAccess(
@@ -272,6 +276,18 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_TRIMPOLICY: {
         bool trim = root["trim_enabled"].asBool();
         manager_.set_trim_connection(trim);
+      }
+      break;
+    case ECHO_REQUEST: {
+        std::string msg = root["msg"].asString();
+        Json::Value local_state;
+        local_state["type"] = "echo_request";
+        local_state["msg"] = msg;
+        std::string req = local_state.toStyledString();
+        SendTo(req.c_str(), req.size(), addr);
+      }
+      break;
+    case ECHO_REPLY: {
       }
       break;
     default: {
