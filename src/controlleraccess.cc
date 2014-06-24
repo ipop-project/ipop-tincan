@@ -252,7 +252,8 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_LOGGING: {
         int logging = root["logging"].asInt();
         if (logging == 0) {
-          talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR + 1); }
+          talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR + 1);
+        }
         else if (logging == 1) {
           talk_base::LogMessage::LogToDebug(talk_base::LS_ERROR);
         }
