@@ -51,6 +51,7 @@ enum {
   SET_TRIMPOLICY = 11,
   ECHO_REQUEST = 12,
   ECHO_REPLY = 13,
+  SET_NETWORK_IGNORE_LIST = 14,
 };
 
 static void init_map() {
@@ -67,6 +68,7 @@ static void init_map() {
   rpc_calls["set_trimpolicy"] = SET_TRIMPOLICY;
   rpc_calls["echo_request"] = ECHO_REQUEST;
   rpc_calls["echo_reply"] = ECHO_REPLY;
+  rpc_calls["set_network_ignore_list"] = SET_NETWORK_IGNORE_LIST;
 }
 
 ControllerAccess::ControllerAccess(
@@ -288,6 +290,22 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
       }
       break;
     case ECHO_REPLY: {
+      }
+      break;
+    case SET_NETWORK_IGNORE_LIST: {
+      int count = root["network_ignore_list"].size();
+      Json::Value network_ignore_list = root["network_ignore_list"];
+      if (network_ignore_list.isArray() != 1) {
+        LOG_TS(LERROR) << "Unproperrly styled json network_ignore_list";
+        break;
+      }
+      LOG_TS(INFO) << "Listed network device is ignored for TinCan connection"
+                   << network_ignore_list.toStyledString();  
+      std::vector<std::string> ignore_list(count);
+      for (int i=0;i<count;i++) {
+        ignore_list[i] = network_ignore_list[i].asString();
+      }
+      manager_.set_network_ignore_list(ignore_list);
       }
       break;
     default: {
