@@ -114,6 +114,11 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     trim_enabled_ = trim;
   }
 
+  void set_network_ignore_list(
+      const std::vector<std::string>& network_ignore_list) {
+    network_manager_.set_network_ignore_list(network_ignore_list);
+  }
+
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
 

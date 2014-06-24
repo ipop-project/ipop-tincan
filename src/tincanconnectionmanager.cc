@@ -400,7 +400,7 @@ bool TinCanConnectionManager::CreateTransport(
     return false;
   }
 
-  LOG_TS(INFO) << uid << " " << talk_base::Time();
+  LOG_TS(INFO) << "peer_uid:" << uid << " time:" << talk_base::Time();
   talk_base::SocketAddress stun_addr;
   stun_addr.FromString(stun_server);
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
