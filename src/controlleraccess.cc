@@ -129,7 +129,15 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
 void ControllerAccess::SendState(const std::string& uid, bool get_stats,
                                  const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  Json::Value state = manager_.GetState(network_.friends(), get_stats);
+  Json::Value state;
+  if (uid != "") {
+    std::map<std::string, uint32> friends;
+    friends[uid] = talk_base::Time();
+    state = manager_.GetState(friends, get_stats);
+  }
+  else {
+    state = manager_.GetState(network_.friends(), get_stats);
+  }
   Json::Value local_state;
   local_state["_uid"] = manager_.uid();
   local_state["_ip4"] = manager_.ipv4();
