@@ -52,7 +52,8 @@ class ControllerAccess : public PeerSignalSenderInterface,
 
   // Signal handler for PacketSenderInterface
   virtual void HandlePacket(talk_base::AsyncPacketSocket* socket,
-      const char* data, size_t len, const talk_base::SocketAddress& addr);
+      const char* data, size_t len, const talk_base::SocketAddress& addr,
+      const talk_base::PacketTime& ptime);
 
   virtual void ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
       const char* data, size_t len, const talk_base::SocketAddress& addr);
@@ -70,6 +71,7 @@ class ControllerAccess : public PeerSignalSenderInterface,
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket_;
   talk_base::scoped_ptr<talk_base::AsyncPacketSocket> socket6_;
   talk_base::Thread *signal_thread_;
+  talk_base::PacketOptions packet_options_;
 };
 
 }  // namespace tincan

@@ -47,6 +47,11 @@ enum {
   GET_STATE = 7,
   SET_LOGGING = 8,
   SET_TRANSLATION = 9,
+  SET_SWITCHMODE = 10,
+  SET_TRIMPOLICY = 11,
+  ECHO_REQUEST = 12,
+  ECHO_REPLY = 13,
+  SET_NETWORK_IGNORE_LIST = 14,
 };
 
 static void init_map() {
@@ -59,6 +64,11 @@ static void init_map() {
   rpc_calls["get_state"] = GET_STATE;
   rpc_calls["set_logging"] = SET_LOGGING;
   rpc_calls["set_translation"] = SET_TRANSLATION;
+  rpc_calls["set_switchmode"] = SET_SWITCHMODE;
+  rpc_calls["set_trimpolicy"] = SET_TRIMPOLICY;
+  rpc_calls["echo_request"] = ECHO_REQUEST;
+  rpc_calls["echo_reply"] = ECHO_REPLY;
+  rpc_calls["set_network_ignore_list"] = SET_NETWORK_IGNORE_LIST;
 }
 
 ControllerAccess::ControllerAccess(
@@ -67,6 +77,7 @@ ControllerAccess::ControllerAccess(
     thread_opts_t* opts)
     : manager_(manager),
       network_(network),
+      packet_options_(talk_base::DSCP_DEFAULT),
       opts_(opts) {
   signal_thread_ = talk_base::Thread::Current();
   socket_.reset(packet_factory->CreateUdpSocket(
@@ -82,17 +93,23 @@ ControllerAccess::ControllerAccess(
 void ControllerAccess::ProcessIPPacket(talk_base::AsyncPacketSocket* socket,
     const char* data, size_t len, const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  manager_.SendToTap(data, len);
+  manager_.SendToTap(data + kTincanHeaderSize, len - kTincanHeaderSize);
 }
 
 void ControllerAccess::SendTo(const char* pv, size_t cb,
                               const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
+  talk_base::scoped_ptr<char[]> msg(new char[cb + kTincanHeaderSize]);
+  *(msg.get() + kTincanVerOffset) = kIpopVer;
+  *(msg.get() + kTincanMsgTypeOffset) = kTincanControl;
+  memcpy(msg.get() + kTincanHeaderSize, pv, cb);
   if (addr.family() == AF_INET) {
-    socket_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
+    socket_->SendTo(msg.get(), cb + kTincanHeaderSize, addr,
+                    packet_options_);
   }
   else if (addr.family() == AF_INET6)  {
-    socket6_->SendTo(pv, cb, addr, talk_base::DSCP_DEFAULT);
+    socket6_->SendTo(msg.get(), cb + kTincanHeaderSize, addr,
+                     packet_options_);
   }
 }
 
@@ -112,13 +129,30 @@ void ControllerAccess::SendToPeer(int overlay_id, const std::string& uid,
 void ControllerAccess::SendState(const std::string& uid, bool get_stats,
                                  const talk_base::SocketAddress& addr) {
   ASSERT(signal_thread_->Current());
-  Json::Value state = manager_.GetState(network_.friends(), get_stats);
+  Json::Value state;
+  if (uid != "") {
+    std::map<std::string, uint32> friends;
+    friends[uid] = talk_base::Time();
+    state = manager_.GetState(friends, get_stats);
+  }
+  else {
+    state = manager_.GetState(network_.friends(), get_stats);
+  }
   Json::Value local_state;
   local_state["_uid"] = manager_.uid();
   local_state["_ip4"] = manager_.ipv4();
   local_state["_ip6"] = manager_.ipv6();
   local_state["_fpr"] = manager_.fingerprint();
   local_state["type"] = "local_state";
+  std::ostringstream mac;
+  int i;
+  for (i=0; i<6; ++i) {
+    if (i != 0) mac << ':';
+    mac.width(2); 
+    mac.fill('0'); 
+    mac << std::hex << ((int) *(opts_->mac+i) & 0xff);
+  }
+  local_state["_mac"] = mac.str();
   std::string msg = local_state.toStyledString();
   SendTo(msg.c_str(), msg.size(), addr);
 
@@ -131,15 +165,26 @@ void ControllerAccess::SendState(const std::string& uid, bool get_stats,
 }
 
 void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
-    const char* data, size_t len, const talk_base::SocketAddress& addr) {
+    const char* data, size_t len, const talk_base::SocketAddress& addr,
+    const talk_base::PacketTime& ptime) {
   ASSERT(signal_thread_->Current());
-  if (data[0] != '{') return ProcessIPPacket(socket, data, len, addr);
+  if (data[0] != kIpopVer) {
+    LOG_TS(LS_ERROR) << "IPOP version mismatch tincan:" << kIpopVer 
+                     << " controller:" << data[0];
+  }
+  if (data[1] == kTincanPacket) return ProcessIPPacket(socket, data, len, addr);
+  if (data[1] != kTincanControl) {
+    LOG_TS(LS_ERROR) << "Unknown message type"; 
+  }
   std::string result;
-  std::string message(data, 0, len);
+  std::string message(data, 2, len);
   Json::Reader reader;
   Json::Value root;
   if (!reader.parse(message, root)) {
     result = "{\"error\":\"json parsing failed\"}";
+  }
+  else {
+    LOG_TS(LS_VERBOSE) << "JSONRPC " << message;
   }
 
   // TODO - input sanitazation for security purposes
@@ -231,6 +276,44 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
     case SET_TRANSLATION: {
         int translate = root["translate"].asInt();
         opts_->translate = translate;
+      }
+      break;
+    case SET_SWITCHMODE: {
+        int switchmode = root["switchmode"].asInt();
+        opts_->switchmode = switchmode;
+      }
+      break;
+    case SET_TRIMPOLICY: {
+        bool trim = root["trim_enabled"].asBool();
+        manager_.set_trim_connection(trim);
+      }
+      break;
+    case ECHO_REQUEST: {
+        std::string msg = root["msg"].asString();
+        Json::Value local_state;
+        local_state["type"] = "echo_request";
+        local_state["msg"] = msg;
+        std::string req = local_state.toStyledString();
+        SendTo(req.c_str(), req.size(), addr);
+      }
+      break;
+    case ECHO_REPLY: {
+      }
+      break;
+    case SET_NETWORK_IGNORE_LIST: {
+      int count = root["network_ignore_list"].size();
+      Json::Value network_ignore_list = root["network_ignore_list"];
+      if (network_ignore_list.isArray() != 1) {
+        LOG_TS(LERROR) << "Unproperrly styled json network_ignore_list";
+        break;
+      }
+      LOG_TS(INFO) << "Listed network device is ignored for TinCan connection"
+                   << network_ignore_list.toStyledString();  
+      std::vector<std::string> ignore_list(count);
+      for (int i=0;i<count;i++) {
+        ignore_list[i] = network_ignore_list[i].asString();
+      }
+      manager_.set_network_ignore_list(ignore_list);
       }
       break;
     default: {

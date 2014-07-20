@@ -30,6 +30,7 @@
 
 #include "talk/base/logging.h"
 #include "talk/base/bind.h"
+#include "talk/base/stringencode.h"
 #include "tincan_utils.h"
 #include "tincanconnectionmanager.h"
 
@@ -83,7 +84,6 @@ static const char kConResp[] = "con_resp";
 // enumeration used by OnMessage function
 enum {
   MSG_QUEUESIGNAL = 0,
-  MSG_CONTROLLERSIGNAL = 1
 };
 
 TinCanConnectionManager::TinCanConnectionManager(
@@ -106,7 +106,9 @@ TinCanConnectionManager::TinCanConnectionManager(
       tiebreaker_(talk_base::CreateRandomId64()),
       tincan_ip4_(kIpv4),
       tincan_ip6_(kIpv6),
-      tap_name_(kTapName) {
+      tap_name_(kTapName),
+      packet_options_(talk_base::DSCP_DEFAULT),
+      trim_enabled_(false) {
   // we have to set the global point for ipop-tap communication
   g_manager = this;
 
@@ -130,9 +132,8 @@ void TinCanConnectionManager::Setup(
   identity_.reset(talk_base::SSLIdentity::Generate(tincan_id_));
   local_fingerprint_.reset(talk_base::SSLFingerprint::Create(
       talk_base::DIGEST_SHA_1, identity_.get()));
-  // On WIN32, local_fingerprint is set to null because we do not
-  // support DTLS on WIN32 at the moment
-  // TODO - Support DTLS on WIN32
+
+  // verifies that local_fingerprint is not null before calling function
   if (local_fingerprint_.get()) {
     fingerprint_ = local_fingerprint_->GetRfc4572Fingerprint();
   }
@@ -181,6 +182,19 @@ void TinCanConnectionManager::OnRequestSignaling(
   transport->OnSignalingReady();
 }
 
+void TinCanConnectionManager::HandleConnectionSignal(
+    cricket::Port* port, cricket::Connection* connection) {
+  ASSERT(packet_handling_thread_->IsCurrent());
+
+  // This function is called after a connection is already online and
+  // therefore it prunes every additional relay connection because
+  // they are not necessary
+  if (trim_enabled_ && port->Type() == cricket::RELAY_PORT_TYPE) {
+    connection->Prune();
+    LOG_TS(LS_VERBOSE) << "TRIMMING " << connection->ToString();
+  }
+}
+
 void TinCanConnectionManager::OnRWChangeState(
     cricket::Transport* transport) {
   ASSERT(link_setup_thread_->IsCurrent());
@@ -196,6 +210,18 @@ void TinCanConnectionManager::OnRWChangeState(
   }
   // callback message sent to local controller for connection status
   signal_sender_->SendToPeer(kLocalControllerId, uid, status, kConStat);
+
+  if (status == "online") {
+    // Go through all of the ports and bind to each new connection
+    // creation this will be useful for trimming and other things
+    const std::vector<cricket::PortInterface*>& ports =
+        uid_map_[uid]->channel->ports();
+    for (size_t i = 0; i < ports.size(); i++) {
+      cricket::Port* port = static_cast<cricket::Port*>(ports[i]);
+      port->SignalConnectionCreated.connect(
+            this, &TinCanConnectionManager::HandleConnectionSignal);
+    }
+  }
 }
 
 void TinCanConnectionManager::OnCandidatesReady(
@@ -245,13 +271,16 @@ void TinCanConnectionManager::OnCandidatesAllocationDone(
     data += *it;
   }
   if (transport_map_.find(transport) != transport_map_.end()) {
+    // for now overlay_id is typically 1 meaning send over XMPP if it
+    // is 0 that means send through the controller
     signal_sender_->SendToPeer(overlay_id, transport_map_[transport],
                                data, kConResp);
   }
 }
 
 void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel, 
-    const char* data, size_t len, int flags) {
+    const char* data, size_t len, const talk_base::PacketTime& ptime,
+    int flags) {
   ASSERT(packet_handling_thread_->IsCurrent());
   if (len < kHeaderSize) return;
 
@@ -283,14 +312,21 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (dest.compare(0, 3, kNullPeerId) == 0 ||
       short_uid_map_.find(dest) == short_uid_map_.end()) {
     // forward_addr_ is the address of the forwarder/controller
-    forward_socket_->SendTo(data, len, forward_addr_,talk_base::DSCP_DEFAULT);
+    talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+    *(msg.get() + kTincanVerOffset) = kIpopVer;
+    *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+    memcpy(msg.get() + kTincanHeaderSize, data, len);
+    forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
+        forward_addr_, packet_options_);
   } 
   else if (short_uid_map_[dest]->writable()) {
     int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
     cricket::TransportChannelImpl* channel = 
         short_uid_map_[dest]->GetChannel(component);
-    // Send packet over Tincan P2P connection
-    int count = channel->SendPacket(data, len, talk_base::DSCP_DEFAULT, 0);
+    if (channel != NULL) {
+      // Send packet over Tincan P2P connection
+      int count = channel->SendPacket(data, len, packet_options_, 0);
+    }
   }
 }
 
@@ -341,16 +377,16 @@ void TinCanConnectionManager::SetupTransport(PeerState* peer_state) {
   if (peer_state->uid.compare(tincan_id_) < 0) {
     peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLING);
     peer_state->transport->SetLocalTransportDescription(
-        *peer_state->local_description, cricket::CA_OFFER);
+        *peer_state->local_description, cricket::CA_OFFER, NULL);
     peer_state->transport->SetRemoteTransportDescription(
-        *peer_state->remote_description, cricket::CA_ANSWER);
+        *peer_state->remote_description, cricket::CA_ANSWER, NULL);
   }
   else {
     peer_state->transport->SetIceRole(cricket::ICEROLE_CONTROLLED);
     peer_state->transport->SetRemoteTransportDescription(
-        *peer_state->remote_description, cricket::CA_OFFER);
+        *peer_state->remote_description, cricket::CA_OFFER, NULL);
     peer_state->transport->SetLocalTransportDescription(
-        *peer_state->local_description, cricket::CA_ANSWER);
+        *peer_state->local_description, cricket::CA_ANSWER, NULL);
   }
 }
 
@@ -364,7 +400,7 @@ bool TinCanConnectionManager::CreateTransport(
     return false;
   }
 
-  LOG_TS(INFO) << uid << " " << talk_base::Time();
+  LOG_TS(INFO) << "peer_uid:" << uid << " time:" << talk_base::Time();
   talk_base::SocketAddress stun_addr;
   stun_addr.FromString(stun_server);
   PeerStatePtr peer_state(new talk_base::RefCountedObject<PeerState>);
@@ -381,11 +417,16 @@ bool TinCanConnectionManager::CreateTransport(
   cricket::TransportChannelImpl* channel;
   if (sec_enabled && local_fingerprint_.get() &&
       fingerprint.compare(kFprNull) != 0) {
-    peer_state->transport.reset(new DtlsP2PTransport(
+    DtlsP2PTransport* dtls_transport = new DtlsP2PTransport(
         link_setup_thread_, packet_handling_thread_, content_name_, 
-        peer_state->port_allocator.get(), identity_.get()));
-    channel = static_cast<cricket::DtlsTransportChannelWrapper*>(
-        peer_state->transport->CreateChannel(component));
+        peer_state->port_allocator.get(), identity_.get());
+    peer_state->transport.reset(dtls_transport);
+    cricket::DtlsTransportChannelWrapper* dtls_channel =
+        static_cast<cricket::DtlsTransportChannelWrapper*>(
+            dtls_transport->CreateChannel(component));
+    channel = dtls_channel;
+    peer_state->channel = static_cast<cricket::P2PTransportChannel*>(
+                              dtls_channel->channel());
     peer_state->connection_security = "dtls";
   }
   else {
@@ -393,11 +434,13 @@ bool TinCanConnectionManager::CreateTransport(
         link_setup_thread_, packet_handling_thread_, content_name_, 
         peer_state->port_allocator.get()));
     channel = peer_state->transport->CreateChannel(component);
+    peer_state->channel = static_cast<cricket::P2PTransportChannel*>(
+                              channel);
     peer_state->connection_security = "none";
   }
 
   channel->SignalReadPacket.connect(
-    this, &TinCanConnectionManager::OnReadPacket);
+      this, &TinCanConnectionManager::OnReadPacket);
   peer_state->transport->SignalRequestSignaling.connect(
       this, &TinCanConnectionManager::OnRequestSignaling);
   peer_state->transport->SignalCandidatesReady.connect(
@@ -412,7 +455,6 @@ bool TinCanConnectionManager::CreateTransport(
   SetupTransport(peer_state.get());
   peer_state->transport->ConnectChannels();
 
-  LOG_TS(INFO) << "Start creating " << uid;
   uid_map_[uid] = peer_state;
   transport_map_[peer_state->transport.get()] = uid;
   // TODO: This is speed hack
@@ -486,10 +528,11 @@ bool TinCanConnectionManager::DestroyTransport(const std::string& uid) {
   // before destroy the transport
   // We can't use lock either, because destroying transport need invoke
   // worker thread to do the real work.
-  LOG_TS(INFO) << "Start destroying " << uid;
   packet_handling_thread_->Invoke<void>(
     Bind(&TinCanConnectionManager::DeleteTransportMap_w, this,
          uid.substr(0, kShortLen * 2)));
+  PeerStatePtr peer = uid_map_[uid];
+  transport_map_.erase(peer->transport.get());
   uid_map_.erase(uid);
   LOG_TS(INFO) << "DESTROYED " << uid;
   return true;
@@ -517,6 +560,7 @@ int TinCanConnectionManager::DoPacketSend(const char* buf, size_t len) {
   if (g_manager != 0) {
     // This is called when main_thread has to process outgoing packet
     g_manager->packet_handling_thread()->Post(g_manager, MSG_QUEUESIGNAL, 0);
+  int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
   }
   return len;
 }

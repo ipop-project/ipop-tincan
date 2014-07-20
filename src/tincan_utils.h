@@ -39,8 +39,27 @@
 #include <iomanip>
 #include <iostream>
 #include <sys/time.h>
+#endif //if defined(LINUX)
 
 namespace tincan {
+
+/*
+ipop version 0x01 for 14.01.1
+ipop version 0x02 for 14.01.2
+*/
+static const char kIpopVer = 0x02;
+
+/*
+Tincan Control : control message between controller and tincan
+Tincan Packet  : data packet forward from/to controllers
+*/
+static const char kTincanControl = 0x01;
+static const char kTincanPacket = 0x02;
+
+static const int kTincanVerOffset = 0;
+static const int kTincanMsgTypeOffset = 1;
+
+static const int kTincanHeaderSize = 2;
 
 class CurrentTime {
   friend std::ostream & operator << (std::ostream &, const CurrentTime &);
@@ -48,5 +67,4 @@ class CurrentTime {
 
 } //namespace tincan
 
-#endif //if defined(LINUX)
 #endif //ifndef TINCAN_UTILS_H_

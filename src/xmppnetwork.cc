@@ -126,16 +126,22 @@ int TinCanTask::ProcessStart() {
       }
       handler_->DoHandlePeer(uid_key, data, type);
     }
+    else {
+      // Assuming this is a presence message therefore update time
+      handler_->SetTime(uid_key, talk_base::Time());
+    }
   }
   return STATE_START;
 }
 
 bool TinCanTask::HandleStanza(const buzz::XmlElement* stanza) {
-  if (!MatchRequestIq(stanza, buzz::STR_GET, QN_TINCAN)) {
-    return false;
+  if (MatchRequestIq(stanza, buzz::STR_GET, QN_TINCAN) ||
+       stanza->Name() == buzz::QN_PRESENCE) {
+    QueueStanza(stanza);
+    return true;
   }
-  QueueStanza(stanza);
-  return true;
+
+  return false;
 }
 
 bool XmppNetwork::Login(std::string username, std::string password,
@@ -159,7 +165,7 @@ bool XmppNetwork::Login(std::string username, std::string password,
 }
 
 bool XmppNetwork::Connect() {
-  xmpp_socket_.reset(new buzz::XmppSocket(buzz::TLS_REQUIRED));
+  xmpp_socket_.reset(new TinCanXmppSocket(buzz::TLS_REQUIRED));
   xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
   pump_.reset(new buzz::XmppPump());
@@ -187,10 +193,6 @@ void XmppNetwork::OnSignOn() {
   status_.set_show(buzz::PresenceStatus::SHOW_ONLINE);
   status_.set_priority(0);
 
-  presence_receive_.reset(new buzz::PresenceReceiveTask(pump_->client()));
-  presence_receive_->PresenceUpdate.connect(this,
-      &XmppNetwork::OnPresenceMessage);
-
   presence_out_.reset(new buzz::PresenceOutTask(pump_->client()));
 
   tincan_task_.reset(new TinCanTask(pump_->client(), this));
@@ -199,7 +201,6 @@ void XmppNetwork::OnSignOn() {
                                       kPingPeriod, kPingTimeout));
   ping_task_->SignalTimeout.connect(this, &XmppNetwork::OnTimeout);
 
-  presence_receive_->Start();
   presence_out_->Send(status_);
   presence_out_->Start();
   ping_task_->Start();
@@ -226,22 +227,6 @@ void XmppNetwork::OnStateChange(buzz::XmppEngine::State state) {
   }
 }
 
-void XmppNetwork::OnPresenceMessage(const buzz::PresenceStatus &status) {
-  if (!pump_.get() || !tincan_task_.get()) return;
-  if (status.jid().resource().size() > (sizeof(kXmppPrefix) - 1) && 
-      status.jid().resource().compare(0, sizeof(kXmppPrefix) - 1, 
-      kXmppPrefix) == 0 && status.jid() != pump_->client()->jid()) {
-    std::string uid = status.jid().Str();
-    std::string uid_key = get_key(uid);
-
-    // Simply update the timestamp of this presence message by uid
-    presence_time_[uid_key] = talk_base::Time();
-    g_uid_map[uid_key] = uid;
-
-    LOG_TS(INFO) << "uid " << uid << " status " << status.status();
-  }
-}
-
 void XmppNetwork::OnCloseEvent(int error) {
   LOG_TS(INFO) << "ONCLOSEEVENT " << error;
 }
@@ -254,15 +239,11 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
   if (pump_.get()) {
     if (xmpp_state_ == buzz::XmppEngine::STATE_START ||
         xmpp_state_ == buzz::XmppEngine::STATE_OPENING) {
-#if !defined(WIN32)
-      // currently disconnections are disabled for WIN32
-      // because code crashes when cleaning up presence_receive_task
       pump_->DoDisconnect();
     }
     else if (pump_->client()->AnyChildError() &&
              xmpp_state_ != buzz::XmppEngine::STATE_CLOSED) {
       pump_->DoDisconnect();
-#endif
     }
     else if (xmpp_state_ == buzz::XmppEngine::STATE_NONE) {
       xmpp_socket_.release();
@@ -270,7 +251,6 @@ void XmppNetwork::OnMessage(talk_base::Message* msg) {
     }
     else if (xmpp_state_ == buzz::XmppEngine::STATE_CLOSED) {
       xmpp_socket_.release();
-      presence_receive_.release();
       presence_out_.release();
       tincan_task_.release();
       ping_task_.release();

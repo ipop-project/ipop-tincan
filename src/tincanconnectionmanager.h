@@ -38,6 +38,7 @@
 #include "talk/p2p/client/basicportallocator.h"
 #include "talk/p2p/base/transportdescription.h"
 #include "talk/p2p/base/transportchannelimpl.h"
+#include "talk/p2p/base/p2ptransportchannel.h"
 #include "talk/p2p/base/dtlstransportchannel.h"
 #include "talk/p2p/base/dtlstransport.h"
 #include "talk/base/base64.h"
@@ -109,6 +110,15 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     forward_socket_ = socket;
   }
 
+  void set_trim_connection(bool trim) {
+    trim_enabled_ = trim;
+  }
+
+  void set_network_ignore_list(
+      const std::vector<std::string>& network_ignore_list) {
+    network_manager_.set_network_ignore_list(network_ignore_list);
+  }
+
   // Signal handlers for BasicNetworkManager
   virtual void OnNetworksChanged();
 
@@ -119,7 +129,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                                  const cricket::Candidates& candidates);
   virtual void OnCandidatesAllocationDone(cricket::Transport* transport);
   virtual void OnReadPacket(cricket::TransportChannel* channel, 
-                            const char* data, size_t len, int flags);
+                            const char* data, size_t len,
+                            const talk_base::PacketTime& ptime, int flags);
 
   // Inherited from MessageHandler
   virtual void OnMessage(talk_base::Message* msg);
@@ -174,6 +185,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
     talk_base::scoped_ptr<talk_base::SSLFingerprint> remote_fingerprint;
     talk_base::scoped_ptr<cricket::TransportDescription> local_description;
     talk_base::scoped_ptr<cricket::TransportDescription> remote_description;
+    cricket::P2PTransportChannel* channel;
     cricket::Candidates candidates;
     std::set<std::string> candidate_list;
     ~PeerState() {
@@ -191,6 +203,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
       talk_base::RefCountedObject<PeerState> > PeerStatePtr;
 
  private:
+  void HandleConnectionSignal(cricket::Port* port,
+                              cricket::Connection* connection);
   void SetupTransport(PeerState* peer_state);
   void HandleQueueSignal_w();
   void HandleControllerSignal_w();
@@ -224,6 +238,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   std::string tap_name_;
   talk_base::AsyncPacketSocket* forward_socket_;
   talk_base::SocketAddress forward_addr_;
+  talk_base::PacketOptions packet_options_;
+  bool trim_enabled_;
 };
 
 }  // namespace tincan
