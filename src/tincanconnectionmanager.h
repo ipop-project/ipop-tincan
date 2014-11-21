@@ -60,6 +60,7 @@
 namespace tincan {
 
 static const char kTapName[] = "ipop";
+static const char kTapDesc[] = "TAP";
 
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:

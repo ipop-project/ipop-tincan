@@ -167,10 +167,12 @@ void TinCanConnectionManager::OnNetworksChanged() {
   // interface because we don't want libjingle to try to connect
   // over ipop network that can create weird conditions and break things
   for (size_t i = 0; i < networks.size(); ++i) {
-    if (networks[i]->name().compare(kTapName) == 0) {
-      networks[i]->ClearIPs();
+	  if (networks[i]->name().compare(kTapName) == 0 ||
+		  networks[i]->description().compare(0, 3, kTapDesc) == 0) {
+		  networks[i]->ClearIPs();
       // Set to a random ipv6 address in order to disable
       networks[i]->AddIP(ip6_addr.ipaddr());
+	  LOG_TS(INFO) << "IPOP TAP Device to be ignored " << networks[i]->name() << ":" << networks[i]->description();
     }
   }
 }
