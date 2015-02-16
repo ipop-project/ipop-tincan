@@ -120,7 +120,7 @@ TinCanConnectionManager::TinCanConnectionManager(
 
 void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
-    const std::string& ip6, int ip6_mask, int subnet_mask) {
+    const std::string& ip6, int ip6_mask, int subnet_mask, int switchmode) {
 
   // input verification before proceeding
   if (!tincan_id_.empty() || uid.size() != kIdSize) return;
@@ -148,6 +148,7 @@ void TinCanConnectionManager::Setup(
   error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
+  if (switchmode) { error |= tap_unset_noarp_flags(); }
 #endif
   // set up ipop-tap parameters
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
@@ -478,7 +479,11 @@ bool TinCanConnectionManager::AddIPMapping(
   override_base_ipv4_addr_p(ip4.c_str());
 
   // this create a UID to IP mapping in the ipop-tap peerlist
-  peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
+  if (ip4 == "127.0.0.1" ) { //TODO should be changed with switchmode flag
+    peerlist_add_by_uid(uid_str);
+  } else {
+    peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
+  }
   PeerIPs ips;
   ips.ip4 = ip4;
   ips.ip6 = ip6;
