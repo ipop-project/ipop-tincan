@@ -31,6 +31,7 @@
 #include "talk/base/asyncsocket.h"
 #include "talk/base/bytebuffer.h"
 #include "talk/base/sigslot.h"
+#include "talk/base/sslidentity.h"
 #include "talk/xmpp/asyncsocket.h"
 #include "talk/xmpp/xmppengine.h"
 
@@ -60,7 +61,7 @@ public:
   virtual bool Write(const char * data, size_t len);
   virtual bool Close();
   virtual bool StartTls(const std::string & domainname);
-
+  void SetIdentity(talk_base::SSLIdentity* identity);
   sigslot::signal1<int> SignalCloseEvent;
 
 private:
@@ -74,6 +75,7 @@ private:
   buzz::AsyncSocket::State state_;
   talk_base::ByteBuffer buffer_;
   buzz::TlsOptions tls_;
+  talk_base::SSLIdentity* identity_;
 };
 
 }  // namespace buzz
