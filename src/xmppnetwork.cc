@@ -145,15 +145,14 @@ bool TinCanTask::HandleStanza(const buzz::XmlElement* stanza) {
 }
 
 bool XmppNetwork::Login(std::string username, std::string password,
-                        std::string pcid, std::string host, talk_base::SSLIdentity *identity) {
-  if (pump_.get() || username.empty() || (password.empty() && identity == NULL)|| 
+                        std::string pcid, std::string host) {
+  if (pump_.get() || username.empty() || password.empty() || 
       pcid.empty() || host.empty()) return false;
 
   talk_base::InsecureCryptStringImpl pass;
   pass.password() = password;
   std::string resource(kXmppPrefix);
   resource += pcid;
-  identity_ = identity;
   buzz::Jid jid(username);
   xcs_.set_user(jid.node());
   xcs_.set_host(jid.domain());
@@ -167,7 +166,6 @@ bool XmppNetwork::Login(std::string username, std::string password,
 
 bool XmppNetwork::Connect() {
   xmpp_socket_.reset(new TinCanXmppSocket(buzz::TLS_REQUIRED));
-  xmpp_socket_->SetIdentity(identity_);
   xmpp_socket_->SignalCloseEvent.connect(this, &XmppNetwork::OnCloseEvent);
 
   pump_.reset(new buzz::XmppPump());

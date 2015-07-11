@@ -118,7 +118,7 @@ class XmppNetwork
   virtual void OnMessage(talk_base::Message* msg);
 
   bool Login(std::string username, std::string password,
-             std::string pcid, std::string host, talk_base::SSLIdentity* identity = NULL);
+             std::string pcid, std::string host);
 
  private:
   bool Connect();
@@ -135,7 +135,6 @@ class XmppNetwork
   talk_base::scoped_ptr<buzz::PresenceOutTask> presence_out_;
   talk_base::scoped_ptr<buzz::PingTask> ping_task_;
   talk_base::scoped_ptr<TinCanTask> tincan_task_;
-  talk_base::SSLIdentity* identity_;
   std::map<std::string, uint32> presence_time_;
   buzz::XmppEngine::State xmpp_state_;
   int on_msg_counter_;
