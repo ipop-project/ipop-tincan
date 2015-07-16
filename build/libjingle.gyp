@@ -530,6 +530,7 @@
         'xmpp/saslmechanism.cc',
         'xmpp/saslmechanism.h',
         'xmpp/saslplainmechanism.h',
+        'xmpp/saslexternalmechanism.h',
         'xmpp/xmppauth.cc',
         'xmpp/xmppauth.h',
         'xmpp/xmppclient.cc',

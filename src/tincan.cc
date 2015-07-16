@@ -33,7 +33,7 @@
 #include "talk/base/ifaddrs-android.h"
 #endif
 
-#include "talk/base/ssladapter.h"
+#include "openssladapter.h"
 
 #include "controlleraccess.h"
 #include "tincanconnectionmanager.h"
@@ -102,7 +102,7 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
-  talk_base::InitializeSSL(SSLVerificationCallback);
+  tincan::OpenSSLAdapter::InitializeSSL(SSLVerificationCallback);
   peerlist_init();
   thread_opts_t opts;
 #if defined(LINUX) || defined(ANDROID)

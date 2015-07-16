@@ -33,6 +33,7 @@
 #include "talk/base/sigslot.h"
 #include "talk/xmpp/asyncsocket.h"
 #include "talk/xmpp/xmppengine.h"
+#include "talk/base/sslidentity.h"
 
 // The below define selects the SSLStreamAdapter implementation for
 // SSL, as opposed to the SSLAdapter socket adapter.
@@ -60,6 +61,7 @@ public:
   virtual bool Write(const char * data, size_t len);
   virtual bool Close();
   virtual bool StartTls(const std::string & domainname);
+  void SetIdentity(talk_base::SSLIdentity* identity);
 
   sigslot::signal1<int> SignalCloseEvent;
 
@@ -73,6 +75,7 @@ private:
   talk_base::AsyncSocket * cricket_socket_;
   buzz::AsyncSocket::State state_;
   talk_base::ByteBuffer buffer_;
+  talk_base::SSLIdentity* identity_;
   buzz::TlsOptions tls_;
 };
 
