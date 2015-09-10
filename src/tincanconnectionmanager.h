@@ -86,7 +86,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
  public:
   TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
                           talk_base::Thread* link_setup_thread,
-                          talk_base::Thread* packet_handling_thread);
+                          talk_base::Thread* packet_handling_thread,
+                          thread_opts_t* opts);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -241,6 +242,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::SocketAddress forward_addr_;
   talk_base::PacketOptions packet_options_;
   bool trim_enabled_;
+  thread_opts_t* opts_;
 };
 
 }  // namespace tincan

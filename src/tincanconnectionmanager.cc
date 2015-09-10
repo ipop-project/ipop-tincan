@@ -89,7 +89,8 @@ enum {
 TinCanConnectionManager::TinCanConnectionManager(
     PeerSignalSenderInterface* signal_sender,
     talk_base::Thread* link_setup_thread,
-    talk_base::Thread* packet_handling_thread)
+    talk_base::Thread* packet_handling_thread,
+    thread_opts_t* opts)
     : content_name_(kContentName),
       signal_sender_(signal_sender),
       packet_factory_(packet_handling_thread),
@@ -108,7 +109,8 @@ TinCanConnectionManager::TinCanConnectionManager(
       tincan_ip6_(kIpv6),
       tap_name_(kTapName),
       packet_options_(talk_base::DSCP_DEFAULT),
-      trim_enabled_(false) {
+      trim_enabled_(false),
+      opts_(opts) {
   // we have to set the global point for ipop-tap communication
   g_manager = this;
 
@@ -145,7 +147,7 @@ void TinCanConnectionManager::Setup(
   int error = 0;
 #if defined(LINUX) || defined(ANDROID)
   // Configure ipop tap VNIC through Linux sys calls
-  error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
+  error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask, opts_->my_ip4);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
   if (switchmode) { error |= tap_unset_noarp_flags(); }
