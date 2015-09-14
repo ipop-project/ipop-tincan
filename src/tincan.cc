@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
 
   tincan::PeerSignalSender signal_sender;
   tincan::TinCanConnectionManager manager(&signal_sender, &link_setup_thread,
-                                         &packet_handling_thread);
+                                         &packet_handling_thread, &opts);
   tincan::XmppNetwork xmpp(&link_setup_thread);
   xmpp.HandlePeer.connect(&manager,
       &tincan::TinCanConnectionManager::HandlePeer);
