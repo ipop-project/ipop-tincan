@@ -173,6 +173,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
                      << " controller:" << data[0];
   }
   if (data[1] == kTincanPacket) return ProcessIPPacket(socket, data, len, addr);
+  if (data[1] == kICCControl || data[1] == kICCPacket) {
+    /* ICC message is received from controller. Remove IPOP version and type
+       field and pass to TinCan Connection manager */
+    manager_.HandlePacket(0, data+2, len-2, addr);
+    return;
+  }
   if (data[1] != kTincanControl) {
     LOG_TS(LS_ERROR) << "Unknown message type"; 
   }

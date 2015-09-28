@@ -318,8 +318,26 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
       short_uid_map_.find(dest) == short_uid_map_.end()) {
     // forward_addr_ is the address of the forwarder/controller
     talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+
+    // Put IPOP version field in the header (offset 0 field)
     *(msg.get() + kTincanVerOffset) = kIpopVer;
-    *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+
+    /* This block intended for the message that is passed through TinCan link
+       the destination uid field is NULL. NULLing is done one in recv thread in
+       Tap. Based on MAC address, we tag it as ICC control or ICC packet. (To
+       distinguish MAC address, we use mac address 00-69-70-6f-70-03 for ICC
+       control 00-69-70-6f-70-04 for ICC packet. Ascii code of ipop is 69706f70
+    */
+    if (len > (kHeaderSize + 6) && is_icc((unsigned char *) data)) {
+        if (data[kHeaderSize+kICCMacOffset] == kICCPacket) {
+            *(msg.get() + kTincanMsgTypeOffset) = kICCPacket;
+        } else if (data[kHeaderSize+kICCMacOffset] == kICCControl) {
+            *(msg.get() + kTincanMsgTypeOffset) = kICCControl;
+        }
+    } else {
+        *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+    }
+
     memcpy(msg.get() + kTincanHeaderSize, data, len);
     forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
         forward_addr_, packet_options_);
@@ -697,6 +715,13 @@ Json::Value TinCanConnectionManager::GetState(
     peers[it->first] = StateToJson(it->first, it->second, get_stats);
   }
   return peers;
+}
+
+bool TinCanConnectionManager::is_icc(const unsigned char * buf) {
+  int offset = kIdBytesLen*2;
+  return buf[offset] == 0x00 && buf[offset+1] == 0x69 &&
+         buf[offset+2] == 0x70 && buf[offset+3] == 0x6f &&
+         buf[offset+4] == 0x70;
 }
 
 }  // namespace tincan
