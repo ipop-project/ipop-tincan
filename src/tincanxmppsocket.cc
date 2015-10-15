@@ -36,14 +36,14 @@
 #include "talk/base/logging.h"
 #include "talk/base/thread.h"
 #ifdef FEATURE_ENABLE_SSL
-#include "talk/base/ssladapter.h"
+#include "openssladapter.h"
 #include "talk/base/schanneladapter.h"
 #endif
 
 namespace tincan {
 
 TinCanXmppSocket::TinCanXmppSocket(buzz::TlsOptions tls) : cricket_socket_(NULL),
-                                               tls_(tls) {
+                                               tls_(tls), identity_(NULL) {
   state_ = buzz::AsyncSocket::STATE_CLOSED;
 }
 
@@ -59,7 +59,9 @@ void TinCanXmppSocket::CreateCricketSocket(int family) {
 #ifdef WIN32
     socket = new talk_base::SChannelAdapter(socket);
 #else
-    socket = talk_base::SSLAdapter::Create(socket);
+    //socket = talk_base::SSLAdapter::Create(socket);
+    //socket = talk_base::SSLAdapter::Create(socket);
+    socket =  new tincan::OpenSSLAdapter(socket);
 #endif
   }
 #endif  // FEATURE_ENABLE_SSL
@@ -165,6 +167,8 @@ bool TinCanXmppSocket::StartTls(const std::string & domainname) {
     return false;
   talk_base::SSLAdapter* ssl_adapter =
     static_cast<talk_base::SSLAdapter *>(cricket_socket_);
+  if(identity_!=NULL)
+	  	((tincan::OpenSSLAdapter*)ssl_adapter)->SetupSSLContextIdentity(identity_);
   if (ssl_adapter->StartSSL(domainname.c_str(), false) != 0)
     return false;
   state_ = buzz::AsyncSocket::STATE_TLS_CONNECTING;
@@ -173,6 +177,10 @@ bool TinCanXmppSocket::StartTls(const std::string & domainname) {
   return false;
 #endif  // !defined(FEATURE_ENABLE_SSL)
 }
+
+void TinCanXmppSocket::SetIdentity(talk_base::SSLIdentity* identity) {
+	  identity_=identity;
+	}
 
 }  // namespace buzz
 

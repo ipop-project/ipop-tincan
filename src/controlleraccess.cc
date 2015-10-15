@@ -28,7 +28,12 @@
 #include "talk/base/json.h"
 #include "controlleraccess.h"
 #include "tincan_utils.h"
-
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#include <stdio.h>
+#include <openssl/pem.h>
+#include <fstream>
+#include <sstream>
 namespace tincan {
 
 static const char kLocalHost[] = "127.0.0.1";
@@ -201,7 +206,34 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string user = root["username"].asString();
         std::string pass = root["password"].asString();
         std::string host = root["host"].asString();
-        bool res = network_.Login(user, pass, manager_.uid(), host);
+		std::string x509_path = root["x509"].asString();
+		std::string pkey_path = root["pkey"].asString();
+	
+        talk_base::SSLIdentity* identity = NULL;
+        if(x509_path!="" && pkey_path!="")
+        {
+          string pem_key, pem_cert;
+
+          std::ifstream in_cert(x509_path.c_str(), std::ios::in | std::ios::binary);
+          if (in_cert)
+          {
+            std::ostringstream contents;
+            contents << in_cert.rdbuf();
+            in_cert.close();
+            pem_cert = contents.str();
+          }
+
+          std::ifstream in_key(pkey_path.c_str(), std::ios::in | std::ios::binary);
+          if (in_key)
+          {
+            std::ostringstream contents;
+            contents << in_key.rdbuf();
+            in_key.close();
+            pem_key = contents.str();
+          }
+          identity = talk_base::SSLIdentity::FromPEMStrings(pem_key, pem_cert);
+        }
+        bool res = network_.Login(user, pass, manager_.uid(), host, identity);
       }
       break;
     case CREATE_LINK: {
