@@ -25,7 +25,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
+#include <cstdio>
 
 #if defined(LINUX)
 #include <ifaddrs.h>
@@ -102,6 +102,11 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
+  if (argc == 2 && strncmp(argv[1], "-v", 2))
+  {
+    cout << kIpopVerMjr << "." << kIpopVerMnr << "." << kIpopVerRev;
+    return 0;
+  }
   talk_base::InitializeSSL(SSLVerificationCallback);
   peerlist_init();
   thread_opts_t opts;
@@ -121,7 +126,7 @@ int main(int argc, char **argv) {
 
   tincan::PeerSignalSender signal_sender;
   tincan::TinCanConnectionManager manager(&signal_sender, &link_setup_thread,
-                                         &packet_handling_thread);
+                                         &packet_handling_thread, &opts);
   tincan::XmppNetwork xmpp(&link_setup_thread);
   xmpp.HandlePeer.connect(&manager,
       &tincan::TinCanConnectionManager::HandlePeer);
