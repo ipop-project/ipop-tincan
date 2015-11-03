@@ -43,8 +43,15 @@
 
 namespace tincan {
 
+/*
+ipop version 0x01 for 14.01.1
+ipop version 0x02 for 14.01.2
+ipop version 0x03 for 15.11.0
+*/
+static const char kIpopVer = 0x03;
+
 static const unsigned short kIpopVerMjr = 15;
-static const unsigned short kIpopVerMnr = 10;
+static const unsigned short kIpopVerMnr = 11;
 static const unsigned short kIpopVerRev = 0;
 
 /*
