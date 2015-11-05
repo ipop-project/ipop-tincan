@@ -60,6 +60,7 @@
 namespace tincan {
 
 static const char kTapName[] = "ipop";
+static const char kTapDesc[] = "TAP";
 
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:
@@ -85,7 +86,8 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
  public:
   TinCanConnectionManager(PeerSignalSenderInterface* signal_sender,
                           talk_base::Thread* link_setup_thread,
-                          talk_base::Thread* packet_handling_thread);
+                          talk_base::Thread* packet_handling_thread,
+                          thread_opts_t* opts);
 
   // Accessors
   const std::string fingerprint() const { return fingerprint_; }
@@ -146,7 +148,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   // Other public functions
   virtual void Setup(
       const std::string& uid, const std::string& ip4, int ip4_mask,
-      const std::string& ip6, int ip6_mask, int subnet_mask);
+      const std::string& ip6, int ip6_mask, int subnet_mask, int switchmode);
 
   virtual bool CreateTransport(
       const std::string& uid, const std::string& fingerprint, int overlay_id,
@@ -217,6 +219,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
                 const std::string& username, const std::string& password);
   void GetChannelStats_w(const std::string &uid,
                          cricket::ConnectionInfos *infos);
+  bool is_icc(const unsigned char * buf);
 
   const std::string content_name_;
   PeerSignalSenderInterface* signal_sender_;
@@ -240,6 +243,7 @@ class TinCanConnectionManager : public talk_base::MessageHandler,
   talk_base::SocketAddress forward_addr_;
   talk_base::PacketOptions packet_options_;
   bool trim_enabled_;
+  thread_opts_t* opts_;
 };
 
 }  // namespace tincan

@@ -173,6 +173,12 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
                      << " controller:" << data[0];
   }
   if (data[1] == kTincanPacket) return ProcessIPPacket(socket, data, len, addr);
+  if (data[1] == kICCControl || data[1] == kICCPacket) {
+    /* ICC message is received from controller. Remove IPOP version and type
+       field and pass to TinCan Connection manager */
+    manager_.HandlePacket(0, data+2, len-2, addr);
+    return;
+  }
   if (data[1] != kTincanControl) {
     LOG_TS(LS_ERROR) << "Unknown message type"; 
   }
@@ -222,7 +228,9 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         int ip4_mask = root["ip4_mask"].asInt();
         int ip6_mask = root["ip6_mask"].asInt();
         int subnet_mask = root["subnet_mask"].asInt();
-        manager_.Setup(uid, ip4, ip4_mask, ip6, ip6_mask, subnet_mask);
+        int switchmode = root["switchmode"].asInt();
+        manager_.Setup(uid, ip4, ip4_mask, ip6, ip6_mask, subnet_mask,
+                       switchmode);
       }
       break;
     case SET_REMOTE_IP: {

@@ -89,7 +89,8 @@ enum {
 TinCanConnectionManager::TinCanConnectionManager(
     PeerSignalSenderInterface* signal_sender,
     talk_base::Thread* link_setup_thread,
-    talk_base::Thread* packet_handling_thread)
+    talk_base::Thread* packet_handling_thread,
+    thread_opts_t* opts)
     : content_name_(kContentName),
       signal_sender_(signal_sender),
       packet_factory_(packet_handling_thread),
@@ -108,7 +109,8 @@ TinCanConnectionManager::TinCanConnectionManager(
       tincan_ip6_(kIpv6),
       tap_name_(kTapName),
       packet_options_(talk_base::DSCP_DEFAULT),
-      trim_enabled_(false) {
+      trim_enabled_(false),
+      opts_(opts) {
   // we have to set the global point for ipop-tap communication
   g_manager = this;
 
@@ -120,7 +122,7 @@ TinCanConnectionManager::TinCanConnectionManager(
 
 void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
-    const std::string& ip6, int ip6_mask, int subnet_mask) {
+    const std::string& ip6, int ip6_mask, int subnet_mask, int switchmode) {
 
   // input verification before proceeding
   if (!tincan_id_.empty() || uid.size() != kIdSize) return;
@@ -145,9 +147,10 @@ void TinCanConnectionManager::Setup(
   int error = 0;
 #if defined(LINUX) || defined(ANDROID)
   // Configure ipop tap VNIC through Linux sys calls
-  error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask);
+  error |= tap_set_ipv4_addr(ip4.c_str(), ip4_mask, opts_->my_ip4);
   error |= tap_set_ipv6_addr(ip6.c_str(), ip6_mask);
   error |= tap_set_mtu(MTU) | tap_set_base_flags() | tap_set_up();
+  if (switchmode) { error |= tap_unset_noarp_flags(); }
 #endif
   // set up ipop-tap parameters
   error |= peerlist_set_local_p(uid_str, ip4.c_str(), ip6.c_str());
@@ -167,10 +170,12 @@ void TinCanConnectionManager::OnNetworksChanged() {
   // interface because we don't want libjingle to try to connect
   // over ipop network that can create weird conditions and break things
   for (size_t i = 0; i < networks.size(); ++i) {
-    if (networks[i]->name().compare(kTapName) == 0) {
-      networks[i]->ClearIPs();
+	  if (networks[i]->name().compare(kTapName) == 0 ||
+		  networks[i]->description().compare(0, 3, kTapDesc) == 0) {
+		  networks[i]->ClearIPs();
       // Set to a random ipv6 address in order to disable
       networks[i]->AddIP(ip6_addr.ipaddr());
+	  LOG_TS(INFO) << "IPOP TAP Device to be ignored " << networks[i]->name() << ":" << networks[i]->description();
     }
   }
 }
@@ -313,8 +318,26 @@ void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
       short_uid_map_.find(dest) == short_uid_map_.end()) {
     // forward_addr_ is the address of the forwarder/controller
     talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+
+    // Put IPOP version field in the header (offset 0 field)
     *(msg.get() + kTincanVerOffset) = kIpopVer;
-    *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+
+    /* This block intended for the message that is passed through TinCan link
+       the destination uid field is NULL. NULLing is done one in recv thread in
+       Tap. Based on MAC address, we tag it as ICC control or ICC packet. (To
+       distinguish MAC address, we use mac address 00-69-70-6f-70-03 for ICC
+       control 00-69-70-6f-70-04 for ICC packet. Ascii code of ipop is 69706f70
+    */
+    if (len > (kHeaderSize + 6) && is_icc((unsigned char *) data)) {
+        if (data[kHeaderSize+kICCMacOffset] == kICCPacket) {
+            *(msg.get() + kTincanMsgTypeOffset) = kICCPacket;
+        } else if (data[kHeaderSize+kICCMacOffset] == kICCControl) {
+            *(msg.get() + kTincanMsgTypeOffset) = kICCControl;
+        }
+    } else {
+        *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+    }
+
     memcpy(msg.get() + kTincanHeaderSize, data, len);
     forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
         forward_addr_, packet_options_);
@@ -476,7 +499,11 @@ bool TinCanConnectionManager::AddIPMapping(
   override_base_ipv4_addr_p(ip4.c_str());
 
   // this create a UID to IP mapping in the ipop-tap peerlist
-  peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
+  if (ip4 == "127.0.0.1" ) { //TODO should be changed with switchmode flag
+    peerlist_add_by_uid(uid_str);
+  } else {
+    peerlist_add_p(uid_str, ip4.c_str(), ip6.c_str(), 0);
+  }
   PeerIPs ips;
   ips.ip4 = ip4;
   ips.ip6 = ip6;
@@ -688,6 +715,13 @@ Json::Value TinCanConnectionManager::GetState(
     peers[it->first] = StateToJson(it->first, it->second, get_stats);
   }
   return peers;
+}
+
+bool TinCanConnectionManager::is_icc(const unsigned char * buf) {
+  int offset = kIdBytesLen*2;
+  return buf[offset] == 0x00 && buf[offset+1] == 0x69 &&
+         buf[offset+2] == 0x70 && buf[offset+3] == 0x6f &&
+         buf[offset+4] == 0x70;
 }
 
 }  // namespace tincan
