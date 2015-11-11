@@ -26,6 +26,7 @@
  */
 
 #include <cstdio>
+#include <iostream>
 
 #if defined(LINUX)
 #include <ifaddrs.h>
@@ -102,9 +103,9 @@ bool SSLVerificationCallback(void* cert) {
 }
 
 int main(int argc, char **argv) {
-  if (argc == 2 && strncmp(argv[1], "-v", 2))
+  if (argc == 2 && strncmp(argv[1], "-v", 2)==0)
   {
-    cout << kIpopVerMjr << "." << kIpopVerMnr << "." << kIpopVerRev;
+    std::cout << tincan::kIpopVerMjr << "." << tincan::kIpopVerMnr << "." << tincan::kIpopVerRev;
     return 0;
   }
   talk_base::InitializeSSL(SSLVerificationCallback);
