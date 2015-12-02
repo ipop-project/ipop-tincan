@@ -172,7 +172,7 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
   if (data[1] == kICCControl || data[1] == kICCPacket) {
     /* ICC message is received from controller. Remove IPOP version and type
        field and pass to TinCan Connection manager */
-    manager_.HandlePacket(0, data+2, len-2, addr);
+    manager_.DoPacketSend(data+2, len-2);
     return;
   }
   if (data[1] != kTincanControl) {
