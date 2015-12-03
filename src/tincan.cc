@@ -145,10 +145,12 @@ int main(int argc, char **argv) {
   SendRunnable send_runnable(&opts);
   RecvRunnable recv_runnable(&opts);
 
+  mac_table_mutex_lock_init();
   send_thread.Start(&send_runnable);
   recv_thread.Start(&recv_runnable);
   packet_handling_thread.Start();
   link_setup_thread.Run();
+  mac_table_mutex_lock_destroy();
   
   return 0;
 }
