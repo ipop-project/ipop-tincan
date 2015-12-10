@@ -41,6 +41,11 @@
 #define SEGMENT_OFFSET 4
 #define CMP_SIZE 7
 
+namespace tincan {
+int kUdpPort = 5800;
+string kTapName ("ipop");
+}
+
 class SendRunnable : public talk_base::Runnable {
  public:
   SendRunnable(thread_opts_t *opts) : opts_(opts) {}
@@ -98,17 +103,34 @@ bool SSLVerificationCallback(void* cert) {
   return true;
 }
 
+/* The below method parses the arguments supplied to tincan*/
+void parse_args(int argc,char **args) {
+  if (argc == 2 && strncmp(args[1], "-v", 2)==0)
+    {
+      std::cout<<endl<<"Details and usage of tincan are as shown below"<<endl
+      << "To configure the name of tap device and listener port."<<endl
+      << "pass tap-name as first arg and port as second."<<endl<<endl
+      << "-----tincan version is-----"<< endl
+      << tincan::kIpopVerMjr << "." << tincan::kIpopVerMnr << "." 
+      << tincan::kIpopVerRev << endl;
+      exit(0);
+    }
+  if (argc == 3)
+    {
+      tincan::kTapName = args[1];
+      tincan::kUdpPort = atoi(args[2]);
+    }
+  
+}
+
 int main(int argc, char **argv) {
-  if (argc == 2 && strncmp(argv[1], "-v", 2)==0)
-  {
-    std::cout << tincan::kIpopVerMjr << "." << tincan::kIpopVerMnr << "." << tincan::kIpopVerRev;
-    return 0;
-  }
+  // Parse arguments
+  parse_args(argc,argv);
   talk_base::InitializeSSL(SSLVerificationCallback);
   peerlist_init();
   thread_opts_t opts;
 #if defined(LINUX) || defined(ANDROID)
-  opts.tap = tap_open(tincan::kTapName, opts.mac);
+  opts.tap = tap_open(tincan::kTapName.c_str(), opts.mac);
   if (opts.tap < 0) return -1;
 #elif defined(WIN32)
   opts.win32_tap = open_tap(tincan::kTapName, opts.mac);

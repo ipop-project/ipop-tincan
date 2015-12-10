@@ -54,9 +54,9 @@
 #include "wqueue.h"
 
 namespace tincan {
-
-static const char kTapName[] = "ipop";
 static const char kTapDesc[] = "TAP";
+//name is configurable using argument passed to tincan.
+extern  string kTapName;
 
 class PeerSignalSender : public PeerSignalSenderInterface {
  public:
