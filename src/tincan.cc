@@ -118,7 +118,7 @@ void parse_args(int argc,char **args) {
        std::cout<<endl<<"---OPTIONAL---"<<endl
         << "To configure the name of tap device and listener port."<<endl
         << "pass tap-name as first arg and port as second."<<endl
-        << "example--sudo sh -c './ipop-tincan looptap 5805 1> out.log 2> err.log &'"<< endl
+        << "example--sudo sh -c './ipop-tincan looptap 5805 1> out.log 2> err.log &'"<< endl;
         exit(0);
     }
   if (argc == 3)
