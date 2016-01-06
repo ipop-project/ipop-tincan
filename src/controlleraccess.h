@@ -34,6 +34,8 @@
 #include "tincanconnectionmanager.h"
 
 namespace tincan {
+//port is configurable via argument to tincan.
+extern int kUdpPort;
 
 class ControllerAccess : public PeerSignalSenderInterface,
                          public sigslot::has_slots<> {

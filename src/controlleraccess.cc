@@ -26,10 +26,8 @@
 #include "tincan_utils.h"
 
 namespace tincan {
-
 static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
-static const int kUdpPort = 5800;
 static const int kBufferSize = 1024;
 static std::map<std::string, int> rpc_calls;
 
@@ -77,10 +75,10 @@ ControllerAccess::ControllerAccess(
       opts_(opts) {
   signal_thread_ = talk_base::Thread::Current();
   socket_.reset(packet_factory->CreateUdpSocket(
-      talk_base::SocketAddress(kLocalHost, kUdpPort), 0, 0));
+      talk_base::SocketAddress(kLocalHost, tincan::kUdpPort), 0, 0));
   socket_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
   socket6_.reset(packet_factory->CreateUdpSocket(
-      talk_base::SocketAddress(kLocalHost6, kUdpPort), 0, 0));
+      talk_base::SocketAddress(kLocalHost6, tincan::kUdpPort), 0, 0));
   socket6_->SignalReadPacket.connect(this, &ControllerAccess::HandlePacket);
   manager_.set_forward_socket(socket6_.get());
   init_map();
