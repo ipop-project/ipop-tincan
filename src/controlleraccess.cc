@@ -195,7 +195,8 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string user = root["username"].asString();
         std::string pass = root["password"].asString();
         std::string host = root["host"].asString();
-        bool res = network_.Login(user, pass, manager_.uid(), host);
+		int port = root["port"].asInt();
+        bool res = network_.Login(user, pass, manager_.uid(), host, port);
       }
       break;
     case CREATE_LINK: {

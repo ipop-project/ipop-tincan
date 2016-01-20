@@ -141,7 +141,7 @@ bool TinCanTask::HandleStanza(const buzz::XmlElement* stanza) {
 }
 
 bool XmppNetwork::Login(std::string username, std::string password,
-                        std::string pcid, std::string host) {
+                        std::string pcid, std::string host, int port) {
   if (pump_.get() || username.empty() || password.empty() || 
       pcid.empty() || host.empty()) return false;
 
@@ -156,7 +156,7 @@ bool XmppNetwork::Login(std::string username, std::string password,
   xcs_.set_use_tls(buzz::TLS_REQUIRED);
   //xcs_.set_allow_plain(true);
   xcs_.set_pass(talk_base::CryptString(pass));
-  xcs_.set_server(talk_base::SocketAddress(host, kXmppPort));
+  xcs_.set_server(talk_base::SocketAddress(host, port ? port : kXmppPort));
   return Connect();
 }
 
