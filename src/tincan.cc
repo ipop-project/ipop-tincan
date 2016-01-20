@@ -37,9 +37,11 @@
 #include "tincan_utils.h"
 #include "xmppnetwork.h"
 
+
 #define SEGMENT_SIZE 3
 #define SEGMENT_OFFSET 4
 #define CMP_SIZE 7
+
 
 namespace tincan {
 int kUdpPort = 5800;
@@ -132,7 +134,7 @@ void parse_args(int argc,char **args) {
 int main(int argc, char **argv) {
   // Parse arguments
   parse_args(argc,argv);
-  talk_base::InitializeSSL(SSLVerificationCallback);
+  talk_base::InitializeSSL();
   peerlist_init();
   thread_opts_t opts;
 #if defined(LINUX) || defined(ANDROID)
