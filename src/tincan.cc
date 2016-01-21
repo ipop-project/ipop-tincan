@@ -37,11 +37,9 @@
 #include "tincan_utils.h"
 #include "xmppnetwork.h"
 
-
 #define SEGMENT_SIZE 3
 #define SEGMENT_OFFSET 4
 #define CMP_SIZE 7
-
 
 namespace tincan {
 int kUdpPort = 5800;
