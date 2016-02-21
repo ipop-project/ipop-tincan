@@ -28,6 +28,7 @@
 namespace tincan {
 static const char kLocalHost[] = "127.0.0.1";
 static const char kLocalHost6[] = "::1";
+static const int kDefaultXmppPort = 5222;
 static const int kBufferSize = 1024;
 static std::map<std::string, int> rpc_calls;
 
@@ -195,7 +196,11 @@ void ControllerAccess::HandlePacket(talk_base::AsyncPacketSocket* socket,
         std::string user = root["username"].asString();
         std::string pass = root["password"].asString();
         std::string host = root["host"].asString();
-        bool res = network_.Login(user, pass, manager_.uid(), host);
+        int port = kDefaultXmppPort;
+        if (root.isMember("port")) {
+          port = root["port"].asInt();
+        }
+        bool res = network_.Login(user, pass, manager_.uid(), host, port);
       }
       break;
     case CREATE_LINK: {

@@ -132,7 +132,7 @@ void parse_args(int argc,char **args) {
 int main(int argc, char **argv) {
   // Parse arguments
   parse_args(argc,argv);
-  talk_base::InitializeSSL(SSLVerificationCallback);
+  talk_base::InitializeSSL();
   peerlist_init();
   thread_opts_t opts;
 #if defined(LINUX) || defined(ANDROID)

@@ -114,7 +114,7 @@ class XmppNetwork
   virtual void OnMessage(talk_base::Message* msg);
 
   bool Login(std::string username, std::string password,
-             std::string pcid, std::string host);
+             std::string pcid, std::string host, int port);
 
  private:
   bool Connect();
