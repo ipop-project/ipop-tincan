@@ -303,50 +303,82 @@ void TinCanConnectionManager::OnReadPacket(cricket::TransportChannel* channel,
 }
 
 void TinCanConnectionManager::HandlePacket(talk_base::AsyncPacketSocket* socket,
-    const char* data, size_t len, const talk_base::SocketAddress& addr) {
-  ASSERT(packet_handling_thread_->IsCurrent());
-  if (len < (kHeaderSize)) return;
-  std::string source = talk_base::hex_encode(data, kShortLen);
-  std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
+const char* data, size_t len, const talk_base::SocketAddress& addr) 
+{
+      ASSERT(packet_handling_thread_->IsCurrent());
+      if (len < (kHeaderSize)) return;
+      std::string source = talk_base::hex_encode(data, kShortLen);
+      std::string dest = talk_base::hex_encode(data + kIdBytesLen, kShortLen);
 
-  // forward packet to controller if we do not have a P2P connection for it
-  if (dest.compare(0, 3, kNullPeerId) == 0 ||
-      short_uid_map_.find(dest) == short_uid_map_.end()) {
-    // forward_addr_ is the address of the forwarder/controller
-    talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+      // forward packet to controller if we do not have a P2P connection for it
+      if (dest.compare(0, 3, kNullPeerId) == 0 ||
+          short_uid_map_.find(dest) == short_uid_map_.end()) 
+          {
+                // forward_addr_ is the address of the forwarder/controller
+                talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
 
-    // Put IPOP version field in the header (offset 0 field)
-    *(msg.get() + kTincanVerOffset) = kIpopVer;
+                // Put IPOP version field in the header (offset 0 field)
+                *(msg.get() + kTincanVerOffset) = kIpopVer;
 
-    /* This block intended for the message that is passed through TinCan link
-       the destination uid field is NULL. NULLing is done one in recv thread in
-       Tap. Based on MAC address, we tag it as ICC control or ICC packet. (To
-       distinguish MAC address, we use mac address 00-69-70-6f-70-03 for ICC
-       control 00-69-70-6f-70-04 for ICC packet. Ascii code of ipop is 69706f70
-    */
-    if (len > (kHeaderSize + 6) && is_icc((unsigned char *) data)) {
-        if (data[kHeaderSize+kICCMacOffset] == kICCPacket) {
-            *(msg.get() + kTincanMsgTypeOffset) = kICCPacket;
-        } else if (data[kHeaderSize+kICCMacOffset] == kICCControl) {
-            *(msg.get() + kTincanMsgTypeOffset) = kICCControl;
+                /* This block intended for the message that is passed through TinCan link
+                   the destination uid field is NULL. NULLing is done one in recv thread in
+                   Tap. Based on MAC address, we tag it as ICC control or ICC packet. (To
+                   distinguish MAC address, we use mac address 00-69-70-6f-70-03 for ICC
+                   control 00-69-70-6f-70-04 for ICC packet. Ascii code of ipop is 69706f70
+                */
+                if (len > (kHeaderSize + 6) && is_icc((unsigned char *) data)) 
+                {
+                    if (data[kHeaderSize+kICCMacOffset] == kICCPacket) 
+                    {
+                        *(msg.get() + kTincanMsgTypeOffset) = kICCPacket;
+                    } 
+                    else if (data[kHeaderSize+kICCMacOffset] == kICCControl) 
+                    {
+                        *(msg.get() + kTincanMsgTypeOffset) = kICCControl;
+                    }
+                } 
+                else 
+                {
+                    *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+                }
+
+                memcpy(msg.get() + kTincanHeaderSize, data, len);
+                forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
+                    forward_addr_, packet_options_);
+        } 
+     // To improve performance of on-demand links, if the transport is not yet 
+    // writable or channels are not yet created we continue forwarding the
+    // packets to the controller so that they can be forwarded over ICC.
+      else if (short_uid_map_[dest]->writable()) 
+      {
+        int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
+        cricket::TransportChannelImpl* channel = 
+            short_uid_map_[dest]->GetChannel(component);
+        if (channel != NULL) 
+        {
+          // Send packet over Tincan P2P connection
+          int count = channel->SendPacket(data, len, packet_options_, 0);
         }
-    } else {
-        *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
-    }
-
-    memcpy(msg.get() + kTincanHeaderSize, data, len);
-    forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
-        forward_addr_, packet_options_);
-  } 
-  else if (short_uid_map_[dest]->writable()) {
-    int component = cricket::ICE_CANDIDATE_COMPONENT_DEFAULT;
-    cricket::TransportChannelImpl* channel = 
-        short_uid_map_[dest]->GetChannel(component);
-    if (channel != NULL) {
-      // Send packet over Tincan P2P connection
-      int count = channel->SendPacket(data, len, packet_options_, 0);
-    }
-  }
+        else // if no channel to remote peer yet created
+        {   
+            talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+            *(msg.get() + kTincanVerOffset) = kIpopVer;
+            *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+            memcpy(msg.get() + kTincanHeaderSize, data, len);
+            forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
+                    forward_addr_, packet_options_);
+            
+        }
+      }
+      else // if transport manager not writable.
+      {
+            talk_base::scoped_ptr<char[]> msg(new char[len + kTincanHeaderSize]);
+            *(msg.get() + kTincanVerOffset) = kIpopVer;
+            *(msg.get() + kTincanMsgTypeOffset) = kTincanPacket;
+            memcpy(msg.get() + kTincanHeaderSize, data, len);
+            forward_socket_->SendTo(msg.get(), len + kTincanHeaderSize,
+                forward_addr_, packet_options_);
+      }  
 }
 
 bool TinCanConnectionManager::SetRelay(
