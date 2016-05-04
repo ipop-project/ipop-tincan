@@ -48,7 +48,7 @@ static const char kIpopVer = 0x03;
 
 static const unsigned short kIpopVerMjr = 16;
 static const unsigned short kIpopVerMnr = 01;
-static const unsigned short kIpopVerRev = 0;
+static const unsigned short kIpopVerRev = 1;
 
 /*
 Tincan Control : control message between controller and tincan
