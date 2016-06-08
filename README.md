@@ -3,7 +3,7 @@ IPOP Tincan
 
 TinCan links are the foundation for end-to-end tunneling of IP traffic among two endpoints.
 
-For more information, refer to the [IPOP project's Web site](http://www.ipop-project.org) and the [IPOP project GitHub Wiki](https://github.com/ipop-project/documentation/wiki)
+For more information, refer to the [IPOP project's Web site](http://www.ipop-project.org) and the [IPOP project GitHub Wiki](https://github.com/ipop-project/ipop-project.github.io/wiki)
 
 Style Guidelines
 ----------------
