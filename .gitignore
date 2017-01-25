@@ -17,7 +17,7 @@
 [Rr]eleases/
 x64/
 x86/
-build/
+#build/
 bld/
 [Bb]in/
 [Oo]bj/
@@ -82,6 +82,10 @@ ipch/
 *.psess
 *.vsp
 *.vspx
+
+# Xcode profiles
+*.xcodeproj
+
 
 # TFS 2012 Local Workspace
 $tf/
@@ -210,6 +214,9 @@ FakesAssemblies/
 GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
-*.sln
-*.vcxproj
-*.filters
+*.opendb
+/trunk/build/tincan.VC.db
+/trunk/test
+/trunk/include/windows/stdafx.h
+/trunk/src/windows/stdafx.cpp
+/trunk/include/windows/targetver.h

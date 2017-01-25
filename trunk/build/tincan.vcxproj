@@ -1,0 +1,502 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\external\include\webrtc\audio_receive_stream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\audio_send_stream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\audio_state.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\arraysize.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\array_view.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncfile.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asynchttprequest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncinvoker-inl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncinvoker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncpacketsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncresolverinterface.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asynctcpsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\asyncudpsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\atomicops.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\autodetectproxy.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\bandwidthsmoother.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\base64.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\basictypes.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\bind.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\bitbuffer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\buffer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\bufferqueue.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\bytebuffer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\byteorder.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\callback.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\checks.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\common.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\constructormagic.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\crc32.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\criticalsection.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\cryptstring.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\dbus.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\deprecation.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\diskcache.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\diskcache_win32.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\dscp.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\event.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\event_tracer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\exp_filter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\fakenetwork.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\fakesslidentity.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\faketaskrunner.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\filerotatingstream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\fileutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\fileutils_mock.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\firewallsocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\flags.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\format_macros.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\gunit.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\gunit_prod.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\helpers.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httpbase.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httpclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httpcommon-inl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httpcommon.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httprequest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\httpserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ifaddrs-android.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ifaddrs_converter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ipaddress.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\json.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\keep_ref_until_done.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\latebindingsymboltable.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\libdbusglibsymboltable.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\linked_ptr.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\linux.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\linuxfdwalk.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\logging.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\logsinks.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\macasyncsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\maccocoasocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\maccocoathreadhelper.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\macconversion.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\macsocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\macutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\macwindowpicker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\mathutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\md5.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\md5digest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\messagedigest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\messagehandler.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\messagequeue.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\multipart.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\natserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\natsocketfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\nattypes.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\nethelpers.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\network.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\networkmonitor.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\nullsocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\openssl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\openssladapter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\openssldigest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\opensslidentity.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\opensslstreamadapter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\optional.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\optionsfile.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\pathutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\physicalsocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\platform_file.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\platform_thread.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\platform_thread_types.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\posix.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\profiler.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\proxydetect.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\proxyinfo.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\proxyserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\random.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ratelimiter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ratetracker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\refcount.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\referencecountedsingletonfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\rollingaccumulator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\rtccertificate.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\safe_conversions.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\safe_conversions_impl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\scopedptrcollection.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\scoped_autorelease_pool.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\scoped_ptr.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\scoped_ref_ptr.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sec_buffer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sha1.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sha1digest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sharedexclusivelock.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\signalthread.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sigslot.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sigslotrepeater.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sigslottester.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketadapters.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketaddress.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketaddresspair.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketpool.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socketstream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\socket_unittest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\ssladapter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslconfig.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslfingerprint.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslidentity.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslroots.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslsocketfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslstreamadapter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\sslstreamadapterhelper.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\stream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\stringencode.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\stringutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\systeminfo.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\task.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\taskparent.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\taskrunner.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\template_util.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\testbase64.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\testclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\testechoserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\testutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\thread.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\thread_annotations.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\thread_checker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\thread_checker_impl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\timeutils.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\timing.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\trace_event.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\transformadapter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\unixfilesystem.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\urlencode.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\versionparsing.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\virtualsocketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32filesystem.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32regkey.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32socketinit.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32socketserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32window.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\win32windowpicker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\window.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\windowpicker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\windowpickerfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\winfirewall.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\winping.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\worker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\base\x11windowpicker.h" />
+    <ClInclude Include="..\..\external\include\webrtc\call.h" />
+    <ClInclude Include="..\..\external\include\webrtc\common.h" />
+    <ClInclude Include="..\..\external\include\webrtc\common_types.h" />
+    <ClInclude Include="..\..\external\include\webrtc\config.h" />
+    <ClInclude Include="..\..\external\include\webrtc\engine_configurations.h" />
+    <ClInclude Include="..\..\external\include\webrtc\frame_callback.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\qname.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlbuilder.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlconstants.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlelement.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlnsstack.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlparser.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmllite\xmlprinter.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\asyncsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\chatroommodule.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\constants.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\discoitemsquerytask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\fakexmppclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\hangoutpubsubclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\iqtask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\jid.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\jingleinfotask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\module.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\moduleimpl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\mucroomconfigtask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\mucroomdiscoverytask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\mucroomlookuptask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\mucroomuniquehangoutidtask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\pingtask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\plainsaslhandler.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\presenceouttask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\presencereceivetask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\presencestatus.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\prexmppauth.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\pubsubclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\pubsubstateclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\pubsubtasks.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\pubsub_task.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\receivetask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\rostermodule.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\rostermoduleimpl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\saslcookiemechanism.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\saslhandler.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\saslmechanism.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\saslplainmechanism.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\util_unittest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppauth.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppclient.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppclientsettings.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppengine.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppengineimpl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmpplogintask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmpppump.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppstanzaparser.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmpptask.h" />
+    <ClInclude Include="..\..\external\include\webrtc\libjingle\xmpp\xmppthread.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\asyncstuntcpsocket.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\basicpacketsocketfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\candidate.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\common.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\constants.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\dtlstransport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\dtlstransportchannel.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\faketransportcontroller.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\p2ptransport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\p2ptransportchannel.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\packetsocketfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\port.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\portallocator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\portinterface.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\pseudotcp.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\rawtransport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\rawtransportchannel.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\relayport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\relayserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\session.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\sessiondescription.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\sessionid.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\stun.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\stunport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\stunrequest.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\stunserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\tcpport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\testrelayserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\teststunserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\testturnserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportchannel.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportchannelimpl.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportcontroller.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportdescription.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportdescriptionfactory.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\transportinfo.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\turnport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\turnserver.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\base\udpport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\client\autoportallocator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\client\basicportallocator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\client\fakeportallocator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\client\httpportallocator.h" />
+    <ClInclude Include="..\..\external\include\webrtc\p2p\client\socketmonitor.h" />
+    <ClInclude Include="..\..\external\include\webrtc\stream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\transport.h" />
+    <ClInclude Include="..\..\external\include\webrtc\typedefs.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_decoder.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_encoder.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_frame.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_receive_stream.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_renderer.h" />
+    <ClInclude Include="..\..\external\include\webrtc\video_send_stream.h" />
+    <ClInclude Include="..\include\async_io.h" />
+    <ClInclude Include="..\include\controller_handle.h" />
+    <ClInclude Include="..\include\control_dispatch.h" />
+    <ClInclude Include="..\include\control_listener.h" />
+    <ClInclude Include="..\include\peer_descriptor.h" />
+    <ClInclude Include="..\include\peer_network.h" />
+    <ClInclude Include="..\include\tapdev.h" />
+    <ClInclude Include="..\include\tapdev_inf.h" />
+    <ClInclude Include="..\include\tap_frame.h" />
+    <ClInclude Include="..\include\tincan.h" />
+    <ClInclude Include="..\include\tincan_base.h" />
+    <ClInclude Include="..\include\tincan_exception.h" />
+    <ClInclude Include="..\include\virtual_link.h" />
+    <ClInclude Include="..\include\tincan_control.h" />
+    <ClInclude Include="..\include\virtual_network.h" />
+    <ClInclude Include="..\include\vnet_descriptor.h" />
+    <ClInclude Include="..\include\windows\tapdev_win.h" />
+    <ClInclude Include="..\include\windows\win_exception.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\control_dispatch.cc" />
+    <ClCompile Include="..\src\control_listener.cc" />
+    <ClCompile Include="..\src\peer_network.cc" />
+    <ClCompile Include="..\src\tap_frame.cc" />
+    <ClCompile Include="..\src\tincan.cc" />
+    <ClCompile Include="..\src\tincan_control.cc" />
+    <ClCompile Include="..\src\virtual_link.cc" />
+    <ClCompile Include="..\src\tincan_main.cc" />
+    <ClCompile Include="..\src\virtual_network.cc" />
+    <ClCompile Include="..\src\windows\tapdev_win.cc" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DD4C0E91-0669-4FFE-9676-DDFD405A0440}</ProjectGuid>
+    <RootNamespace>tincan</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.14393.0</WindowsTargetPlatformVersion>
+    <ProjectName>Tincan</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <SourcePath>C:\Users\kcratie\Workspace\kcratie\libjingle;$(SourcePath)</SourcePath>
+    <CodeAnalysisRuleSet>NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <OutDir>../out/$(Platform)/$(Configuration)/</OutDir>
+    <IntDir>../out/$(Configuration)/</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>../out/debug/</OutDir>
+    <IntDir>../out/debug/obj/</IntDir>
+    <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
+    <SourcePath>$(VC_SourcePath);</SourcePath>
+    <TargetName>ipop-tincan</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntDir>../out/$(Configuration)/</IntDir>
+    <OutDir>../out/$(Platform)/$(Configuration)/</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IntDir>../out/release/obj/</IntDir>
+    <OutDir>../out/release/</OutDir>
+    <TargetName>ipop-tincan</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../include;../../webrtc/include</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>../include;../../external/include</AdditionalIncludeDirectories>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_MBCS;%(PreprocessorDefinitions);WEBRTC_WIN;_IPOP_WIN</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <DisableSpecificWarnings>
+      </DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>ntdll.lib;kernel32.lib;user32.lib;advapi32.lib;shell32.lib;uuid.lib;odbc32.lib;%(AdditionalDependencies);iphlpapi.lib;boringssl.lib;boringssl_asm.lib;field_trial_default.lib;jsoncpp.lib;rtc_base.lib;rtc_base_approved.lib;rtc_p2p.lib;rtc_xmllite.lib;rtc_xmpp.lib;ws2_32.lib;secur32.lib;winmm.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\external\lib\debug_x64\win;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../include;../../webrtc/include</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>../include;../../external/include</AdditionalIncludeDirectories>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_MBCS;%(PreprocessorDefinitions);WEBRTC_WIN;_IPOP_WIN</PreprocessorDefinitions>
+      <PrecompiledHeaderFile />
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>ntdll.lib;kernel32.lib;user32.lib;advapi32.lib;shell32.lib;uuid.lib;odbc32.lib;%(AdditionalDependencies);iphlpapi.lib;boringssl.lib;boringssl_asm.lib;field_trial_default.lib;jsoncpp.lib;rtc_base.lib;rtc_base_approved.lib;rtc_p2p.lib;rtc_xmllite.lib;rtc_xmpp.lib;ws2_32.lib;secur32.lib;winmm.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\..\external\lib\release_x64\win;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
