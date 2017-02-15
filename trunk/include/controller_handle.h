@@ -48,33 +48,45 @@ namespace tincan {
   class TincanDispatchInterface
   {
   public:
+    virtual void AddRoute(
+      const string & tap_name,
+      const string & dest_mac,
+      const string & path_mac) = 0;
+
+    virtual void ConnectToPeer(
+      const Json::Value & link_desc) = 0;
+
     virtual void CreateVNet(
       unique_ptr<VnetDescriptor> lvecfg) = 0;
 
-    virtual void SetIpopControllerLink(
-      shared_ptr<IpopControllerLink> ctrl_link) = 0;
+    virtual void CreateVlinkListener(
+      const Json::Value & link_desc,
+      TincanControl & ctrl) = 0;
+    
+    virtual void InjectFrame(
+      const Json::Value & frame_desc) = 0;
 
     virtual void QueryNodeInfo(
       const string & tap_name,
       const string & uid_node,
       Json::Value & state_data) = 0;
 
-    virtual void SetIgnoredNetworkInterfaces(
+    virtual   void RemoveRoute(
       const string & tap_name,
-      vector<string> & ignored_list) = 0;
-
-    virtual void ConnectToPeer(
-      const Json::Value & link_desc) = 0;
-
-    virtual void CreateVlinkListener(
-      const Json::Value & link_desc,
-      TincanControl & ctrl) = 0;
+      const string & dest_mac) = 0;
 
     virtual void RemoveVlink(
       const Json::Value & link_desc) = 0;
 
     virtual void SendIcc(
       const Json::Value & icc_desc) = 0;
+
+    virtual void SetIgnoredNetworkInterfaces(
+      const string & tap_name,
+      vector<string> & ignored_list) = 0;
+
+    virtual void SetIpopControllerLink(
+      shared_ptr<IpopControllerLink> ctrl_link) = 0;
   };
 }  // namespace tincan
 #endif  // TINCAN_CONTROLLER_HANDLE_H_

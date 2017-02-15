@@ -38,91 +38,20 @@ Tincan::~Tincan()
   delete ctrl_listener_;
 }
 
-void
-Tincan::Run()
-{
-  //TODO:Code cleanup
-#if defined(_IPOP_WIN)
-  self_ = this;
-  SetConsoleCtrlHandler(ControlHandler, TRUE);
-#endif // _IPOP_WIN
-
-  //Start tincan control to get config from Controller
-  unique_ptr<ControlDispatch> ctrl_dispatch(new ControlDispatch);
-  ctrl_dispatch->SetDispatchToTincanInf(this);
-  ctrl_listener_ = new ControlListener(move(ctrl_dispatch));
-  ctl_thread_.Start(ctrl_listener_);
-  WaitForExitSignal();
-}
-
-void
-Tincan::Shutdown()
-{
-  lock_guard<mutex> lg(vnets_mutex_);
-  ctl_thread_.Stop();
-  for(auto const & vnet : vnets_) {
-    vnet->Shutdown();
-  }
-}
-
-void Tincan::CreateVNet(unique_ptr<VnetDescriptor> lvecfg)
-{
-  lock_guard<mutex> lg(vnets_mutex_);
-  auto vnet = make_unique<VirtualNetwork>(move(lvecfg), *ctrl_link_);
-  vnet->Configure();
-  vnet->Start();
-  vnets_.push_back(move(vnet));
-}
-
-void 
-Tincan::SetIpopControllerLink(
-  shared_ptr<IpopControllerLink> ctrl_handle)
-{
-  ctrl_link_ = ctrl_handle;
-}
-
-void Tincan::GetLocalNodeInfo(
-  VirtualNetwork & vnet,
-  Json::Value & node_info)
-{
-  VnetDescriptor & lcfg = vnet.Descriptor();
-  node_info["Type"] = "local";
-  node_info[TincanControl::UID] = lcfg.uid;
-  node_info[TincanControl::VIP4] = lcfg.vip4;
-  node_info[TincanControl::VIP6] = lcfg.vip6;
-  node_info["VnetDescription"] = lcfg.description;
-  node_info[TincanControl::MAC] = vnet.MacAddress();
-  node_info[TincanControl::Fingerprint] = vnet.Fingerprint();
-  node_info[TincanControl::InterfaceName] = vnet.Name();
-}
-
-void
-Tincan::QueryNodeInfo(
+void Tincan::AddRoute(
   const string & tap_name,
-  const string & node_uid,
-  Json::Value & node_info)
+  const string & dest_mac,
+  const string & path_mac)
 {
   VirtualNetwork & vn = VnetFromName(tap_name);
-  if(node_uid.length() == 0 || node_uid.compare(vn.Descriptor().uid) == 0)
-  {
-    GetLocalNodeInfo(vn, node_info);
-  }
-  else
-  {
-    node_info["Type"] = "peer";
-    node_info["VnetDescription"] = vn.Descriptor().description;
-    node_info[TincanControl::InterfaceName] = vn.Name();
-    vn.QueryNodeInfo(node_uid, node_info);
-  }
-}
-
-void 
-Tincan::SetIgnoredNetworkInterfaces(
-  const string & tap_name,
-  vector<string>& ignored_list)
-{
-  VirtualNetwork & vn = VnetFromName(tap_name);
-  vn.IgnoredNetworkInterfaces(ignored_list);
+  MacAddressType mac_dest, mac_path;
+  size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
+  if(cnt != 6)
+    throw TCEXCEPT("AddRoute failed, destination MAC address was NOT successfully converted.");
+  cnt = StringToByteArray(path_mac, mac_path.begin(), mac_path.end());
+  if(cnt != 6)
+    throw TCEXCEPT("AddRoute failed, path MAC address was NOT successfully converted.");
+  vn.AddRoute(mac_dest, mac_path);
 }
 
 void
@@ -143,6 +72,22 @@ Tincan::ConnectToPeer(
 
   VirtualNetwork & vn = VnetFromName(tap_name);
   vn.ConnectToPeer(move(peer_desc), move(vl_desc));
+}
+
+void 
+Tincan::SetIpopControllerLink(
+  shared_ptr<IpopControllerLink> ctrl_handle)
+{
+  ctrl_link_ = ctrl_handle;
+}
+
+void Tincan::CreateVNet(unique_ptr<VnetDescriptor> lvecfg)
+{
+  lock_guard<mutex> lg(vnets_mutex_);
+  auto vnet = make_unique<VirtualNetwork>(move(lvecfg), *ctrl_link_);
+  vnet->Configure();
+  vnet->Start();
+  vnets_.push_back(move(vnet));
 }
 
 void
@@ -179,37 +124,45 @@ Tincan::CreateVlinkListener(
 }
 
 void
-Tincan::OnLocalCasUpdated(
-  string lcas)
+Tincan::InjectFrame(
+  const Json::Value & frame_desc)
 {
-  if(lcas.empty())
+  const string & tap_name = frame_desc[TincanControl::InterfaceName].asString();
+  VirtualNetwork & vn = VnetFromName(tap_name);
+  vn.InjectFame(move(frame_desc[TincanControl::Data].asString()));
+}
+
+void
+Tincan::QueryNodeInfo(
+  const string & tap_name,
+  const string & node_uid,
+  Json::Value & node_info)
+{
+  VirtualNetwork & vn = VnetFromName(tap_name);
+  if(node_uid.length() == 0 || node_uid.compare(vn.Descriptor().uid) == 0)
   {
-    lcas = "No local candidates available on this vlink";
-    LOG_F(LS_WARNING) << lcas;
+    GetLocalNodeInfo(vn, node_info);
   }
-  //this seemingly round-about code is to avoid locking the Deliver() call or setting up the excepton handler necessary for using the mutex directly.
-  bool to_deliver = false;
-  list<unique_ptr<TincanControl>>::iterator itr;
-  unique_ptr<TincanControl> ctrl;
+  else
   {
-    std::lock_guard<std::mutex> lg(inprogess_controls_mutex_);
-    itr = inprogess_controls_.begin();
-    for(;itr != inprogess_controls_.end(); itr++)
-    {
-      if((*itr)->GetCommand() == TincanControl::CreateLinkListener.c_str())
-      {
-        to_deliver = true;
-        ctrl = move(*itr);
-        inprogess_controls_.erase(itr);
-        break;
-      }
-    }
+    node_info[TincanControl::Type] = "peer";
+    node_info[TincanControl::VnetDescription] = vn.Descriptor().description;
+    node_info[TincanControl::InterfaceName] = vn.Name();
+    vn.QueryNodeInfo(node_uid, node_info);
   }
-  if(to_deliver)
-  {
-    ctrl->SetResponse(lcas, true);
-    ctrl_link_->Deliver(move(ctrl));
-  }
+}
+
+void
+Tincan::RemoveRoute(
+  const string & tap_name,
+  const string & dest_mac)
+{
+  VirtualNetwork & vn = VnetFromName(tap_name);
+  MacAddressType mac_dest;
+  size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
+  if(cnt != 6)
+    throw TCEXCEPT("Destination MAC address was NOT successfully converted.");
+  vn.RemoveRoute(mac_dest);
 }
 
 void
@@ -229,8 +182,83 @@ Tincan::SendIcc(
   const string & tap_name = icc_desc[TincanControl::InterfaceName].asString();
   VirtualNetwork & vn = VnetFromName(tap_name);
   const string & uid= icc_desc[TincanControl::Recipient].asString();
-  const string & data = icc_desc[TincanControl::PacketData].asString();
+  const string & data = icc_desc[TincanControl::Data].asString();
   vn.SendIcc(uid, data);
+}
+
+void
+Tincan::SetIgnoredNetworkInterfaces(
+  const string & tap_name,
+  vector<string>& ignored_list)
+{
+  VirtualNetwork & vn = VnetFromName(tap_name);
+  vn.IgnoredNetworkInterfaces(ignored_list);
+}
+
+void
+Tincan::OnLocalCasUpdated(
+  string lcas)
+{
+  if(lcas.empty())
+  {
+    lcas = "No local candidates available on this vlink";
+    LOG_F(LS_WARNING) << lcas;
+  }
+  //this seemingly round-about code is to avoid locking the Deliver() call or setting up the excepton handler necessary for using the mutex directly.
+  bool to_deliver = false;
+  list<unique_ptr<TincanControl>>::iterator itr;
+  unique_ptr<TincanControl> ctrl;
+  {
+    std::lock_guard<std::mutex> lg(inprogess_controls_mutex_);
+    itr = inprogess_controls_.begin();
+    for(; itr != inprogess_controls_.end(); itr++)
+    {
+      if((*itr)->GetCommand() == TincanControl::CreateLinkListener.c_str())
+      {
+        to_deliver = true;
+        ctrl = move(*itr);
+        inprogess_controls_.erase(itr);
+        break;
+      }
+    }
+  }
+  if(to_deliver)
+  {
+    ctrl->SetResponse(lcas, true);
+    ctrl_link_->Deliver(move(ctrl));
+  }
+}
+
+void
+Tincan::Run()
+{
+  //TODO:Code cleanup
+#if defined(_IPOP_WIN)
+  self_ = this;
+  SetConsoleCtrlHandler(ControlHandler, TRUE);
+#endif // _IPOP_WIN
+
+  //Start tincan control to get config from Controller
+  unique_ptr<ControlDispatch> ctrl_dispatch(new ControlDispatch);
+  ctrl_dispatch->SetDispatchToTincanInf(this);
+  ctrl_listener_ = new ControlListener(move(ctrl_dispatch));
+  ctl_thread_.Start(ctrl_listener_);
+  exit_event_.Wait(Event::kForever);
+}
+
+void Tincan::GetLocalNodeInfo(
+  VirtualNetwork & vnet,
+  Json::Value & node_info)
+{
+  VnetDescriptor & lcfg = vnet.Descriptor();
+  node_info[TincanControl::Type] = "local";
+  node_info[TincanControl::UID] = lcfg.uid;
+  node_info[TincanControl::VIP4] = lcfg.vip4;
+  node_info[TincanControl::VIP6] = lcfg.vip6;
+  node_info[TincanControl::VnetDescription] = lcfg.description;
+  node_info[TincanControl::MAC] = vnet.MacAddress();
+  node_info[TincanControl::Fingerprint] = vnet.Fingerprint();
+  node_info[TincanControl::InterfaceName] = vnet.Name();
 }
 
 VirtualNetwork & 
@@ -248,15 +276,19 @@ Tincan::VnetFromName(
 }
 
 //-----------------------------------------------------------------------------
-void
-Tincan::WaitForExitSignal()
-{
-  exit_event_.Wait(Event::kForever);
-}
-
 void Tincan::OnStop() {
   Shutdown();
   exit_event_.Set();
+}
+
+void
+Tincan::Shutdown()
+{
+  lock_guard<mutex> lg(vnets_mutex_);
+  ctl_thread_.Stop();
+  for(auto const & vnet : vnets_) {
+    vnet->Shutdown();
+  }
 }
 
 /*
@@ -279,7 +311,6 @@ BOOL __stdcall Tincan::ControlHandler(DWORD CtrlType) {
   return(FALSE);
 }
 #endif // _IPOP_WIN
-
 } // namespace tincan
 
 

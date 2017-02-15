@@ -29,6 +29,7 @@
 #include "tincan_exception.h"
 namespace tincan
 {
+const Json::StaticString TincanControl::AddRoutes("AddRoutes");
 const Json::StaticString TincanControl::Command("Command");
 const Json::StaticString TincanControl::CAS("CAS");
 const Json::StaticString TincanControl::ConnectToPeer("ConnectToPeer");
@@ -43,29 +44,35 @@ const Json::StaticString TincanControl::ICC("ICC");
 const Json::StaticString TincanControl::IgnoredNetInterfaces("IgnoredNetInterfaces");
 const Json::StaticString TincanControl::InterfaceName("InterfaceName");
 const Json::StaticString TincanControl::IPOP("IPOP");
+const Json::StaticString TincanControl::LogLevel("LogLevel");
 const Json::StaticString TincanControl::MAC("MAC");
 const Json::StaticString TincanControl::Message("Message");
-const Json::StaticString TincanControl::PacketData("PacketData");
+const Json::StaticString TincanControl::Data("Data");
 const Json::StaticString TincanControl::PeerInfo("PeerInfo");
 const Json::StaticString TincanControl::ProtocolVersion("ProtocolVersion");
 const Json::StaticString TincanControl::QueryNodeInfo("QueryNodeInfo");
 const Json::StaticString TincanControl::QueryStunCandidates("QueryStunCandidates");
 const Json::StaticString TincanControl::RemovePeer("RemovePeer");
+const Json::StaticString TincanControl::RemoveRoutes("RemoveRoutes");
 const Json::StaticString TincanControl::Request("Request");
 const Json::StaticString TincanControl::Recipient("Recipient");
 const Json::StaticString TincanControl::Response("Response");
-const Json::StaticString TincanControl::RouteToPeer("RouteToPeer");
+const Json::StaticString TincanControl::Routes("Routes");
+const Json::StaticString TincanControl::UpdateRoutes("UpdateRoutes");
 const Json::StaticString TincanControl::Sender("Sender");
 const Json::StaticString TincanControl::SetIgnoredNetInterfaces("SetIgnoredNetInterfaces");
 const Json::StaticString TincanControl::SetLoggingLevel("SetLoggingLevel");
+const Json::StaticString TincanControl::Stats("Stats");
 const Json::StaticString TincanControl::Status("Status");
 const Json::StaticString TincanControl::Success("Success");
 const Json::StaticString TincanControl::TincanRequest("TincanRequest");
 const Json::StaticString TincanControl::TincanResponse("TincanResponse");
 const Json::StaticString TincanControl::TransactionId("TransactionId");
+const Json::StaticString TincanControl::Type("Type");
 const Json::StaticString TincanControl::UID("UID");
 const Json::StaticString TincanControl::VIP4("VIP4");
 const Json::StaticString TincanControl::VIP6("VIP6");
+const Json::StaticString TincanControl::VnetDescription("VnetDescription");
 
 TincanControl::TincanControl() :
   proto_ver_(kIpopProtoVer),

@@ -28,6 +28,7 @@
 #pragma warning(disable:4459)
 #pragma warning(disable:4996)
 #include "webrtc/base/asyncpacketsocket.h"
+#include "webrtc/base/json.h"
 #include "webrtc/base/network.h"
 #include "webrtc/base/sslfingerprint.h"
 #include "webrtc/base/thread.h"
@@ -89,10 +90,12 @@ public:
 
   void PeerCandidates(const string & peer_cas);
 
+  void GetStats(Json::Value & infos);
+
   sigslot::signal1<VirtualLink&> SignalLinkReady;
   sigslot::signal1<VirtualLink&> SignalLinkBroken;
   sigslot::signal1<string> SignalLocalCasReady;
-  sigslot::signal3<const uint8_t *, uint32_t, VirtualLink&>
+  sigslot::signal3<uint8_t *, uint32_t, VirtualLink&>
     SignalMessageReceived;
 private:
   void SetupTransport(

@@ -47,8 +47,7 @@ VirtualNetwork::VirtualNetwork(
   tdev_(nullptr),
   peer_network_(nullptr),
   descriptor_(move(descriptor)),
-  ctrl_link_(ctrl_handle),
-  link_count_(0)
+  ctrl_link_(ctrl_handle)
 {
   tdev_ = new TapDev();
   peer_network_ = new PeerNetwork(descriptor->name);
@@ -108,11 +107,13 @@ VirtualNetwork::Start()
     tdev_->read_completion_.connect(this, &VirtualNetwork::TapReadComplete);
     tdev_->write_completion_.connect(this, &VirtualNetwork::TapWriteComplete);
   }
+  tdev_->Up();
 }
 
 void
 VirtualNetwork::Shutdown()
 {
+  tdev_->Down();
   tdev_->Close();
 }
 
@@ -122,23 +123,17 @@ VirtualNetwork::StartTunnel(
 {
   vlink;
   lock_guard<mutex> lg(vn_mtx);
-  assert(link_count_ >= 0);
-  if(link_count_++ == 0)
-  {
-    tdev_->Up();
-  }
-  tf_cache_.Reservation((size_t)(&vlink));
+  //tf_cache_.Reservation((size_t)(&vlink));
   for(uint8_t i = 0; i < kLinkConcurrentAIO; i++)
   {
-    TapFrame * tf = tf_cache_.Acquire();
-    tf->Initialize();
-    //TapFrame * tf = new TapFrame(true);
+    unique_ptr<TapFrame> tf = make_unique<TapFrame>();
+    //TapFrame * tf = tf_cache_.Acquire();
     if(tf)
-      tdev_->Read(*tf);
-    //else its fine, enough AIOs are active in the system
+    {
+      tf->Initialize();
+      tdev_->Read(*tf.release());
+    }//else its fine, enough AIOs are active in the system
   }
-
-
 }
 
 void
@@ -146,15 +141,22 @@ VirtualNetwork::DestroyTunnel(
   VirtualLink & vlink)
 {
   vlink;
-  lock_guard<mutex> lg(vn_mtx);
-  --link_count_;
-  assert(link_count_ >= 0);
-  if(link_count_ == 0)
-  {
-    tdev_->Down();
-  }
-  tf_cache_.CancelReservation((size_t)(&vlink));
+  //tf_cache_.CancelReservation((size_t)(&vlink));
+}
 
+void
+VirtualNetwork::AddRoute(
+  MacAddressType mac_dest,
+  MacAddressType mac_path)
+{
+  peer_network_->AddRoute(mac_dest, mac_path);
+}
+
+void
+VirtualNetwork::RemoveRoute(
+  MacAddressType mac_dest)
+{
+  peer_network_->RemoveRoute(mac_dest);
 }
 
 unique_ptr<VirtualLink>
@@ -234,7 +236,7 @@ VirtualNetwork::ConnectToPeer(
     md.vlink_desc = move(vlink_desc);
     worker_.Post(this, MSGID_CREATE_LINK, &md);
     //block until it ready
-    md.msg_event.Wait(MessageQueue::kForever);
+    md.msg_event.Wait(Event::kForever);
     vl = peer_network_->UidToVlink(uid);
   }
   if(vl)
@@ -252,9 +254,8 @@ void VirtualNetwork::RemovePeerConnection(
 {
   if(peer_network_->Exists(peer_uid))
   {
-    shared_ptr<VirtualLink> vl = peer_network_->Remove(peer_uid);
-    VlinkMsgData * md = new VlinkMsgData;
-    md->vl = vl;
+    UidMsgData * md = new UidMsgData;
+    md->uid = peer_uid;
     worker_.Post(this, MSGID_END_CONNECTION, md);
   }
 }
@@ -275,7 +276,7 @@ string
 VirtualNetwork::MacAddress()
 {
   return ByteArrayToString(tdev_->MacAddress().begin(),
-    tdev_->MacAddress().end(), 0, true);
+    tdev_->MacAddress().end(), 0);
 }
 
 string
@@ -303,10 +304,21 @@ void VirtualNetwork::QueryNodeInfo(
     node_info[TincanControl::VIP6] = vl->PeerInfo().vip6;
     node_info[TincanControl::MAC] = vl->PeerInfo().mac_address;
     node_info[TincanControl::Fingerprint] = vl->PeerInfo().fingerprint;
+
     if(vl->IsReady())
+    {
+      LinkStatsMsgData md;
+      md.vl = vl;
+      worker_.Post(this, MSGID_QUERY_NODE_INFO, &md);
+      md.msg_event.Wait(Event::kForever);
+      node_info[TincanControl::Stats].swap(md.stats);
       node_info[TincanControl::Status] = "online";
+    }
     else
+    {
       node_info[TincanControl::Status] = "offline";
+      node_info[TincanControl::Stats] = Json::Value(Json::arrayValue);
+    }
   }
   else
   {
@@ -320,16 +332,14 @@ VirtualNetwork::SendIcc(
   const string & recipient_uid,
   const string & data)
 {
-  unique_ptr<TapFrame> frame = make_unique<TapFrame>(true);
-  IccMessage * icc = reinterpret_cast<IccMessage*>(frame->EthernetHeader());
+  TransmitMsgData *md = new TransmitMsgData;
+  md->tf = make_unique<TapFrame>(true);
+  IccMessage * icc = reinterpret_cast<IccMessage*>(md->tf->begin());
   icc->MessageData((uint8_t*)data.c_str(), (uint16_t)data.length());
-  frame->BytesToTransfer(icc->MessageLength());
-  frame->BufferToTransfer(frame->EthernetHeader());
-
-  shared_ptr<VirtualLink> vl = peer_network_->UidToVlink(recipient_uid);
-  TransmitMsgData *md = new TransmitMsgData;;
-  md->tf = move(frame);
-  md->vl = vl;
+  md->tf->BytesToTransfer(icc->MessageLength());
+  md->tf->BufferToTransfer(md->tf->begin());
+  md->vl = peer_network_->UidToVlink(recipient_uid);
+  /*LOG_F(LS_ERROR) << "SendICC: magic(" << icc->magic_ << ") length(" << icc->data_len_ << ")";*/
   worker_.Post(this, MSGID_SEND_ICC, md);
 }
 
@@ -349,12 +359,13 @@ Types of Transformation:
 */
 void
 VirtualNetwork::ProcessIncomingFrameL2(
-  const uint8_t * data,
+  uint8_t * data,
   uint32_t data_len,
   VirtualLink & vlink)
 {
   vlink;
-  TapFrame * frame = tf_cache_.Acquire(data, data_len);
+  //TapFrame * frame = tf_cache_.Acquire(data, data_len);
+  unique_ptr<TapFrame> frame = make_unique<TapFrame>(data, data_len);
   TapFrameProperties fp(*frame);
   if(fp.IsIccMsg())
   { // this is an ICC message, deliver to the ipop-controller
@@ -363,18 +374,20 @@ VirtualNetwork::ProcessIncomingFrameL2(
     Json::Value & req = ctrl->GetRequest();
     req[TincanControl::Command] = TincanControl::ICC;
     req[TincanControl::InterfaceName] = descriptor_->name;
-    IccMessage * icc = reinterpret_cast<IccMessage*>(frame->EthernetHeader());
-    req[TincanControl::PacketData] = string((char*)icc->data_, icc->data_len_);
+    IccMessage * icc = reinterpret_cast<IccMessage*>(frame->begin());
+    req[TincanControl::Data] = string((char*)icc->data_, icc->data_len_);
     ctrl_link_.Deliver(move(ctrl));
-    //delete &frame;
-    tf_cache_.Reclaim(frame);
+    //tf_cache_.Reclaim(frame);
   }
   else
   {
-    frame->BufferToTransfer(frame->EthernetHeader());
+    //unique_ptr<TapFrame> frame = make_unique<TapFrame>(data, data_len);
+    //TapFrame * frame = tf_cache_.Acquire(data, data_len);
+    //TapFrameProperties fp(*frame);
+    frame->BufferToTransfer(frame->begin());
     frame->BytesToTransfer(frame->BytesTransferred());
     frame->SetWriteOp();
-    tdev_->Write(*frame);
+    tdev_->Write(*frame.release());
   }
 }
 
@@ -401,96 +414,84 @@ VirtualNetwork::TapReadCompleteL2(
   {
     frame->Initialize();
     if(0 != tdev_->Read(*frame))
-      //delete frame;
-      tf_cache_.Reclaim(frame);
+      delete frame;
+      //tf_cache_.Reclaim(frame);
     return;
   }
   TapFrameProperties fp(*frame);
   MacAddressType &mac = fp.DestinationMac();
-  if(peer_network_->Exists(mac))
+  frame->BufferToTransfer(frame->begin());
+  frame->BytesToTransfer(frame->BytesTransferred());
+  bool found = peer_network_->Exists(mac);
+  if(found)
   {
-    frame->Dump();
+    frame->Dump("Unicast");
     shared_ptr<VirtualLink> vl = peer_network_->MacAddressToVlink(mac);
-    frame->BytesToTransfer(frame->BytesTransferred());
-    frame->BufferToTransfer(frame->EthernetHeader());
     TransmitMsgData *md = new TransmitMsgData;;
     md->tf.reset(frame);
     md->vl = vl;
     worker_.Post(this, MSGID_TRANSMIT, md);
   }
-  else if(fp.IsArpRequest())
+  else
   {
-    frame->Dump();
-    uint32_t ip4;
-    TapArp4 arp(frame->EthernetPl());
-    ip4 = arp.DestinationIp();
-    if(peer_network_->Exists(ip4))
-    { // Transmit packet to peer via its vlink
-      shared_ptr<VirtualLink> vl = peer_network_->Ip4ToVlink(ip4);
-      frame->BytesToTransfer(frame->BytesTransferred());
-      frame->BufferToTransfer(frame->EthernetHeader());
-      TransmitMsgData *md = new TransmitMsgData;
-      md->tf.reset(frame);
-      md->vl = vl;
-      worker_.Post(this, MSGID_TRANSMIT, md);
-    }
-    else
-    { // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
+    // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
+    unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
+    ctrl->SetControlType(TincanControl::CTTincanRequest);
+    Json::Value & req = ctrl->GetRequest();
+    req[TincanControl::Command] = TincanControl::UpdateRoutes;
+    req[TincanControl::InterfaceName] = descriptor_->name;
+    req[TincanControl::Data] = ByteArrayToString(frame->BufferToTransfer(),
+      frame->BufferToTransfer() + frame->BytesToTransfer());
+    ctrl_link_.Deliver(move(ctrl));
+    //Post a new TAP read request
+    frame->Initialize();
+    if(0 != tdev_->Read(*frame))
+      delete frame;
+    //tf_cache_.Reclaim(frame);
+/*
+    if (fp.IsArpRequest())
+    {
+      frame->Dump("ARP Request");
+      // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
       unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
       ctrl->SetControlType(TincanControl::CTTincanRequest);
       Json::Value & req = ctrl->GetRequest();
-      req[TincanControl::Command] = TincanControl::RouteToPeer;
+      req[TincanControl::Command] = TincanControl::UpdateRoutes;
       req[TincanControl::InterfaceName] = descriptor_->name;
-      req[TincanControl::PacketData] = ByteArrayToString(frame->BufferToTransfer(),
+      req[TincanControl::Data] = ByteArrayToString(frame->BufferToTransfer(),
         frame->BufferToTransfer() + frame->BytesToTransfer());
       ctrl_link_.Deliver(move(ctrl));
       //Post a new TAP read request
       frame->Initialize();
       if(0 != tdev_->Read(*frame))
-        //delete frame;
-        tf_cache_.Reclaim(frame);
+        delete frame;
+        //tf_cache_.Reclaim(frame);
     }
-  }
-  else if(fp.IsEthernetBroadcast())
-  { // send any other Ethernet broadcast on all vlinks
-    //if(gvl)
-    //{
-    //  frame->BytesToTransfer(frame->BytesTransferred());
-    //  frame->BufferToTransfer(frame->EthernetHeader());
-    //  LOG_F(LS_VERBOSE) << "L2 Broadcast Data from TAP:";
-    //  frame->Dump();
-    //  TransmitMsgData *md = new TransmitMsgData;
-    //  md->tf = frame;
-    //  md->vl = gvl;
-    //  worker_.Post(this, MSGID_TRANSMIT, md);
-    //}
-    //else // we only send ARP to the controller
+    else if(fp.IsArpResponse())
     {
-      //LOG_F(LS_INFO) << "discarding eth broadcast frame";
+      frame->Dump("ARP Response");
+      // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
+      unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
+      ctrl->SetControlType(TincanControl::CTTincanRequest);
+      Json::Value & req = ctrl->GetRequest();
+      req[TincanControl::Command] = TincanControl::UpdateRoutes;
+      req[TincanControl::InterfaceName] = descriptor_->name;
+      req[TincanControl::Data] = ByteArrayToString(frame->BufferToTransfer(),
+        frame->BufferToTransfer() + frame->BytesToTransfer());
+      ctrl_link_.Deliver(move(ctrl));
       //Post a new TAP read request
       frame->Initialize();
       if(0 != tdev_->Read(*frame))
-        //delete frame;
-        tf_cache_.Reclaim(frame);
+        delete frame;
     }
-  }
-  else
-  { // Frame sent to a specific MAC address for which we have no vlink
-    // Send frame the controller to have it find a route
-    unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
-    ctrl->SetControlType(TincanControl::CTTincanRequest);
-    Json::Value & req = ctrl->GetRequest();
-    req[TincanControl::Command] = TincanControl::RouteToPeer;
-    req[TincanControl::InterfaceName] = descriptor_->name;
-    //TODO: optimization - don't sent the entire packet data ...
-    req[TincanControl::PacketData] = ByteArrayToString(frame->BufferToTransfer(),
-      frame->BufferToTransfer() + frame->BytesToTransfer());;
-    ctrl_link_.Deliver(move(ctrl));
-    //Post a new TAP read request
-    frame->Initialize();
-    if(0 != tdev_->Read(*frame))
-      //delete frame;
-      tf_cache_.Reclaim(frame);
+    else
+    {
+      frame->Initialize();
+      if(0 != tdev_->Read(*frame))
+        delete frame;
+        //tf_cache_.Reclaim(frame);
+    }
+    */
   }
 }
 
@@ -499,9 +500,9 @@ VirtualNetwork::TapWriteCompleteL2(
   AsyncIo * aio_wr)
 {
   TapFrame * frame = static_cast<TapFrame*>(aio_wr->context_);
-  frame->Dump();
-  //delete frame;
-  tf_cache_.Reclaim(frame);
+  frame->Dump("TAP Write Completed");
+  delete frame;
+  //tf_cache_.Reclaim(frame);
 }
 
 void VirtualNetwork::OnMessage(Message * msg)
@@ -543,17 +544,24 @@ void VirtualNetwork::OnMessage(Message * msg)
     unique_ptr<TapFrame> frame = move(((IccMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
+    LOG_F(LS_VERBOSE) << "Sent ICC to " << vl->PeerInfo().vip4;
+
     delete msg->pdata;
   }
   break;
   case MSGID_END_CONNECTION:
   {
-    shared_ptr<VirtualLink> vl = ((VlinkMsgData*)msg->pdata)->vl;
-    LOG_F(LS_VERBOSE) << "Removing peer connection: " << vl->Name();
+    string uid = ((UidMsgData*)msg->pdata)->uid;
     delete msg->pdata;
-    vl->Disconnect();
-
+    peer_network_->Remove(uid);
     //DestroyTunnel(*vl);
+  }
+  break;
+  case MSGID_QUERY_NODE_INFO:
+  {
+    shared_ptr<VirtualLink> vl = ((LinkStatsMsgData*)msg->pdata)->vl;
+    vl->GetStats(((LinkStatsMsgData*)msg->pdata)->stats);
+    ((LinkStatsMsgData*)msg->pdata)->msg_event.Set();
   }
   break;
   }
@@ -561,7 +569,7 @@ void VirtualNetwork::OnMessage(Message * msg)
 
 void
 VirtualNetwork::ProcessIncomingFrame(
-  const uint8_t * data,
+  uint8_t * data,
   uint32_t data_len,
   VirtualLink & vlink)
 {
@@ -580,5 +588,29 @@ VirtualNetwork::TapWriteComplete(
   AsyncIo * aio_wr)
 {
   aio_wr;
+}
+
+void
+VirtualNetwork::InjectFame(
+  string && data)
+{
+  unique_ptr<TapFrame> tf = make_unique<TapFrame>();
+  tf->Initialize();
+  tf->SetWriteOp();
+  tf->BufferToTransfer(tf->begin());
+  if(data.length() > 2 * kTapBufferSize)
+  {
+    stringstream oss;
+    oss << "Inject Frame operation failed - frame size " << data.length() / 2 <<
+      " is larger than maximum accepted " << kTapBufferSize;
+    throw TCEXCEPT(oss.str().c_str());
+  }
+  size_t len = StringToByteArray(data, tf->begin(), tf->end());
+  if(len != data.length() / 2)
+    throw TCEXCEPT("Inject Frame operation failed - ICC decode failure");
+  tf->BytesTransferred((uint32_t)len);
+  tf->BytesToTransfer((uint32_t)len);
+  tdev_->Write(*tf.release());
+  LOG_F(LS_ERROR) << "ICC frame injected";
 }
 } //namespace tincan

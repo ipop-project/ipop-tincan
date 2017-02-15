@@ -89,6 +89,10 @@ public:
 
   uint8_t * EthernetHeader();
 
+  uint8_t * begin();
+
+  uint8_t * end();
+
   uint8_t * EthernetPl();
 
   /*
@@ -96,7 +100,7 @@ public:
   */
   uint32_t Capacity() const;
 
-  void Dump();
+  void Dump(const string & label);
 
  private:
    TapFrameBuffer * tfb_;

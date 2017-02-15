@@ -39,23 +39,12 @@ class Tincan :
 public:
   Tincan();
   ~Tincan();
-  void Run();
   //
   //TincanDispatchInterface interface
-  void CreateVNet(
-    unique_ptr<VnetDescriptor> lvecfg) override;
-  
-  void SetIpopControllerLink(
-    shared_ptr<IpopControllerLink> ctrl_handle) override;
-
-  void QueryNodeInfo(
+  void AddRoute(
     const string & tap_name,
-    const string & node_uid,
-    Json::Value & node_info) override;
-
-  void SetIgnoredNetworkInterfaces(
-    const string & tap_name,
-    vector<string> & ignored_list) override;
+    const string & dest_mac,
+    const string & path_mac) override;
 
   void ConnectToPeer(
     const Json::Value & link_desc) override;
@@ -64,26 +53,54 @@ public:
     const Json::Value & link_desc,
     TincanControl & ctrl) override;
 
+  void CreateVNet(
+    unique_ptr<VnetDescriptor> lvecfg) override;
+  
+  void InjectFrame(
+    const Json::Value & frame_desc) override;
+
+  void QueryNodeInfo(
+    const string & tap_name,
+    const string & node_uid,
+    Json::Value & node_info) override;
+
+  void RemoveRoute(
+    const string & tap_name,
+    const string & dest_mac) override;
+
   void RemoveVlink(
     const Json::Value & link_desc) override;
 
   void SendIcc(
     const Json::Value & icc_desc) override;
 
+  void SetIgnoredNetworkInterfaces(
+    const string & tap_name,
+    vector<string> & ignored_list) override;
+
+  void SetIpopControllerLink(
+    shared_ptr<IpopControllerLink> ctrl_handle) override;
+//
+//
   void OnLocalCasUpdated(
     string lcas);
 
-
+  void Run();
 private:
-  void OnStop();
-  void WaitForExitSignal();
-  void Shutdown();
-  VirtualNetwork & VnetFromName(
-    const string & tap_name);
-
   void GetLocalNodeInfo(
     VirtualNetwork & vnet,
     Json::Value & node_info);
+
+  VirtualNetwork & VnetFromName(
+    const string & tap_name);
+
+  void OnStop();
+  void Shutdown();
+  //TODO:Code cleanup
+#if defined(_IPOP_WIN)
+  static BOOL __stdcall ControlHandler(
+    DWORD CtrlType);
+#endif // _IPOP_WIN
 
   vector<unique_ptr<VirtualNetwork>> vnets_;
   ControlListener * ctrl_listener_;
@@ -95,12 +112,6 @@ private:
   std::mutex inprogess_controls_mutex_;
   rtc::Event exit_event_;
 
-  //TODO:Code cleanup
-#if defined(_IPOP_WIN)
-  static BOOL __stdcall ControlHandler(
-    DWORD CtrlType);
-
-#endif // _IPOP_WIN
 };
 } //namespace tincan
 #endif //TINCAN_TINCAN_H_

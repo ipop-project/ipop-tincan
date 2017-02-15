@@ -260,6 +260,33 @@ VirtualLink::PeerCandidates(
 }
 
 void
+VirtualLink::GetStats(Json::Value & stats)
+{
+  cricket::ConnectionInfos infos;
+  cricket::TransportChannelImpl* channel =
+    transport_->GetChannel(cricket::ICE_CANDIDATE_COMPONENT_DEFAULT);
+  channel->GetStats(&infos);
+  for(auto info : infos)
+  {
+    Json::Value stat(Json::objectValue);
+    stat["local_addr"] = info.local_candidate.address().ToString();
+    stat["rem_addr"] = info.remote_candidate.address().ToString();
+    stat["local_type"] = info.local_candidate.type();
+    stat["rem_type"] = info.remote_candidate.type();
+    stat["best_conn"] = info.best_connection;
+    stat["writable"] = info.writable;
+    stat["timeout"] = info.timeout;
+    stat["new_conn"] = info.new_connection;
+    stat["rtt"] = (Json::UInt64)info.rtt;
+    stat["sent_total_bytes"] = (Json::UInt64)info.sent_total_bytes;
+    stat["sent_bytes_second"] = (Json::UInt64)info.sent_bytes_second;
+    stat["recv_total_bytes"] = (Json::UInt64)info.recv_total_bytes;
+    stat["recv_bytes_second"] = (Json::UInt64)info.recv_bytes_second;
+    stats.append(stat);
+  }
+}
+
+void
 VirtualLink::SetupICE(
   const string & local_uid,
   SSLFingerprint const & local_fingerprint)
@@ -277,7 +304,7 @@ VirtualLink::SetupICE(
   }
   cricket::ConnectionRole remote_conn_role = cricket::CONNECTIONROLE_ACTIVE;
   ice_conn_role_ = cricket::CONNECTIONROLE_ACTPASS;
-  if(local_uid.compare(peer_desc_->uid) > 0) {
+  if(local_uid.compare(peer_desc_->uid) < 0) {
     ice_conn_role_ = cricket::CONNECTIONROLE_ACTIVE;
     remote_conn_role = cricket::CONNECTIONROLE_ACTPASS;
   }
@@ -298,7 +325,8 @@ VirtualLink::SetupICE(
     remote_conn_role,
     remote_fingerprint_.get()));
 
-  if(local_uid.compare(peer_desc_->uid) > 0) {
+  if(local_uid.compare(peer_desc_->uid) < 0)
+  {
     transport_->SetIceRole(cricket::ICEROLE_CONTROLLING);
     //when controlling the remote description must be set first.
     transport_->SetRemoteTransportDescription(
@@ -306,12 +334,17 @@ VirtualLink::SetupICE(
     transport_->SetLocalTransportDescription(
       *local_description_.get(), cricket::CA_ANSWER, NULL);
   }
-  else {
+  else if(local_uid.compare(peer_desc_->uid) > 0)
+  {
     transport_->SetIceRole(cricket::ICEROLE_CONTROLLED);
     transport_->SetLocalTransportDescription(
       *local_description_.get(), cricket::CA_OFFER, NULL);
     transport_->SetRemoteTransportDescription(
       *remote_description_.get(), cricket::CA_ANSWER, NULL);
+  }
+  else
+  {
+    throw TCEXCEPT("The Setup Ice operation failed as the peer UIDs are equal. A node will not create a vlink to itself");
   }
 }
 

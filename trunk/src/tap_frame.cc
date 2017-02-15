@@ -171,6 +171,20 @@ uint8_t * TapFrame::EthernetHeader()
   return tfb_->fb_;
 }
 
+uint8_t * TapFrame::begin()
+{
+  if(!tfb_)
+    return end();
+  return tfb_->fb_;
+}
+
+uint8_t * TapFrame::end()
+{
+  if(!tfb_)
+    return nullptr;
+  return tfb_->fb_+kTapBufferSize; //one after last valid byte
+}
+
 uint8_t * TapFrame::EthernetPl()
 {
   if(!tfb_)
@@ -185,12 +199,12 @@ uint32_t TapFrame::Capacity() const
   return sizeof(tfb_->fb_);
 }
 
-void TapFrame::Dump()
+void TapFrame::Dump(const string & label)
 {
   if(LOG_CHECK_LEVEL(LS_VERBOSE))
   {
     ostringstream oss;
-    LOG_F(LS_VERBOSE) << endl <<
+    LOG_F(LS_VERBOSE) << label << endl <<
       ByteArrayToString(tfb_->fb_, tfb_->fb_ + bytes_transferred_, 16, true);
   }
 }

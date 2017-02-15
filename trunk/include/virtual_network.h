@@ -55,6 +55,7 @@ public:
     MSGID_TRANSMIT,
     MSGID_SEND_ICC,
     MSGID_END_CONNECTION,
+    MSGID_QUERY_NODE_INFO,
   };
   class IccMsgData : public MessageData
   {
@@ -73,6 +74,11 @@ public:
   public:
     shared_ptr<VirtualLink> vl;
   };
+  class UidMsgData : public MessageData
+  {
+  public:
+    string uid;
+  };
   class CreateVlinkMsgData : public MessageData
   {
   public:
@@ -82,6 +88,16 @@ public:
     CreateVlinkMsgData() : msg_event(false, false)
     {}
     ~CreateVlinkMsgData() = default;
+  };
+  class LinkStatsMsgData : public MessageData
+  {
+  public:
+    shared_ptr<VirtualLink> vl;
+    Json::Value stats;
+    rtc::Event msg_event;
+    LinkStatsMsgData() : stats(Json::arrayValue), msg_event(false, false)
+    {}
+    ~LinkStatsMsgData() = default;
   };
   struct IccMessage
   {
@@ -108,6 +124,7 @@ public:
     uint16_t data_len_; // number of occupied bytes in data_
     uint8_t data_[kMaxIccMsgLen];
   };
+  //ctor
    VirtualNetwork(
      unique_ptr<VnetDescriptor> descriptor,
      IpopControllerLink & ctrl_handle);
@@ -120,6 +137,8 @@ public:
     VirtualLink & vlink);
   void DestroyTunnel(
     VirtualLink & vlink);
+  void AddRoute(MacAddressType mac_dest, MacAddressType mac_path);
+  void RemoveRoute(MacAddressType mac_dest);
   //
   //Creates the listening endpoint of vlink and returns its candidate address
   //set for the connection.
@@ -140,6 +159,9 @@ public:
   string Name();
   string MacAddress();
   string Fingerprint();
+
+  void GetStats(
+    Json::Value & stats);
   void IgnoredNetworkInterfaces(
     const vector<string>& ignored_list);
   
@@ -154,12 +176,12 @@ public:
   //
   //FrameHandler implementation
   void ProcessIncomingFrame(
-    const uint8_t * data,
+    uint8_t * data,
     uint32_t data_len,
     VirtualLink & vlink);
 
   void ProcessIncomingFrameL2(
-    const uint8_t * data,
+    uint8_t * data,
     uint32_t data_len,
     VirtualLink & vlink);
 
@@ -171,11 +193,13 @@ public:
   void TapReadCompleteL2(
     AsyncIo * aio_rd);
 
+  void TapWriteComplete(
+    AsyncIo * aio_wr);
+
   void TapWriteCompleteL2(
     AsyncIo * aio_wr);
 
-  void TapWriteComplete(
-    AsyncIo * aio_wr);
+  void InjectFame(string && data);
   //
   //MessageHandler overrides
   void OnMessage(Message* msg) override;
@@ -192,7 +216,6 @@ private:
   PeerNetwork * peer_network_;
   IpopControllerLink & ctrl_link_;//TODO: change to shared_ptr<IpopControllerLink> ctrl_link_;
   rtc::Thread worker_;
-  int32_t link_count_;
   mutex vn_mtx;
   TapFrameCache tf_cache_;
 };

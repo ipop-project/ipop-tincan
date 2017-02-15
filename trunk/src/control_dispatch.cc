@@ -33,15 +33,18 @@ ControlDispatch::ControlDispatch() :
   ctrl_link_(make_shared<DisconnectedControllerHandle>())
 {
   control_map_ = {
+    { "AddRoutes", &ControlDispatch::AddRoutes },
     { "ConnectToPeer", &ControlDispatch::ConnectToPeer },
     { "CreateCtrlRespLink", &ControlDispatch::CreateIpopControllerRespLink },
     { "CreateLinkListener", &ControlDispatch::CreateLinkListener },
     { "CreateVnet", &ControlDispatch::CreateVNet },
     { "Echo", &ControlDispatch::Echo },
     { "ICC", &ControlDispatch::SendICC },
+    { "InjectFrame", &ControlDispatch::InjectFrame },
     { "QueryStunCandidates", &ControlDispatch::QueryStunCandidates },
     { "QueryNodeInfo", &ControlDispatch::QueryNodeInfo },
     { "RemovePeer", &ControlDispatch::RemovePeer },
+    { "RemoveRoutes", &ControlDispatch::RemoveRoutes },
     { "SetIgnoredNetInterfaces", &ControlDispatch::SetNetworkIgnoreList },
     { "SetLoggingLevel", &ControlDispatch::SetLogLevel },
   };
@@ -88,6 +91,201 @@ ControlDispatch::SetDispatchToListenerInf(
 }
 
 void
+ControlDispatch::AddRoutes(
+  TincanControl & control)
+{
+  bool status = false;
+  Json::Value & req = control.GetRequest();
+  const string tap_name = req[TincanControl::InterfaceName].asString();
+  string msg = "The Add Routes operation failed.";
+  lock_guard<mutex> lg(disp_mutex_);
+  Json::Value rts = req[TincanControl::Routes];
+  if(rts.isArray())
+  {
+    for(uint32_t i = 0; i < rts.size(); i++)
+    {
+      try
+      {
+        string route = rts[i].asString();
+        string dest_mac = route.substr(0, 12);
+        string path_mac = route.substr(13, 24);
+        tincan_->AddRoute(tap_name, dest_mac, path_mac);
+      } catch(exception & e)
+      {
+        LOG_F(LS_WARNING) << e.what();
+      }
+    }
+    status = true;
+  }
+  else
+  {
+    msg += "The routes parameter is not an array. ";
+  }
+  msg = "The Add Routes opertation completed successfully.";
+  control.SetResponse(msg, status);
+  ctrl_link_->Deliver(control);
+}
+
+void
+ControlDispatch::ConnectToPeer(
+  TincanControl & control)
+{
+  Json::Value & req = control.GetRequest();
+  string msg("Connection to peer node in progress.");
+  bool status = false;
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    tincan_->ConnectToPeer(req);
+    status = true;
+  } catch(exception & e)
+  {
+    msg = "The ConnectToPeer operation failed.";
+    LOG_F(LS_WARNING) << e.what();
+  }
+  control.SetResponse(msg, status);
+  ctrl_link_->Deliver(control);
+}
+void ControlDispatch::CreateIpopControllerRespLink(
+  TincanControl & control)
+{
+  Json::Value & req = control.GetRequest();
+  string ip = req["IP"].asString();
+  int port = req["Port"].asInt();
+  string msg("Controller endpoint successfully created.");
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    unique_ptr<SocketAddress> ctrl_addr(new SocketAddress(ip, port));
+    dtol_->CreateIpopControllerLink(move(ctrl_addr));
+    ctrl_link_.reset(&dtol_->GetIpopControllerLink());
+    tincan_->SetIpopControllerLink(ctrl_link_);
+    control.SetResponse(msg, true);
+    ctrl_link_->Deliver(control);
+  }
+  catch(exception & e)
+  {
+    //if this fails we can't indicate this to the controller so log with
+    //high severity
+    LOG_F(LS_ERROR) << e.what();
+  }
+}
+
+void
+ControlDispatch::CreateLinkListener(
+  TincanControl & control)
+{
+  Json::Value & req = control.GetRequest();
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    tincan_->CreateVlinkListener(req, control); //don't use this instance of control after this line as its internals were moved.
+  } catch(exception & e)
+  {
+    string msg = "The CreateLinkListener operation failed.";
+    LOG_F(LS_WARNING) << e.what();
+    //send fail here, send the cas when the op completes
+    control.SetResponse(msg, false);
+    ctrl_link_->Deliver(control);
+  }
+}
+
+void
+ControlDispatch::CreateVNet(
+  TincanControl & control)
+{
+  Json::Value & req = control.GetRequest();
+  string msg;
+  bool status = false;
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    unique_ptr<VnetDescriptor> vn_desc(new VnetDescriptor);
+    vn_desc->name = req[TincanControl::InterfaceName].asString();
+    vn_desc->uid = req["LocalUID"].asString();
+    vn_desc->vip4 = req["LocalVirtIP4"].asString();
+    vn_desc->netmask4 = req["LocalNetMask4"].asUInt();
+    vn_desc->mtu4 = req["MTU4"].asUInt();
+    vn_desc->vip6 = req["LocalVirtIP6"].asString();
+    vn_desc->netmask6 = req["LocalNetMask6"].asUInt();
+    vn_desc->mtu6 = req["MTU6"].asUInt();
+    vn_desc->l2tunnel_enabled = true; //req["L2TunnelEnabled"].asBool();
+    vn_desc->auto_trim_enabled = false; //req["AutoTrimEnabled"].asBool();
+    vn_desc->address_translation_enabled = false; //req["AddressTranslationEnabled"].asBool();
+    vn_desc->stun_addr = req["StunAddress"].asString();
+    vn_desc->turn_addr = req["TurnAddress"].asString();
+    vn_desc->turn_pass = req["TurnPass"].asString();
+    vn_desc->turn_user = req["TurnUser"].asString();
+    tincan_->CreateVNet(move(vn_desc));
+    status = true;
+  } catch(exception & e)
+  {
+    msg = "The CreateVNet operation failed.";
+    LOG_F(LS_ERROR) << e.what();
+  }
+  control.SetResponse(msg, status);
+  ctrl_link_->Deliver(control);
+}
+
+void
+ControlDispatch::QueryNodeInfo(
+  TincanControl & control)
+{
+  Json::Value & req = control.GetRequest(), node_info;
+  string uid = req[TincanControl::UID].asString();
+  string tap_name = req[TincanControl::InterfaceName].asString();
+  string resp;
+  bool status = false;
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    tincan_->QueryNodeInfo(tap_name, uid, node_info);
+    resp = node_info.toStyledString();;
+    status = true;
+  } catch(exception & e)
+  {
+    resp = "The QueryNodeInfo operation failed. ";
+    LOG_F(LS_WARNING) << resp << e.what();
+  }
+  control.SetResponse(resp, status);
+  ctrl_link_->Deliver(control);
+}
+
+void ControlDispatch::Echo(TincanControl & control)
+{
+  Json::Value & req = control.GetRequest();
+  string msg = req[TincanControl::Message].asString();
+  control.SetResponse(msg, true);
+  control.SetControlType(TincanControl::CTTincanResponse);
+  ctrl_link_->Deliver(control);
+}
+
+void
+ControlDispatch::InjectFrame(
+  TincanControl & control)
+{
+  control;
+  Json::Value & req = control.GetRequest();
+  lock_guard<mutex> lg(disp_mutex_);
+  try
+  {
+    tincan_->InjectFrame(req);
+  } catch(exception & e)
+  {
+    string msg = "The Inject Frame operation failed.";
+    LOG_F(LS_WARNING) << e.what();
+  }
+}
+
+void
+ControlDispatch::QueryStunCandidates(
+  TincanControl & control)
+{
+  control;
+  //TODO: implementation
+}
+
+void
 ControlDispatch::RemovePeer(
   TincanControl & control)
 {
@@ -122,52 +320,25 @@ ControlDispatch::RemovePeer(
   ctrl_link_->Deliver(control);
 }
 
-void ControlDispatch::CreateIpopControllerRespLink(
-  TincanControl & control)
-{
-  Json::Value & req = control.GetRequest();
-  string ip = req["IP"].asString();
-  int port = req["Port"].asInt();
-  string msg("Controller endpoint successfully created.");
-  lock_guard<mutex> lg(disp_mutex_);
-  try
-  {
-    unique_ptr<SocketAddress> ctrl_addr(new SocketAddress(ip, port));
-    dtol_->CreateIpopControllerLink(move(ctrl_addr));
-    ctrl_link_.reset(&dtol_->GetIpopControllerLink());
-    tincan_->SetIpopControllerLink(ctrl_link_);
-    control.SetResponse(msg, true);
-    ctrl_link_->Deliver(control);
-  }
-  catch(exception & e)
-  {
-    //if this fails we can't indicate this to the controller so log with
-    //high severity
-    LOG_F(LS_ERROR) << e.what();
-  }
-}
-
 void
-ControlDispatch::QueryNodeInfo(
+ControlDispatch::RemoveRoutes(
   TincanControl & control)
 {
-  Json::Value & req = control.GetRequest(), node_info;
-  string uid = req[TincanControl::UID].asString();
-  string tap_name = req[TincanControl::InterfaceName].asString();
-  string resp;
   bool status = false;
-  lock_guard<mutex> lg(disp_mutex_);
+  Json::Value & req = control.GetRequest();
+  const string tap_name = req[TincanControl::InterfaceName].asString();
+  const string mac = req[TincanControl::MAC].asString();
+  string msg;
   try
   {
-    tincan_->QueryNodeInfo(tap_name, uid, node_info);
-    resp = node_info.toStyledString();;
+    tincan_->RemoveRoute(tap_name, mac);
     status = true;
   } catch(exception & e)
   {
-    resp = "The QueryNodeInfo operation failed. ";
-    LOG_F(LS_WARNING) << resp << e.what();
+    msg = "The Remove Route operation failed.";
+    LOG_F(LS_WARNING) << e.what();
   }
-  control.SetResponse(resp, status);
+  control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
 }
 
@@ -178,19 +349,23 @@ ControlDispatch::SetLogLevel(
   Json::Value & req = control.GetRequest();
   bool status = true;
   string msg("The log level has been set to ");
-  string logging = req["Value"].asString();
-    msg.append(logging);
+  string logging = req[TincanControl::LogLevel].asString();
+  msg.append(logging);
   lock_guard<mutex> lg(disp_mutex_);
-  if(logging == "NONE") {
+  if(logging == "NONE")
+  {
     rtc::LogMessage::LogToDebug(rtc::LS_NONE);
   }
-  else if(logging == "ERROR") {
+  else if(logging == "ERROR")
+  {
     rtc::LogMessage::LogToDebug(rtc::LS_ERROR);
   }
-  else if(logging == "WARNING") {
+  else if(logging == "WARNING")
+  {
     rtc::LogMessage::LogToDebug(rtc::LS_WARNING);
   }
-  else if(logging == "INFO") {
+  else if(logging == "INFO")
+  {
     rtc::LogMessage::LogToDebug(rtc::LS_INFO);
   }
   else if(logging == "VERBOSE")
@@ -201,7 +376,8 @@ ControlDispatch::SetLogLevel(
   {
     rtc::LogMessage::LogToDebug(rtc::LS_SENSITIVE);
   }
-  else {
+  else
+  {
     msg = "The SetLogLevel operation failed. The specified log level is invalid: ";
     msg.append(logging);
     LOG_F(LS_WARNING) << msg;
@@ -211,16 +387,9 @@ ControlDispatch::SetLogLevel(
   ctrl_link_->Deliver(control);
 }
 
-void ControlDispatch::Echo(TincanControl & control)
-{
-  Json::Value & req = control.GetRequest();
-  string msg = req[TincanControl::Message].asString();
-  control.SetResponse(msg, true);
-  control.SetControlType(TincanControl::CTTincanResponse);
-  ctrl_link_->Deliver(control);
-}
-
-void ControlDispatch::SetNetworkIgnoreList(TincanControl & control)
+void
+ControlDispatch::SetNetworkIgnoreList(
+  TincanControl & control)
 {
   Json::Value & req = control.GetRequest();
   string tap_name = req[TincanControl::InterfaceName].asString();
@@ -232,7 +401,8 @@ void ControlDispatch::SetNetworkIgnoreList(TincanControl & control)
   try
   {
     vector<string> ignore_list(count);
-    for(int i = 0; i < count; i++) {
+    for(int i = 0; i < count; i++)
+    {
       ignore_list[i] = network_ignore_list[i].asString();
     }
     tincan_->SetIgnoredNetworkInterfaces(tap_name, ignore_list);
@@ -246,7 +416,9 @@ void ControlDispatch::SetNetworkIgnoreList(TincanControl & control)
   ctrl_link_->Deliver(control);
 }
 
-void ControlDispatch::SendICC(TincanControl & control)
+void
+ControlDispatch::SendICC(
+  TincanControl & control)
 {
   Json::Value & req = control.GetRequest();
   lock_guard<mutex> lg(disp_mutex_);
@@ -261,90 +433,5 @@ void ControlDispatch::SendICC(TincanControl & control)
     control.SetResponse(msg, false);
     ctrl_link_->Deliver(control);
   }
-}
-
-void
-ControlDispatch::CreateVNet(
-  TincanControl & control)
-{
-  Json::Value & req = control.GetRequest();
-  string msg;
-  bool status = false;
-  lock_guard<mutex> lg(disp_mutex_);
-  try
-  {
-    unique_ptr<VnetDescriptor> vn_desc(new VnetDescriptor);
-    vn_desc->name = req[TincanControl::InterfaceName].asString();
-    vn_desc->uid = req["LocalUID"].asString();
-    vn_desc->vip4 = req["LocalVirtIP4"].asString();
-    vn_desc->netmask4 = req["LocalNetMask4"].asUInt();
-    vn_desc->mtu4 = req["MTU4"].asUInt();
-    vn_desc->vip6 = req["LocalVirtIP6"].asString();
-    vn_desc->netmask6 = req["LocalNetMask6"].asUInt();
-    vn_desc->mtu6 = req["MTU6"].asUInt();
-    vn_desc->l2tunnel_enabled = true; //req["SwitchModeEnabled"].asBool();
-    vn_desc->auto_trim_enabled = false; //req["AutoTrimEnabled"].asBool();
-    vn_desc->address_translation_enabled = false; //req["AddressTranslationEnabled"].asBool();
-    vn_desc->stun_addr = req["StunAddress"].asString();
-    vn_desc->turn_addr = req["TurnAddress"].asString();
-    vn_desc->turn_pass = req["TurnPass"].asString();
-    vn_desc->turn_user = req["TurnUser"].asString();
-    tincan_->CreateVNet(move(vn_desc));
-    status = true;
-  } catch(exception & e)
-  {
-    msg = "The CreateVNet operation failed.";
-    LOG_F(LS_ERROR) << e.what();
-  }
-  control.SetResponse(msg, status);
-  ctrl_link_->Deliver(control);
-}
-
-void
-ControlDispatch::ConnectToPeer(
-  TincanControl & control)
-{
-  Json::Value & req = control.GetRequest();
-  string msg("Connection to peer node in progress.");
-  bool status = false;
-  lock_guard<mutex> lg(disp_mutex_);
-  try
-  {
-    tincan_->ConnectToPeer(req);
-    status = true;
-  } catch(exception & e)
-  {
-    msg = "The ConnectToPeer operation failed.";
-    LOG_F(LS_WARNING) << e.what();
-  }
-  control.SetResponse(msg, status);
-  ctrl_link_->Deliver(control);
-}
-
-void
-ControlDispatch::CreateLinkListener(
-  TincanControl & control)
-{
-  Json::Value & req = control.GetRequest();
-  lock_guard<mutex> lg(disp_mutex_);
-  try
-  {
-    tincan_->CreateVlinkListener(req, control); //don't use this instance of control after this line as its internals were moved.
-  } catch(exception & e)
-  {
-    string msg = "The CreateLinkListener operation failed.";
-    LOG_F(LS_WARNING) << e.what();
-    //send fail here, send the cas when the op completes
-    control.SetResponse(msg, false);
-    ctrl_link_->Deliver(control);
-  }
-}
-
-void
-ControlDispatch::QueryStunCandidates(
-  TincanControl & control)
-{
-  control;
-  //TODO: implementation
 }
 }  // namespace tincan

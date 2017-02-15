@@ -163,13 +163,13 @@ string ByteArrayToString(
   }
   return oss.str();
 }
-
+//Fixme: Doesn't handle line breaks
 template<typename OutputIter>
 size_t StringToByteArray(
   const string & src,
   OutputIter first,
   OutputIter last,
-  bool sep_present = true)
+  bool sep_present = false)
 {
   assert(sizeof(*first) == 1);
   size_t count = 0;

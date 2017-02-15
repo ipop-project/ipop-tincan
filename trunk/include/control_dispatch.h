@@ -45,17 +45,20 @@ public:
   void SetDispatchToListenerInf(DispatchToListenerInf * dtol);
 
 private:
-  void CreateLinkListener(TincanControl & control);
-  void QueryStunCandidates(TincanControl & control);
+  void AddRoutes(TincanControl & control);
   void ConnectToPeer(TincanControl & control);
-  void RemovePeer(TincanControl & control);
   void CreateIpopControllerRespLink(TincanControl & control);
-  void QueryNodeInfo(TincanControl & control);
-  void SetLogLevel(TincanControl & control);
+  void CreateLinkListener(TincanControl & control);
+  void CreateVNet(TincanControl & control);
   void Echo(TincanControl & control);
+  void InjectFrame(TincanControl & control);
+  void QueryNodeInfo(TincanControl & control);
+  void QueryStunCandidates(TincanControl & control);
+  void RemovePeer(TincanControl & control);
+  void RemoveRoutes(TincanControl & control);
+  void SetLogLevel(TincanControl & control);
   void SetNetworkIgnoreList(TincanControl & control);
   void SendICC(TincanControl & control);
-  void CreateVNet(TincanControl & control);
 
   map<std::string, void (ControlDispatch::*)(TincanControl & control)>control_map_;
   DispatchToListenerInf * dtol_;

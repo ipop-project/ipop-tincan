@@ -79,6 +79,7 @@ const array<const char*, 3> ControlTypeStrings = { {"TincanRequest", "TincanResp
     return ++tincan_control_tag_value__;
   }
 
+  static const Json::StaticString AddRoutes;
   static const Json::StaticString Command;
   static const Json::StaticString CAS;
   static const Json::StaticString ConnectToPeer;
@@ -93,29 +94,35 @@ const array<const char*, 3> ControlTypeStrings = { {"TincanRequest", "TincanResp
   static const Json::StaticString IgnoredNetInterfaces;
   static const Json::StaticString InterfaceName;
   static const Json::StaticString IPOP;
+  static const Json::StaticString LogLevel;
   static const Json::StaticString MAC;
   static const Json::StaticString Message;
-  static const Json::StaticString PacketData;
+  static const Json::StaticString Data;
   static const Json::StaticString PeerInfo;
   static const Json::StaticString ProtocolVersion;
   static const Json::StaticString QueryNodeInfo;
   static const Json::StaticString QueryStunCandidates;
   static const Json::StaticString Recipient;
   static const Json::StaticString RemovePeer;
+  static const Json::StaticString RemoveRoutes;
   static const Json::StaticString Request;
   static const Json::StaticString Response;
-  static const Json::StaticString RouteToPeer;
+  static const Json::StaticString Routes;
+  static const Json::StaticString UpdateRoutes;
   static const Json::StaticString Sender;
   static const Json::StaticString SetIgnoredNetInterfaces;
   static const Json::StaticString SetLoggingLevel;
+  static const Json::StaticString Stats;
   static const Json::StaticString Status;
   static const Json::StaticString Success;
   static const Json::StaticString TincanRequest;
   static const Json::StaticString TincanResponse;
   static const Json::StaticString TransactionId;
+  static const Json::StaticString Type;
   static const Json::StaticString VIP4;
   static const Json::StaticString VIP6;
   static const Json::StaticString UID;
+  static const Json::StaticString VnetDescription;
 private:
   uint32_t proto_ver_;
   uint64_t tag_;
