@@ -37,16 +37,9 @@ created. It also updates the UID map (for now).
 */
 void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
 {
-  //uint32_t addr4;
-  //if(!inet_pton(AF_INET, vlink->PeerInfo().vip4.c_str(), &addr4))
-  //  throw TCEXCEPT("Invalid IP4 address string specified");
-  
-  //in6_addr addr6;
-  //if(!inet_pton(AF_INET6, vlink->PeerInfo().vip6.c_str(), &addr6))
-  //  throw TCEXCEPT("Invalid IP6 address string specified");
-  
   shared_ptr<Hub> hub = make_shared<Hub>();
   hub->vlink = vlink;
+  hub->is_valid = true;
   MacAddressType mac;
   size_t cnt = StringToByteArray(
     vlink->PeerInfo().mac_address, mac.begin(), mac.end());
@@ -56,23 +49,18 @@ void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
     emsg.append(vlink->PeerInfo().mac_address);
     throw TCEXCEPT(emsg.c_str());
   }
-  //{
-  //  lock_guard<mutex> lg(ip4_map_mtx_);
-  //  ip4_map[addr4] = vlink;
-  //}
-  //{
-  //  lock_guard<mutex> lg(ip6_map_mutex);
-  //  ip6_map[addr6] = vlink;
-  //}
   {
     lock_guard<mutex> lg(mac_map_mtx_);
-    //TODO:verify this does not already exist in map
+    if(mac_map.count(mac) == 1)
+    {
+      LOG_F(LS_ERROR) << "Entry " << vlink->PeerInfo().mac_address <<
+        " already exists in peer net. It will be updated.";
+    }
     mac_map[mac] = hub;
   }
   {
     lock_guard<mutex> lg(uid_map_mtx_);
     uid_map[vlink->PeerInfo().uid] = hub;
-    //idmac_map[vlink->PeerInfo().uid] = mac;
   }
   LOG_F(LS_ERROR) << "Added node " << vlink->PeerInfo().mac_address;
   //LOG_F(LS_VERBOSE) << "Added node " << vlink->PeerInfo().mac_address;
@@ -82,17 +70,24 @@ void PeerNetwork::AddRoute(
   MacAddressType & dest,
   MacAddressType & route)
 {
-  try
+  lock_guard<mutex> lg(mac_map_mtx_);
+  if(dest == route || mac_map.count(route) == 0 ||
+    (mac_map.count(route) && !mac_map.at(route)->is_valid))
   {
-    lock_guard<mutex> lg(mac_map_mtx_);
-    shared_ptr<Hub> hub = mac_map.at(route);
-    hub->terminal.push_back(dest);
-    mac_map[dest] = hub;
+    stringstream oss;
+    oss << "Attempt to add INVALID route! DEST=" <<
+      ByteArrayToString(dest.begin(), dest.end()) << " ROUTE=" <<
+      ByteArrayToString(route.begin(), route.end());
+    throw TCEXCEPT(oss.str().c_str());
   }
-  catch(...)
-  {
-    throw TCEXCEPT("The Add Route operation failed. Ensure that the route exist.");
-  }
+  if(mac_map.count(dest) == 1)
+    mac_map.erase(dest);
+  shared_ptr<Hub> hub = mac_map.at(route);
+  mac_map[dest] = hub;
+  LOG_F(LS_ERROR) << "Added route to node=" << 
+    ByteArrayToString(dest.begin(), dest.end()) << " through node=" << 
+    ByteArrayToString(route.begin(), route.end()) << " vlink obj=" << 
+    hub->vlink.get();
 }
 /*
 Used when a vlink is removed and the peer is no longer adjacent. All routes that
@@ -123,13 +118,14 @@ PeerNetwork::Remove(
       oss << "Failed to convert MAC address :" << hub->vlink->PeerInfo().mac_address;
       throw TCEXCEPT(oss.str().c_str());
     }
-    for(auto i : hub->terminal) //remove all routes through this vlink
-      mac_map.erase(i); //remove all the MACs on this route
-    
+    hub->is_valid = false;
+    hub->vlink.reset();
     mac_map.erase(mac); //remove the MAC for the adjacent node
+
     //things that happen implicitly
-    //when hub goes out of scope ref count goes to 0 and it is deleted along with terminal list and all entries
-    LOG_F(LS_ERROR) << "Removed node " << hub->vlink->PeerInfo().mac_address;
+    //when hub goes out of scope ref count is decr, if it is 0 it is deleted 
+    LOG_F(LS_ERROR) << "Removed node " << hub->vlink->PeerInfo().mac_address <<
+      " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
     //LOG_F(LS_VERBOSE) << "Removed node " << hub->vlink->PeerInfo().mac_address;
   }
   catch(exception & e)
@@ -151,64 +147,10 @@ PeerNetwork::RemoveRoute(
 {
   lock_guard<mutex> lg(mac_map_mtx_);
   shared_ptr<Hub> hub = mac_map.at(dest);
-  hub->terminal.remove(dest);
   mac_map.erase(dest);
-  LOG_F(LS_VERBOSE) << "Removed route to node ";
-
+  LOG_F(LS_ERROR) << "Removed route to " << ByteArrayToString(dest.begin(), dest.end()) <<
+    " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
 }
-
-//shared_ptr<VirtualLink>
-//PeerNetwork::Remove(
-//  const string & peer_uid)
-//{
-//  LOG_F(LS_ERROR) << "Attempting to remove "<< peer_uid;
-//  auto peer = uid_map.find(peer_uid);
-//
-//  //lock_guard<mutex> lg4(ip4_map_mtx_);
-//  //lock_guard<mutex> lg6(ip6_map_mutex);
-//  lock_guard<mutex> lgm(mac_map_mtx_);
-//  lock_guard<mutex> lgu(uid_map_mtx_);
-//  shared_ptr<VirtualLink> vl;
-//  if(peer != uid_map.end())
-//  {
-//    vl = peer->second;
-//    uid_map.erase(vl->PeerInfo().uid);
-//
-//    uint32_t addr4;
-//    if(!inet_pton(AF_INET, vl->PeerInfo().vip4.c_str(), &addr4))
-//      LOG_F(LS_ERROR) << "An invalid IP4 address string was encountred in the "
-//      << "VLink's Peerinfo. This is an anomoly. "
-//      << "The remove peer operation is incomplete.";
-//    else
-//      ip4_map.erase(addr4);
-//
-//    //in6_addr addr6;
-//    //if(!inet_pton(AF_INET6, peer->second->PeerInfo().vip6.c_str(), &addr6))
-//    //  throw TCEXCEPT("Invalid IP6 address string specified");
-//    //ip6_map.erase(addr6);
-//    
-//    MacAddressType mac;
-//    size_t nb = StringToByteArray(vl->PeerInfo().mac_address, mac.begin(),
-//      mac.end());
-//    if(sizeof(MacAddressType) == nb)
-//    {
-//      mac_map.erase(mac);
-//    }
-//    else
-//    {
-//      LOG_F(LS_ERROR) << "Could not convert this MAC address :"
-//        << vl->PeerInfo().mac_address << ". Remove operation incomplete";
-//    }
-//  }
-//  else
-//  {
-//    ostringstream oss;
-//    oss << "Failed to peer with UID:" << peer_uid
-//      << "from peer network: " << name_ << ". It was not found";
-//    LOG_F(LS_INFO) << oss.str().c_str();
-//  }
-//  return vl;
-//}
 
 shared_ptr<VirtualLink>
 PeerNetwork::UidToVlink(
@@ -217,45 +159,6 @@ PeerNetwork::UidToVlink(
   lock_guard<mutex> lgu(uid_map_mtx_);
   return uid_map.at(uid)->vlink;
 }
-
-//shared_ptr<VirtualLink>
-//PeerNetwork::Ip4ToVlink(
-//  const string & ip4)
-//{
-//  int addr;
-//  if(!inet_pton(AF_INET, ip4.c_str(), &addr))
-//  {
-//    throw TCEXCEPT("Invalid IP4 address string specified");
-//  }
-//  return Ip4ToVlink(addr);
-//}
-
-//shared_ptr<VirtualLink> 
-//PeerNetwork::Ip4ToVlink(
-//  const uint32_t ip4)
-//{
-//  lock_guard<mutex> lg4(ip4_map_mtx_);
-//  return ip4_map.at(ip4);
-//}
-
-//shared_ptr<VirtualLink>
-//PeerNetwork::Ip6ToVlink(
-//  const string & ip6) const
-//{
-//  struct in6_addr addr;
-//  if(!inet_pton(AF_INET6, ip6.c_str(), &addr))
-//  {
-//    throw TCEXCEPT("Invalid IP6 address string specified");
-//  }
-//  return Ip6ToVlink(addr);
-//}
-//
-//shared_ptr<VirtualLink>
-//PeerNetwork::Ip6ToVlink(
-//  const in6_addr & ip6) const
-//{
-//  return ip6_map.at(ip6);
-//}
 
 shared_ptr<VirtualLink> PeerNetwork::MacAddressToVlink(const string & mac)
 {
@@ -288,12 +191,25 @@ PeerNetwork::Exists(
   return mac_map.count(mac) == 1 ? true : false;
 }
 
-//bool
-//PeerNetwork::Exists(
-//  uint32_t ip4)
-//{
-//  lock_guard<mutex> lg4(ip4_map_mtx_);
-//  return ip4_map.count(ip4) == 1 ? true : false;
-//}
-
+void
+PeerNetwork::Run(Thread* thread)
+{
+  if(!thread->ProcessMessages(60000))
+    return;
+  {
+    list<MacAddressType> ml;
+    lock_guard<mutex> lgm(mac_map_mtx_);
+    for(auto i : mac_map)
+    {
+      if(!i.second->is_valid)
+        ml.push_back(i.first);
+    }
+    for(auto m : ml)
+    {
+      MacAddressType mac = ml.front();
+      LOG_F(LS_ERROR) << "Scavenging route to " << ByteArrayToString(mac.begin(), mac.end());
+      mac_map.erase(mac);
+    }
+  }
+}
 } // namespace tincan

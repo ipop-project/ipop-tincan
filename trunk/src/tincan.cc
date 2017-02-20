@@ -163,6 +163,8 @@ Tincan::RemoveRoute(
   if(cnt != 6)
     throw TCEXCEPT("Destination MAC address was NOT successfully converted.");
   vn.RemoveRoute(mac_dest);
+  LOG_F(LS_VERBOSE) << "Removed route to node " << dest_mac;
+
 }
 
 void

@@ -108,6 +108,7 @@ VirtualNetwork::Start()
     tdev_->write_completion_.connect(this, &VirtualNetwork::TapWriteComplete);
   }
   tdev_->Up();
+  peer_net_thread_.Start(peer_network_);
 }
 
 void
@@ -115,6 +116,7 @@ VirtualNetwork::Shutdown()
 {
   tdev_->Down();
   tdev_->Close();
+  peer_net_thread_.Stop();
 }
 
 void
@@ -123,11 +125,9 @@ VirtualNetwork::StartTunnel(
 {
   vlink;
   lock_guard<mutex> lg(vn_mtx);
-  //tf_cache_.Reservation((size_t)(&vlink));
   for(uint8_t i = 0; i < kLinkConcurrentAIO; i++)
   {
     unique_ptr<TapFrame> tf = make_unique<TapFrame>();
-    //TapFrame * tf = tf_cache_.Acquire();
     if(tf)
     {
       tf->Initialize();
@@ -141,7 +141,6 @@ VirtualNetwork::DestroyTunnel(
   VirtualLink & vlink)
 {
   vlink;
-  //tf_cache_.CancelReservation((size_t)(&vlink));
 }
 
 void
@@ -419,7 +418,7 @@ VirtualNetwork::TapReadCompleteL2(
     return;
   }
   TapFrameProperties fp(*frame);
-  MacAddressType &mac = fp.DestinationMac();
+  MacAddressType mac = fp.DestinationMac();
   frame->BufferToTransfer(frame->begin());
   frame->BytesToTransfer(frame->BytesTransferred());
   bool found = peer_network_->Exists(mac);
@@ -434,7 +433,7 @@ VirtualNetwork::TapReadCompleteL2(
   }
   else
   {
-    // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
+/*    // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
     unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
     ctrl->SetControlType(TincanControl::CTTincanRequest);
     Json::Value & req = ctrl->GetRequest();
@@ -448,7 +447,7 @@ VirtualNetwork::TapReadCompleteL2(
     if(0 != tdev_->Read(*frame))
       delete frame;
     //tf_cache_.Reclaim(frame);
-/*
+*/
     if (fp.IsArpRequest())
     {
       frame->Dump("ARP Request");
@@ -491,7 +490,6 @@ VirtualNetwork::TapReadCompleteL2(
         delete frame;
         //tf_cache_.Reclaim(frame);
     }
-    */
   }
 }
 
@@ -530,7 +528,7 @@ void VirtualNetwork::OnMessage(Message * msg)
   break;
   case MSGID_TRANSMIT:
   {
-    unique_ptr<TapFrame> frame = move(((IccMsgData*)msg->pdata)->tf);
+    unique_ptr<TapFrame> frame = move(((TransmitMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
     delete msg->pdata;
@@ -541,7 +539,7 @@ void VirtualNetwork::OnMessage(Message * msg)
   break;
   case MSGID_SEND_ICC:
   {
-    unique_ptr<TapFrame> frame = move(((IccMsgData*)msg->pdata)->tf);
+    unique_ptr<TapFrame> frame = move(((TransmitMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
     LOG_F(LS_VERBOSE) << "Sent ICC to " << vl->PeerInfo().vip4;

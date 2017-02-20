@@ -57,12 +57,12 @@ public:
     MSGID_END_CONNECTION,
     MSGID_QUERY_NODE_INFO,
   };
-  class IccMsgData : public MessageData
-  {
-  public:
-    shared_ptr<VirtualLink> vl;
-    unique_ptr<TapFrame> tf;
-  };
+  //class IccMsgData : public MessageData
+  //{
+  //public:
+  //  shared_ptr<VirtualLink> vl;
+  //  unique_ptr<TapFrame> tf;
+  //};
   class TransmitMsgData : public MessageData
   {
   public:
@@ -217,7 +217,7 @@ private:
   IpopControllerLink & ctrl_link_;//TODO: change to shared_ptr<IpopControllerLink> ctrl_link_;
   rtc::Thread worker_;
   mutex vn_mtx;
-  TapFrameCache tf_cache_;
+  rtc::Thread peer_net_thread_;
 };
 }  // namespace tincan
 #endif  // TINCAN_VIRTUAL_NETWORK_H_
