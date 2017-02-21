@@ -204,10 +204,10 @@ ControlDispatch::CreateVNet(
     vn_desc->name = req[TincanControl::InterfaceName].asString();
     vn_desc->uid = req["LocalUID"].asString();
     vn_desc->vip4 = req["LocalVirtIP4"].asString();
-    vn_desc->netmask4 = req["LocalNetMask4"].asUInt();
+    vn_desc->prefix4 = req["LocalPrefix4"].asUInt();
     vn_desc->mtu4 = req["MTU4"].asUInt();
     vn_desc->vip6 = req["LocalVirtIP6"].asString();
-    vn_desc->netmask6 = req["LocalNetMask6"].asUInt();
+    vn_desc->prefix6 = req["LocalPrefix6"].asUInt();
     vn_desc->mtu6 = req["MTU6"].asUInt();
     vn_desc->l2tunnel_enabled = true; //req["L2TunnelEnabled"].asBool();
     vn_desc->auto_trim_enabled = false; //req["AutoTrimEnabled"].asBool();

@@ -31,10 +31,10 @@ struct VnetDescriptor
   string name;
   string mac;
   string vip4;
-  uint32_t netmask4;
+  uint32_t prefix4;
   uint32_t mtu4;
   string vip6;
-  uint32_t netmask6;
+  uint32_t prefix6;
   uint32_t mtu6;
   string description;
   string stun_addr;

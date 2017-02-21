@@ -32,10 +32,10 @@ struct TapDescriptor
 {
   const string interface_name;
   const string Ip4;
-  uint32_t netmask4;
+  uint32_t prefix4;
   uint32_t mtu4;
   string Ip6;
-  uint32_t netmask6;
+  uint32_t prefix6;
   uint32_t mtu6;
 };
 class TapDevInf

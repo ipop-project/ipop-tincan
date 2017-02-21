@@ -73,7 +73,7 @@ void TapDevLnx::Open(
     throw TCEXCEPT(emsg.c_str());
   }
   memcpy(mac_.data(), ifr_.ifr_hwaddr.sa_data, 6);
-  SetIpv4Addr(tap_desc.Ip4.c_str(), tap_desc.netmask4, ip4_);
+  SetIpv4Addr(tap_desc.Ip4.c_str(), tap_desc.prefix4, ip4_);
   if(!tap_desc.mtu4)
     Mtu(1500);
   else

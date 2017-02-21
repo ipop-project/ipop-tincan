@@ -65,10 +65,10 @@ VirtualNetwork::Configure()
   TapDescriptor ip_desc = {
     descriptor_->name,
     descriptor_->vip4,
-    descriptor_->netmask4,
+    descriptor_->prefix4,
     descriptor_->mtu4,
     descriptor_->vip6,
-    descriptor_->netmask6,
+    descriptor_->prefix6,
     descriptor_->mtu6};
   //initialize the Tap Device
   tdev_->Open(ip_desc);
