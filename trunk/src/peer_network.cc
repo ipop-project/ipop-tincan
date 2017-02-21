@@ -118,15 +118,14 @@ PeerNetwork::Remove(
       oss << "Failed to convert MAC address :" << hub->vlink->PeerInfo().mac_address;
       throw TCEXCEPT(oss.str().c_str());
     }
+    LOG_F(LS_ERROR) << "Removing node " << hub->vlink->PeerInfo().mac_address <<
+      " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
     hub->is_valid = false;
     hub->vlink.reset();
     mac_map.erase(mac); //remove the MAC for the adjacent node
 
     //things that happen implicitly
     //when hub goes out of scope ref count is decr, if it is 0 it is deleted 
-    LOG_F(LS_ERROR) << "Removed node " << hub->vlink->PeerInfo().mac_address <<
-      " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
-    //LOG_F(LS_VERBOSE) << "Removed node " << hub->vlink->PeerInfo().mac_address;
   }
   catch(exception & e)
   {
@@ -147,9 +146,9 @@ PeerNetwork::RemoveRoute(
 {
   lock_guard<mutex> lg(mac_map_mtx_);
   shared_ptr<Hub> hub = mac_map.at(dest);
-  mac_map.erase(dest);
   LOG_F(LS_ERROR) << "Removed route to " << ByteArrayToString(dest.begin(), dest.end()) <<
     " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
+  mac_map.erase(dest);
 }
 
 shared_ptr<VirtualLink>
