@@ -293,11 +293,7 @@ TapDevWin::Up() {
       (int)info[1] << (info[2] ? "(DEBUG)" : "");
   }
   uint16_t mtu = Mtu();
-  if(mtu != kStandardMtuSize)
-  {
-    LOG_F(LS_INFO) << "TAP device MTU does not match expected standard " <<
-      mtu << "<>" << kStandardMtuSize;
-  }
+  LOG_F(LS_INFO) << "TAP device MTU " << mtu;
 }
 
 void

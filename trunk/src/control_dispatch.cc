@@ -116,12 +116,12 @@ ControlDispatch::AddRoutes(
       }
     }
     status = true;
+    msg = "The Add Routes opertation completed successfully.";
   }
   else
   {
     msg += "The routes parameter is not an array. ";
   }
-  msg = "The Add Routes opertation completed successfully.";
   control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
 }
@@ -327,16 +327,29 @@ ControlDispatch::RemoveRoutes(
   bool status = false;
   Json::Value & req = control.GetRequest();
   const string tap_name = req[TincanControl::InterfaceName].asString();
-  const string mac = req[TincanControl::MAC].asString();
-  string msg;
-  try
+  string msg = "The Remove Routes operation failed.";
+  lock_guard<mutex> lg(disp_mutex_);
+  Json::Value rts = req[TincanControl::Routes];
+
+  if(rts.isArray())
   {
-    tincan_->RemoveRoute(tap_name, mac);
+    for(uint32_t i = 0; i < rts.size(); i++)
+    {
+      try
+      {
+        string dest_mac = rts[i].asString();
+        tincan_->RemoveRoute(tap_name, dest_mac);
+      } catch(exception & e)
+      {
+        LOG_F(LS_WARNING) << e.what();
+      }
+    }
     status = true;
-  } catch(exception & e)
+    msg = "The Add Routes opertation completed successfully.";
+  }
+  else
   {
-    msg = "The Remove Route operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    msg += "The routes parameter is not an array. ";
   }
   control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
