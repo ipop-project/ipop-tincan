@@ -33,7 +33,7 @@ ControlDispatch::ControlDispatch() :
   ctrl_link_(make_shared<DisconnectedControllerHandle>())
 {
   control_map_ = {
-    { "AddRoutes", &ControlDispatch::AddRoutes },
+    { "UpdateRoutes", &ControlDispatch::UpdateRoutes },
     { "ConnectToPeer", &ControlDispatch::ConnectToPeer },
     { "CreateCtrlRespLink", &ControlDispatch::CreateIpopControllerRespLink },
     { "CreateLinkListener", &ControlDispatch::CreateLinkListener },
@@ -44,7 +44,7 @@ ControlDispatch::ControlDispatch() :
     { "QueryStunCandidates", &ControlDispatch::QueryStunCandidates },
     { "QueryNodeInfo", &ControlDispatch::QueryNodeInfo },
     { "RemovePeer", &ControlDispatch::RemovePeer },
-    { "RemoveRoutes", &ControlDispatch::RemoveRoutes },
+    //{ "RemoveRoutes", &ControlDispatch::RemoveRoutes },
     { "SetIgnoredNetInterfaces", &ControlDispatch::SetNetworkIgnoreList },
     { "SetLoggingLevel", &ControlDispatch::SetLogLevel },
   };
@@ -91,7 +91,7 @@ ControlDispatch::SetDispatchToListenerInf(
 }
 
 void
-ControlDispatch::AddRoutes(
+ControlDispatch::UpdateRoutes(
   TincanControl & control)
 {
   bool status = false;
@@ -109,7 +109,7 @@ ControlDispatch::AddRoutes(
         string route = rts[i].asString();
         string dest_mac = route.substr(0, 12);
         string path_mac = route.substr(13, 24);
-        tincan_->AddRoute(tap_name, dest_mac, path_mac);
+        tincan_->UpdateRoute(tap_name, dest_mac, path_mac);
       } catch(exception & e)
       {
         LOG_F(LS_WARNING) << e.what();
@@ -320,40 +320,40 @@ ControlDispatch::RemovePeer(
   ctrl_link_->Deliver(control);
 }
 
-void
-ControlDispatch::RemoveRoutes(
-  TincanControl & control)
-{
-  bool status = false;
-  Json::Value & req = control.GetRequest();
-  const string tap_name = req[TincanControl::InterfaceName].asString();
-  string msg = "The Remove Routes operation failed.";
-  lock_guard<mutex> lg(disp_mutex_);
-  Json::Value rts = req[TincanControl::Routes];
-
-  if(rts.isArray())
-  {
-    for(uint32_t i = 0; i < rts.size(); i++)
-    {
-      try
-      {
-        string dest_mac = rts[i].asString();
-        tincan_->RemoveRoute(tap_name, dest_mac);
-      } catch(exception & e)
-      {
-        LOG_F(LS_WARNING) << e.what();
-      }
-    }
-    status = true;
-    msg = "The Add Routes opertation completed successfully.";
-  }
-  else
-  {
-    msg += "The routes parameter is not an array. ";
-  }
-  control.SetResponse(msg, status);
-  ctrl_link_->Deliver(control);
-}
+//void
+//ControlDispatch::RemoveRoutes(
+//  TincanControl & control)
+//{
+//  bool status = false;
+//  Json::Value & req = control.GetRequest();
+//  const string tap_name = req[TincanControl::InterfaceName].asString();
+//  string msg = "The Remove Routes operation failed.";
+//  lock_guard<mutex> lg(disp_mutex_);
+//  Json::Value rts = req[TincanControl::Routes];
+//
+//  if(rts.isArray())
+//  {
+//    for(uint32_t i = 0; i < rts.size(); i++)
+//    {
+//      try
+//      {
+//        string dest_mac = rts[i].asString();
+//        tincan_->RemoveRoute(tap_name, dest_mac);
+//      } catch(exception & e)
+//      {
+//        LOG_F(LS_WARNING) << e.what();
+//      }
+//    }
+//    status = true;
+//    msg = "The Add Routes opertation completed successfully.";
+//  }
+//  else
+//  {
+//    msg += "The routes parameter is not an array. ";
+//  }
+//  control.SetResponse(msg, status);
+//  ctrl_link_->Deliver(control);
+//}
 
 void
 ControlDispatch::SetLogLevel(

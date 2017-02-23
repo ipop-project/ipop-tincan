@@ -22,13 +22,14 @@
 */
 #ifndef TINCAN_BASE_H_
 #define TINCAN_BASE_H_
+#include <cassert>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
 #include <array>
-#include <cassert>
+#include <chrono>
 #include <exception>
 #include <iomanip>
 #include <iostream>
@@ -45,6 +46,8 @@ namespace tincan
 using MacAddressType = std::array<uint8_t, 6>;
 //using namespace std;
 using std::array;
+using std::chrono::milliseconds;
+using std::chrono::steady_clock;
 using std::cout;
 using std::endl;
 using std::exception;
@@ -54,6 +57,7 @@ using std::lock_guard;
 using std::make_shared;
 using std::make_unique;
 using std::map;
+using std::milli;
 using std::move;
 using std::mutex;
 using std::ostringstream;

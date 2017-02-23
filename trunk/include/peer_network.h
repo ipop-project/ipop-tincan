@@ -34,8 +34,8 @@ public:
     const string & name);
   ~PeerNetwork();
   void Add(shared_ptr<VirtualLink> vlink);
-  void AddRoute(MacAddressType & dest, MacAddressType & route);
-  void RemoveRoute(const MacAddressType & dest);
+  void UpdateRoute(MacAddressType & dest, MacAddressType & route);
+  //void RemoveRoute(const MacAddressType & dest);
   void Remove(const string & peer_uid);
   shared_ptr<VirtualLink> UidToVlink(const string & id);
   shared_ptr<VirtualLink> MacAddressToVlink(const string & mac);
@@ -47,9 +47,12 @@ private:
 struct Hub
 {
   Hub() : is_valid(false)
-  {}
+  {
+    accessed = steady_clock::now();
+  }
   shared_ptr<VirtualLink> vlink;
   bool is_valid;
+  steady_clock::time_point accessed;
 };
   const string & name_;
   mutex mac_map_mtx_;
@@ -59,6 +62,7 @@ struct Hub
   map<string, shared_ptr<Hub>> uid_map;
   //Runnable interface implemenation
   void Run(Thread* thread) override;
+  milliseconds const scavenge_interval;
 };
 } // namespace tincan
 #endif //_TINCAN_PEER_NETWORK_H_

@@ -41,10 +41,6 @@ public:
   ~Tincan();
   //
   //TincanDispatchInterface interface
-  void AddRoute(
-    const string & tap_name,
-    const string & dest_mac,
-    const string & path_mac) override;
 
   void ConnectToPeer(
     const Json::Value & link_desc) override;
@@ -64,9 +60,9 @@ public:
     const string & node_uid,
     Json::Value & node_info) override;
 
-  void RemoveRoute(
-    const string & tap_name,
-    const string & dest_mac) override;
+  //void RemoveRoute(
+  //  const string & tap_name,
+  //  const string & dest_mac) override;
 
   void RemoveVlink(
     const Json::Value & link_desc) override;
@@ -80,6 +76,11 @@ public:
 
   void SetIpopControllerLink(
     shared_ptr<IpopControllerLink> ctrl_handle) override;
+
+  void UpdateRoute(
+    const string & tap_name,
+    const string & dest_mac,
+    const string & path_mac) override;
 //
 //
   void OnLocalCasUpdated(

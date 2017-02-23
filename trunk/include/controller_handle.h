@@ -48,11 +48,6 @@ namespace tincan {
   class TincanDispatchInterface
   {
   public:
-    virtual void AddRoute(
-      const string & tap_name,
-      const string & dest_mac,
-      const string & path_mac) = 0;
-
     virtual void ConnectToPeer(
       const Json::Value & link_desc) = 0;
 
@@ -71,9 +66,9 @@ namespace tincan {
       const string & uid_node,
       Json::Value & state_data) = 0;
 
-    virtual   void RemoveRoute(
-      const string & tap_name,
-      const string & dest_mac) = 0;
+    //virtual   void RemoveRoute(
+    //  const string & tap_name,
+    //  const string & dest_mac) = 0;
 
     virtual void RemoveVlink(
       const Json::Value & link_desc) = 0;
@@ -87,6 +82,11 @@ namespace tincan {
 
     virtual void SetIpopControllerLink(
       shared_ptr<IpopControllerLink> ctrl_link) = 0;
-  };
+
+    virtual void UpdateRoute(
+      const string & tap_name,
+      const string & dest_mac,
+      const string & path_mac) = 0;
+};
 }  // namespace tincan
 #endif  // TINCAN_CONTROLLER_HANDLE_H_

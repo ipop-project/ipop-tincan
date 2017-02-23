@@ -45,7 +45,7 @@ public:
   void SetDispatchToListenerInf(DispatchToListenerInf * dtol);
 
 private:
-  void AddRoutes(TincanControl & control);
+  void UpdateRoutes(TincanControl & control);
   void ConnectToPeer(TincanControl & control);
   void CreateIpopControllerRespLink(TincanControl & control);
   void CreateLinkListener(TincanControl & control);
@@ -55,7 +55,7 @@ private:
   void QueryNodeInfo(TincanControl & control);
   void QueryStunCandidates(TincanControl & control);
   void RemovePeer(TincanControl & control);
-  void RemoveRoutes(TincanControl & control);
+  //void RemoveRoutes(TincanControl & control);
   void SetLogLevel(TincanControl & control);
   void SetNetworkIgnoreList(TincanControl & control);
   void SendICC(TincanControl & control);

@@ -38,7 +38,7 @@ Tincan::~Tincan()
   delete ctrl_listener_;
 }
 
-void Tincan::AddRoute(
+void Tincan::UpdateRoute(
   const string & tap_name,
   const string & dest_mac,
   const string & path_mac)
@@ -152,20 +152,20 @@ Tincan::QueryNodeInfo(
   }
 }
 
-void
-Tincan::RemoveRoute(
-  const string & tap_name,
-  const string & dest_mac)
-{
-  VirtualNetwork & vn = VnetFromName(tap_name);
-  MacAddressType mac_dest;
-  size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
-  if(cnt != 6)
-    throw TCEXCEPT("Destination MAC address was NOT successfully converted.");
-  vn.RemoveRoute(mac_dest);
-  LOG_F(LS_VERBOSE) << "Removed route to node " << dest_mac;
-
-}
+//void
+//Tincan::RemoveRoute(
+//  const string & tap_name,
+//  const string & dest_mac)
+//{
+//  VirtualNetwork & vn = VnetFromName(tap_name);
+//  MacAddressType mac_dest;
+//  size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
+//  if(cnt != 6)
+//    throw TCEXCEPT("Destination MAC address was NOT successfully converted.");
+//  vn.RemoveRoute(mac_dest);
+//  LOG_F(LS_VERBOSE) << "Removed route to node " << dest_mac;
+//
+//}
 
 void
 Tincan::RemoveVlink(

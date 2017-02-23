@@ -26,7 +26,8 @@ namespace tincan
 {
 PeerNetwork::PeerNetwork(
   const string & name) :
-  name_(name)
+  name_(name),
+  scavenge_interval(120000)
 {}
 
 PeerNetwork::~PeerNetwork()
@@ -66,7 +67,7 @@ void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
   //LOG_F(LS_VERBOSE) << "Added node " << vlink->PeerInfo().mac_address;
 }
 
-void PeerNetwork::AddRoute(
+void PeerNetwork::UpdateRoute(
   MacAddressType & dest,
   MacAddressType & route)
 {
@@ -80,8 +81,8 @@ void PeerNetwork::AddRoute(
       ByteArrayToString(route.begin(), route.end());
     throw TCEXCEPT(oss.str().c_str());
   }
-  if(mac_map.count(dest) == 1)
-    mac_map.erase(dest);
+  //if(mac_map.count(dest) == 1)
+  //  mac_map.erase(dest);
   shared_ptr<Hub> hub = mac_map.at(route);
   mac_map[dest] = hub;
   LOG_F(LS_ERROR) << "Added route to node=" << 
@@ -140,16 +141,16 @@ PeerNetwork::Remove(
   }
 }
 
-void
-PeerNetwork::RemoveRoute(
-  const MacAddressType & dest)
-{
-  lock_guard<mutex> lg(mac_map_mtx_);
-  shared_ptr<Hub> hub = mac_map.at(dest);
-  LOG_F(LS_ERROR) << "Removed route to " << ByteArrayToString(dest.begin(), dest.end()) <<
-    " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
-  mac_map.erase(dest);
-}
+//void
+//PeerNetwork::RemoveRoute(
+//  const MacAddressType & dest)
+//{
+//  lock_guard<mutex> lg(mac_map_mtx_);
+//  shared_ptr<Hub> hub = mac_map.at(dest);
+//  LOG_F(LS_ERROR) << "Removed route to " << ByteArrayToString(dest.begin(), dest.end()) <<
+//    " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
+//  mac_map.erase(dest);
+//}
 
 shared_ptr<VirtualLink>
 PeerNetwork::UidToVlink(
@@ -171,7 +172,9 @@ PeerNetwork::MacAddressToVlink(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  return mac_map.at(mac)->vlink;
+  shared_ptr<Hub> h = mac_map.at(mac);
+  h->accessed = steady_clock::now();
+  return h->vlink;
 }
 
 bool
@@ -187,27 +190,49 @@ PeerNetwork::Exists(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  return mac_map.count(mac) == 1 ? true : false;
+  if(mac_map.count(mac) == 1)
+  {
+    if(mac_map.at(mac)->is_valid)
+      return true;
+    else
+    {
+      mac_map.erase(mac);
+      return false;
+    }
+  }
+  return false;
 }
 
 void
 PeerNetwork::Run(Thread* thread)
 {
-  if(!thread->ProcessMessages(60000))
-    return;
+  steady_clock::time_point accessed;
+  while(thread->ProcessMessages((int)scavenge_interval.count()))
   {
+    accessed = steady_clock::now();
     list<MacAddressType> ml;
     lock_guard<mutex> lgm(mac_map_mtx_);
     for(auto i : mac_map)
     {
       if(!i.second->is_valid)
         ml.push_back(i.first);
+      else
+      {
+        std::chrono::duration<double, milli> elapsed = steady_clock::now() - i.second->accessed;
+        if(elapsed > 2 * scavenge_interval)
+          ml.push_back(i.first);
+      }
     }
     for(auto m : ml)
     {
       MacAddressType mac = ml.front();
       LOG_F(LS_ERROR) << "Scavenging route to " << ByteArrayToString(mac.begin(), mac.end());
       mac_map.erase(mac);
+    }
+    if(LOG_CHECK_LEVEL(LS_VERBOSE))
+    {
+      LOG_F(LS_VERBOSE) << "PeerNetwork scavenge took " <<
+        (steady_clock::now() - accessed).count() << " nanosecs.";
     }
   }
 }

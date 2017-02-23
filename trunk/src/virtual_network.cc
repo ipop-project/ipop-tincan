@@ -148,15 +148,15 @@ VirtualNetwork::AddRoute(
   MacAddressType mac_dest,
   MacAddressType mac_path)
 {
-  peer_network_->AddRoute(mac_dest, mac_path);
+  peer_network_->UpdateRoute(mac_dest, mac_path);
 }
 
-void
-VirtualNetwork::RemoveRoute(
-  MacAddressType mac_dest)
-{
-  peer_network_->RemoveRoute(mac_dest);
-}
+//void
+//VirtualNetwork::RemoveRoute(
+//  MacAddressType mac_dest)
+//{
+//  peer_network_->RemoveRoute(mac_dest);
+//}
 
 unique_ptr<VirtualLink>
 VirtualNetwork::CreateVlink(

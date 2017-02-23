@@ -138,7 +138,7 @@ public:
   void DestroyTunnel(
     VirtualLink & vlink);
   void AddRoute(MacAddressType mac_dest, MacAddressType mac_path);
-  void RemoveRoute(MacAddressType mac_dest);
+  //void RemoveRoute(MacAddressType mac_dest);
   //
   //Creates the listening endpoint of vlink and returns its candidate address
   //set for the connection.
