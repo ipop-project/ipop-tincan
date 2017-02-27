@@ -39,7 +39,7 @@ protected:
 public:
   LnxException(const string &arg, const char *file, int line)
   {
-    string errormsg = sys_errlist[errno];
+    string errormsg = strerror(errno);
     ostringstream o;
     o << file << ":" << line << ": " << arg << "@" << strerror(errno);
     emsg = o.str();

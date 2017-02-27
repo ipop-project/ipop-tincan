@@ -56,7 +56,9 @@ public:
   virtual uint32_t Write(
     AsyncIo & aio_wr) = 0;
 
-  virtual MacAddressType & MacAddress() = 0;
+  virtual MacAddressType MacAddress() = 0;
+
+  virtual IP4AddressType Ip4() = 0;
 
   virtual uint16_t Mtu() = 0;
 };

@@ -73,12 +73,12 @@ void TapDevLnx::Open(
     throw TCEXCEPT(emsg.c_str());
   }
   memcpy(mac_.data(), ifr_.ifr_hwaddr.sa_data, 6);
-  SetIpv4Addr(tap_desc.Ip4.c_str(), tap_desc.prefix4, ip4_);
+  SetIpv4Addr(tap_desc.Ip4.c_str(), tap_desc.prefix4, ip4_.data());
   if(!tap_desc.mtu4)
     Mtu(1500);
   else
     Mtu(tap_desc.mtu4);
-  
+
   is_good_ = true;
 }
 
@@ -93,7 +93,7 @@ void TapDevLnx::SetIpv4Addr(
   char *my_ipv4)
 {
   string emsg("The Tap device Set IP4 Address operation failed");
-  struct sockaddr_in socket_address = {.sin_family = AF_INET,.sin_port = 0};
+  struct sockaddr_in socket_address = { .sin_family = AF_INET,.sin_port = 0 };
   if(inet_pton(AF_INET, ipaddr, &socket_address.sin_addr) != 1)
   {
     emsg.append(" - the provided IP4 address could not be resolved.");
@@ -105,7 +105,7 @@ void TapDevLnx::SetIpv4Addr(
 
   //copies ipv4 address to my my_ipv4. ipv4 address starts at sa_data[2]
   //and terminates at sa_data[5]
-  memcpy(ip4_, &ifr_.ifr_addr.sa_data[2], 4);
+  memcpy(ip4_.data(), &ifr_.ifr_addr.sa_data[2], 4);
 
   //configure tap device with a ipv4 address
   if(ioctl(ip4_config_skt_, SIOCSIFADDR, &ifr_) < 0)
@@ -202,9 +202,9 @@ uint16_t TapDevLnx::TapDevLnx::Mtu()
   return ifr_.ifr_mtu;
 }
 
-MacAddressType& TapDevLnx::MacAddress()
+MacAddressType TapDevLnx::MacAddress()
 {
-  return mac_ ;
+  return mac_;
 }
 
   /**
@@ -246,7 +246,7 @@ void TapDevLnx::OnMessage(Message * msg)
     }
     else
     {
-      aio_read->good_ = true; 
+      aio_read->good_ = true;
       aio_read->BytesTransferred(nread);
       read_completion_(aio_read);
     }
@@ -271,7 +271,13 @@ void TapDevLnx::OnMessage(Message * msg)
   }
   break;
   }
+}
+
+IP4AddressType
+TapDevLnx::Ip4()
+{
+  return ip4_;
+}
 } // linux
 } // tincan
-}
 #endif // _IPOP_LINUX

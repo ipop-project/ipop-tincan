@@ -22,9 +22,6 @@
 */
 #include "virtual_network.h"
 #include "webrtc/base/base64.h"
-#if defined (_IPOP_WIN)
-#include <mstcpip.h>
-#endif
 #include "tincan_control.h"
 namespace tincan
 {
@@ -66,10 +63,8 @@ VirtualNetwork::Configure()
     descriptor_->name,
     descriptor_->vip4,
     descriptor_->prefix4,
-    descriptor_->mtu4,
-    descriptor_->vip6,
-    descriptor_->prefix6,
-    descriptor_->mtu6};
+    descriptor_->mtu4
+  };
   //initialize the Tap Device
   tdev_->Open(ip_desc);
   //create X509 identity for secure connections
@@ -81,16 +76,6 @@ VirtualNetwork::Configure()
     SSLFingerprint::Create(rtc::DIGEST_SHA_1, sslid_.get()));
   if(!local_fingerprint_)
     throw TCEXCEPT("Failed to create the local finger print");
-  //TODO: Move to platform agnostic implementation in tincan_base.h
-#if defined (_IPOP_WIN)
-  const char *term;
-  LONG err = RtlIpv4StringToAddress(descriptor_->vip4.c_str(),
-    TRUE, &term, &descriptor_->vip4_addr);
-  unsigned long scope_id;
-  uint16_t port;
-  err = RtlIpv6StringToAddressEx(descriptor_->vip6.c_str(),
-    &descriptor_->vip6_addr, &scope_id, &port);
-#endif
 }
 
 void
@@ -274,8 +259,8 @@ VirtualNetwork::Name()
 string
 VirtualNetwork::MacAddress()
 {
-  return ByteArrayToString(tdev_->MacAddress().begin(),
-    tdev_->MacAddress().end(), 0);
+  MacAddressType mac = tdev_->MacAddress();
+  return ByteArrayToString(mac.begin(), mac.end(), 0);
 }
 
 string

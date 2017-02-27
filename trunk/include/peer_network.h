@@ -35,7 +35,6 @@ public:
   ~PeerNetwork();
   void Add(shared_ptr<VirtualLink> vlink);
   void UpdateRoute(MacAddressType & dest, MacAddressType & route);
-  //void RemoveRoute(const MacAddressType & dest);
   void Remove(const string & peer_uid);
   shared_ptr<VirtualLink> UidToVlink(const string & id);
   shared_ptr<VirtualLink> MacAddressToVlink(const string & mac);
@@ -56,10 +55,11 @@ struct Hub
 };
   const string & name_;
   mutex mac_map_mtx_;
-  map<MacAddressType, shared_ptr<Hub>> mac_map;
+  map<MacAddressType, shared_ptr<Hub>> mac_map_;
+  map<MacAddressType, shared_ptr<Hub>> mac_routes_;
   //map by uid
   mutex uid_map_mtx_;
-  map<string, shared_ptr<Hub>> uid_map;
+  map<string, shared_ptr<Hub>> uid_map_;
   //Runnable interface implemenation
   void Run(Thread* thread) override;
   milliseconds const scavenge_interval;

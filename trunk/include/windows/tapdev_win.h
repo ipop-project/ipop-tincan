@@ -145,7 +145,9 @@ public:
   uint32_t Write(
     AsyncIo & aio_wr) override;
 
-  MacAddressType & MacAddress() override;
+  MacAddressType MacAddress() override;
+
+  IP4AddressType Ip4() override;
 
   uint16_t Mtu() override;
   //
@@ -184,6 +186,7 @@ protected:
   mutex rw_mutex_;
   IoThreadPool io_thread_pool_;
   DWORD media_status_;
+  IP4AddressType ip4_;
 };
 }  // namespace win
 }  // namespace tincan

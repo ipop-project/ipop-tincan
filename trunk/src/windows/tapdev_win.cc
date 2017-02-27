@@ -29,6 +29,7 @@
 #include "webrtc/base/systeminfo.h"
 #pragma warning(pop)
 #include <iphlpapi.h>
+#include <mstcpip.h>
 #include <wchar.h>
 #include <winioctl.h>
 #include "windows/win_exception.h"
@@ -56,9 +57,6 @@ const char * const TapDevWin::TAP_SUFFIX_ = ".tap";
 #define TAP_IOCTL_CONFIG_DHCP_SET_OPT   TAP_CONTROL_CODE (9, METHOD_BUFFERED)
 /* obsoletes TAP_WIN_IOCTL_CONFIG_POINT_TO_POINT */
 #define TAP_WIN_IOCTL_CONFIG_TUN        TAP_WIN_CONTROL_CODE (10, THOD_BUFFERED)
-
-//HANDLE TapDevWin::cmpl_prt_handle_ = NULL;
-//TapDevWin::IoThreadPool TapDevWin::io_thread_pool_;// (2 * rtc::SystemInfo::GetCurCpus());
 
 DWORD __stdcall
 TapDevWin::IoThreadDescriptor::IoCompletionThread(void * param)
@@ -119,6 +117,16 @@ TapDevWin::Open(
   string device_guid;
   try
   {
+    const char *term;
+    struct in_addr vip4_addr;
+    if(0 == RtlIpv4StringToAddress(tap_desc.Ip4.c_str(), TRUE,
+      &term, &vip4_addr))
+    {
+      memmove(ip4_.data(), &vip4_addr.S_un.S_addr, sizeof(ip4_));
+    }
+    else
+      LOG_F(WARNING) << "Failed to convert IP4 string in Tap Descriptor=" << tap_desc.Ip4;
+
     NetDeviceNameToGuid(tap_name_, device_guid);
     string device_path(USER_MODE_DEVICE_DIR_);
     device_path.append(device_guid).append(TAP_SUFFIX_);
@@ -256,7 +264,7 @@ uint32_t TapDevWin::MediaStatus()
   return media_status_;
 }
 
-MacAddressType &
+MacAddressType
 TapDevWin::MacAddress()
 {
   lock_guard<mutex> lg(rw_mutex_);
@@ -324,6 +332,12 @@ uint16_t TapDevWin::Mtu()
     LOG_ERR(LS_ERROR) << "The ioctl operation to query the TAP device MTU failed.";
   }
   return (uint16_t)mtu;
+}
+
+IP4AddressType
+TapDevWin::Ip4()
+{
+  return ip4_;
 }
 }  // namespace win
 }  // namespace tincan

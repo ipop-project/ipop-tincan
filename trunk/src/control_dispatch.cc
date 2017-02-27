@@ -33,7 +33,7 @@ ControlDispatch::ControlDispatch() :
   ctrl_link_(make_shared<DisconnectedControllerHandle>())
 {
   control_map_ = {
-    { "UpdateRoutes", &ControlDispatch::UpdateRoutes },
+    { "UpdateMap", &ControlDispatch::UpdateRoutes },
     { "ConnectToPeer", &ControlDispatch::ConnectToPeer },
     { "CreateCtrlRespLink", &ControlDispatch::CreateIpopControllerRespLink },
     { "CreateLinkListener", &ControlDispatch::CreateLinkListener },
@@ -44,7 +44,6 @@ ControlDispatch::ControlDispatch() :
     { "QueryStunCandidates", &ControlDispatch::QueryStunCandidates },
     { "QueryNodeInfo", &ControlDispatch::QueryNodeInfo },
     { "RemovePeer", &ControlDispatch::RemovePeer },
-    //{ "RemoveRoutes", &ControlDispatch::RemoveRoutes },
     { "SetIgnoredNetInterfaces", &ControlDispatch::SetNetworkIgnoreList },
     { "SetLoggingLevel", &ControlDispatch::SetLogLevel },
   };
@@ -205,17 +204,16 @@ ControlDispatch::CreateVNet(
     vn_desc->uid = req["LocalUID"].asString();
     vn_desc->vip4 = req["LocalVirtIP4"].asString();
     vn_desc->prefix4 = req["LocalPrefix4"].asUInt();
-    vn_desc->mtu4 = req["MTU4"].asUInt();
-    vn_desc->vip6 = req["LocalVirtIP6"].asString();
-    vn_desc->prefix6 = req["LocalPrefix6"].asUInt();
-    vn_desc->mtu6 = req["MTU6"].asUInt();
-    vn_desc->l2tunnel_enabled = true; //req["L2TunnelEnabled"].asBool();
-    vn_desc->auto_trim_enabled = false; //req["AutoTrimEnabled"].asBool();
-    vn_desc->address_translation_enabled = false; //req["AddressTranslationEnabled"].asBool();
+    vn_desc->mtu4 = req["Mtu4"].asUInt();
+    vn_desc->l2tunnel_enabled = req["L2TunnelEnabled"].asBool();
+    vn_desc->l3tunnel_enabled =req["L3TunnelEnabled"].asBool();
     vn_desc->stun_addr = req["StunAddress"].asString();
     vn_desc->turn_addr = req["TurnAddress"].asString();
     vn_desc->turn_pass = req["TurnPass"].asString();
     vn_desc->turn_user = req["TurnUser"].asString();
+    //vn_desc->vip6 = req["LocalVirtIP6"].asString();
+    //vn_desc->prefix6 = req["LocalPrefix6"].asUInt();
+    //vn_desc->mtu6 = req["MTU6"].asUInt();
     tincan_->CreateVNet(move(vn_desc));
     status = true;
   } catch(exception & e)
@@ -320,41 +318,6 @@ ControlDispatch::RemovePeer(
   ctrl_link_->Deliver(control);
 }
 
-//void
-//ControlDispatch::RemoveRoutes(
-//  TincanControl & control)
-//{
-//  bool status = false;
-//  Json::Value & req = control.GetRequest();
-//  const string tap_name = req[TincanControl::InterfaceName].asString();
-//  string msg = "The Remove Routes operation failed.";
-//  lock_guard<mutex> lg(disp_mutex_);
-//  Json::Value rts = req[TincanControl::Routes];
-//
-//  if(rts.isArray())
-//  {
-//    for(uint32_t i = 0; i < rts.size(); i++)
-//    {
-//      try
-//      {
-//        string dest_mac = rts[i].asString();
-//        tincan_->RemoveRoute(tap_name, dest_mac);
-//      } catch(exception & e)
-//      {
-//        LOG_F(LS_WARNING) << e.what();
-//      }
-//    }
-//    status = true;
-//    msg = "The Add Routes opertation completed successfully.";
-//  }
-//  else
-//  {
-//    msg += "The routes parameter is not an array. ";
-//  }
-//  control.SetResponse(msg, status);
-//  ctrl_link_->Deliver(control);
-//}
-
 void
 ControlDispatch::SetLogLevel(
   TincanControl & control)
@@ -381,7 +344,7 @@ ControlDispatch::SetLogLevel(
   {
     rtc::LogMessage::LogToDebug(rtc::LS_INFO);
   }
-  else if(logging == "VERBOSE")
+  else if(logging == "VERBOSE" || logging == "DEBUG")
   {
     rtc::LogMessage::LogToDebug(rtc::LS_VERBOSE);
   }

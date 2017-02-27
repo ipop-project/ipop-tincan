@@ -44,6 +44,7 @@
 namespace tincan
 {
 using MacAddressType = std::array<uint8_t, 6>;
+using IP4AddressType = std::array<uint8_t, 4>;
 //using namespace std;
 using std::array;
 using std::chrono::milliseconds;

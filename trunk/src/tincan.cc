@@ -256,7 +256,6 @@ void Tincan::GetLocalNodeInfo(
   node_info[TincanControl::Type] = "local";
   node_info[TincanControl::UID] = lcfg.uid;
   node_info[TincanControl::VIP4] = lcfg.vip4;
-  node_info[TincanControl::VIP6] = lcfg.vip6;
   node_info[TincanControl::VnetDescription] = lcfg.description;
   node_info[TincanControl::MAC] = vnet.MacAddress();
   node_info[TincanControl::Fingerprint] = vnet.Fingerprint();
