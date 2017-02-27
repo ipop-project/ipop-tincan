@@ -69,7 +69,8 @@ public:
   uint16_t Mtu() override;
   void Up() override;
   void Down() override;
-  MacAddressType& MacAddress() override;
+  MacAddressType MacAddress() override;
+  IP4AddressType Ip4() override;
   enum MSG_ID
   {
     MSGID_READ,
@@ -87,7 +88,7 @@ private:
   struct ifreq ifr_;
   int fd_;
   int ip4_config_skt_;
-  char ip4_[4];
+  IP4AddressType ip4_;
   MacAddressType mac_;
   //uint16_t mtu4_;
   bool is_good_;
