@@ -199,7 +199,11 @@ public:
     return memcmp(tf_.EthernetHeader(), &kIccMagic,
       sizeof(kIccMagic)) == 0;
   }
-
+  bool IsFwdMsg() const
+  {
+    return memcmp(tf_.EthernetHeader(), &kFwdMagic,
+      sizeof(kFwdMagic)) == 0;
+  }
   bool IsIp4()
   {
     const uint8_t* eth = tf_.EthernetHeader();

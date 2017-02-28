@@ -63,7 +63,7 @@ void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
     lock_guard<mutex> lg(uid_map_mtx_);
     uid_map_[vlink->PeerInfo().uid] = hub;
   }
-  LOG_F(LS_ERROR) << "Added node " << vlink->PeerInfo().mac_address;
+  LOG(LS_ERROR) << "Added node " << vlink->PeerInfo().mac_address; //!LS_VERBOSE
   //LOG_F(LS_VERBOSE) << "Added node " << vlink->PeerInfo().mac_address;
 }
 
@@ -83,7 +83,7 @@ void PeerNetwork::UpdateRoute(
   }
   shared_ptr<Hub> hub = mac_map_.at(route);
   mac_routes_[dest] = hub;
-  LOG_F(LS_ERROR) << "Added route to node=" << 
+  LOG(LS_ERROR) << "Added route to node=" << //!LS_VERBOSE
     ByteArrayToString(dest.begin(), dest.end()) << " through node=" << 
     ByteArrayToString(route.begin(), route.end()) << " vlink obj=" << 
     hub->vlink.get();
@@ -117,7 +117,7 @@ PeerNetwork::Remove(
       oss << "Failed to convert MAC address :" << hub->vlink->PeerInfo().mac_address;
       throw TCEXCEPT(oss.str().c_str());
     }
-    LOG_F(LS_ERROR) << "Removing node " << hub->vlink->PeerInfo().mac_address <<
+    LOG(LS_ERROR) << "Removing node " << hub->vlink->PeerInfo().mac_address << //!LS_VERBOSE
       " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
     hub->is_valid = false;
     hub->vlink.reset();
@@ -145,33 +145,36 @@ PeerNetwork::UidToVlink(
   return uid_map_.at(uid)->vlink;
 }
 
-shared_ptr<VirtualLink> PeerNetwork::MacAddressToVlink(const string & mac)
+shared_ptr<VirtualLink>
+PeerNetwork::GetVlink(
+  const string & mac)
 {
   MacAddressType mac_arr;
   StringToByteArray(mac, mac_arr.begin(), mac_arr.end());
-  return MacAddressToVlink(mac_arr);
+  return GetVlink(mac_arr);
 }
 
 shared_ptr<VirtualLink>
-PeerNetwork::MacAddressToVlink(
+PeerNetwork::GetVlink(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  shared_ptr<Hub> hub;
-  if(mac_map_.count(mac) == 1)
-  {
-    hub = mac_map_.at(mac);
-  }
-  else
-  {
-    hub = mac_routes_.at(mac);
-  }
+  shared_ptr<Hub> hub = mac_map_.at(mac);
+  return hub->vlink;
+}
+
+shared_ptr<VirtualLink>
+PeerNetwork::GetRoute(
+  const MacAddressType& mac)
+{
+  lock_guard<mutex> lgm(mac_map_mtx_);
+  shared_ptr<Hub> hub = mac_routes_.at(mac);
   hub->accessed = steady_clock::now();
   return hub->vlink;
 }
 
 bool
-PeerNetwork::Exists(
+PeerNetwork::IsAdjacent(
   const string & id)
 {
   lock_guard<mutex> lgu(uid_map_mtx_);
@@ -179,24 +182,27 @@ PeerNetwork::Exists(
 }
 
 bool
-PeerNetwork::Exists(
+PeerNetwork::IsAdjacent(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  if(mac_map_.count(mac) == 1)
-  {
-    return true;
-  }
-  else if(mac_routes_.count(mac) == 1)
+  return (mac_map_.count(mac) == 1);
+}
+
+bool
+PeerNetwork::IsRouteExists(
+  const MacAddressType& mac)
+{
+  bool rv = false;
+  lock_guard<mutex> lgm(mac_map_mtx_);
+  if(mac_routes_.count(mac) == 1)
   {
     if(mac_routes_.at(mac)->is_valid)
-      return true;
+      rv = true;
     else
-    {
       mac_routes_.erase(mac);
-    }
   }
-  return false;
+  return rv;
 }
 
 void
@@ -222,7 +228,7 @@ PeerNetwork::Run(Thread* thread)
     for(auto m : ml)
     {
       MacAddressType mac = ml.front();
-      LOG_F(LS_ERROR) << "Scavenging route to " << ByteArrayToString(mac.begin(), mac.end());
+      LOG(LS_ERROR) << "Scavenging route to " << ByteArrayToString(mac.begin(), mac.end()); //!LS_VERBOSE
       mac_routes_.erase(mac);
     }
     if(LOG_CHECK_LEVEL(LS_VERBOSE))

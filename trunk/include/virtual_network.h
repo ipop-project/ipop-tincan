@@ -56,6 +56,7 @@ public:
     MSGID_SEND_ICC,
     MSGID_END_CONNECTION,
     MSGID_QUERY_NODE_INFO,
+    MSGID_FWD_FRAME,
   };
   //class IccMsgData : public MessageData
   //{
@@ -124,6 +125,31 @@ public:
     uint16_t data_len_; // number of occupied bytes in data_
     uint8_t data_[kMaxIccMsgLen];
   };
+  struct FwdMessage
+  {
+    void Data(
+      uint8_t * msg,
+      uint16_t len)
+    {
+      if(len > kMaxFwdMsgLen)
+        throw TCEXCEPT("The create FWD message failed, the message length is greater than maximum allowed.");
+
+      magic_ = kFwdMagic;
+      data_len_ = len;
+      memmove(data_, msg, data_len_);
+    }
+    uint8_t * Data()
+    {
+      return data_;
+    }
+    uint32_t Length() //length of entire message
+    {
+      return sizeof(magic_) + sizeof(data_len_) + data_len_;
+    }
+    uint16_t magic_;
+    uint16_t data_len_; // number of occupied bytes in data_
+    uint8_t data_[kMaxFwdMsgLen];
+  };
   //ctor
    VirtualNetwork(
      unique_ptr<VnetDescriptor> descriptor,
@@ -137,7 +163,7 @@ public:
     VirtualLink & vlink);
   void DestroyTunnel(
     VirtualLink & vlink);
-  void AddRoute(MacAddressType mac_dest, MacAddressType mac_path);
+  void UpdateRoute(MacAddressType mac_dest, MacAddressType mac_path);
   //void RemoveRoute(MacAddressType mac_dest);
   //
   //Creates the listening endpoint of vlink and returns its candidate address

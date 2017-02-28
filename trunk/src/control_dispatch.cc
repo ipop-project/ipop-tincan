@@ -111,7 +111,8 @@ ControlDispatch::UpdateRoutes(
         tincan_->UpdateRoute(tap_name, dest_mac, path_mac);
       } catch(exception & e)
       {
-        LOG_F(LS_WARNING) << e.what();
+        LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+          control.StyledString();
       }
     }
     status = true;
@@ -140,7 +141,8 @@ ControlDispatch::ConnectToPeer(
   } catch(exception & e)
   {
     msg = "The ConnectToPeer operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
   control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
@@ -166,7 +168,8 @@ void ControlDispatch::CreateIpopControllerRespLink(
   {
     //if this fails we can't indicate this to the controller so log with
     //high severity
-    LOG_F(LS_ERROR) << e.what();
+    LOG_F(LS_ERROR) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
 }
 
@@ -182,7 +185,8 @@ ControlDispatch::CreateLinkListener(
   } catch(exception & e)
   {
     string msg = "The CreateLinkListener operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
     //send fail here, send the cas when the op completes
     control.SetResponse(msg, false);
     ctrl_link_->Deliver(control);
@@ -219,7 +223,8 @@ ControlDispatch::CreateVNet(
   } catch(exception & e)
   {
     msg = "The CreateVNet operation failed.";
-    LOG_F(LS_ERROR) << e.what();
+    LOG_F(LS_ERROR) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
   control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
@@ -243,7 +248,8 @@ ControlDispatch::QueryNodeInfo(
   } catch(exception & e)
   {
     resp = "The QueryNodeInfo operation failed. ";
-    LOG_F(LS_WARNING) << resp << e.what();
+    LOG_F(LS_WARNING) << resp << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
   control.SetResponse(resp, status);
   ctrl_link_->Deliver(control);
@@ -270,8 +276,9 @@ ControlDispatch::InjectFrame(
     tincan_->InjectFrame(req);
   } catch(exception & e)
   {
-    string msg = "The Inject Frame operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    string msg = "The Inject Frame operation failed - ";
+    LOG_F(LS_WARNING) << msg << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
 }
 
@@ -312,7 +319,8 @@ ControlDispatch::RemovePeer(
   } catch(exception & e)
   {
     msg = "The RemovePeer operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
   control.SetResponse(msg, status);
   ctrl_link_->Deliver(control);
@@ -354,9 +362,9 @@ ControlDispatch::SetLogLevel(
   }
   else
   {
-    msg = "The SetLogLevel operation failed. The specified log level is invalid: ";
-    msg.append(logging);
-    LOG_F(LS_WARNING) << msg;
+    msg = "The SetLogLevel operation failed. ";
+    LOG_F(LS_WARNING) << msg << ". Control Data=\n" <<
+      control.StyledString();
     status = false;
   }
   control.SetResponse(msg, status);
@@ -386,7 +394,8 @@ ControlDispatch::SetNetworkIgnoreList(
   } catch(exception & e)
   {
     resp = "The SetNetworkIgnoreList operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
   }
   control.SetResponse(resp, status);
   ctrl_link_->Deliver(control);
@@ -404,7 +413,8 @@ ControlDispatch::SendICC(
   } catch(exception & e)
   {
     string msg = "The ICC operation failed.";
-    LOG_F(LS_WARNING) << e.what();
+    LOG_F(LS_WARNING) << e.what() << ". Control Data=\n" <<
+      control.StyledString();
     //send fail here, ack success when send completes
     control.SetResponse(msg, false);
     ctrl_link_->Deliver(control);

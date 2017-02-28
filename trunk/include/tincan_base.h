@@ -81,8 +81,6 @@ static const uint16_t kTincanVerRev = 0;
 //
 static const uint8_t kIpopProtoVer = 4;
 //
-static const uint16_t kUidLen = 20;
-//
 static const uint16_t kStandardMtuSize = 1500;
 //
 static const uint16_t kEthernetHeaderSize = 14;
@@ -95,10 +93,14 @@ static const uint16_t kTapBufferSize = /*kTapHeaderSize + */kEthernetSize;
 static const uint32_t kFlags = 0;
 
 //ICC Properties
-static const uint16_t kIccMagic = 'IC';
-static const uint16_t kIccMsgLenLen = sizeof(uint16_t);
-static const uint32_t kMaxIccMsgLen = kTapBufferSize - sizeof(kIccMagic) - kUidLen - kIccMsgLenLen; //TODO: this is ugly!
-                                                                                                    //
+static const uint16_t kIccMagic = 'SG';
+static const uint16_t kIccMsgHdr = 2 * sizeof(uint16_t);
+static const uint32_t kMaxIccMsgLen = kTapBufferSize - kIccMsgHdr;
+//
+static const uint16_t kFwdMagic = 'RT';
+static const uint16_t kFwdMsgHdr = 2 * sizeof(uint16_t);
+static const uint32_t kMaxFwdMsgLen = kTapBufferSize - kFwdMsgHdr;
+
 static const char kCandidateDelim = ':';
 //
 static const char kIceUfrag[] = "_001IPOPICEUFRAG";

@@ -37,11 +37,13 @@ public:
   void UpdateRoute(MacAddressType & dest, MacAddressType & route);
   void Remove(const string & peer_uid);
   shared_ptr<VirtualLink> UidToVlink(const string & id);
-  shared_ptr<VirtualLink> MacAddressToVlink(const string & mac);
-  shared_ptr<VirtualLink> MacAddressToVlink(const MacAddressType & mac);
-  bool Exists(const string & id);
-  bool Exists(const MacAddressType& mac);
-  //bool Exists(uint32_t ip4);
+  shared_ptr<VirtualLink> GetVlink(const string & mac);
+  shared_ptr<VirtualLink> GetVlink(const MacAddressType & mac);
+  shared_ptr<VirtualLink> GetRoute(const MacAddressType & mac);
+  bool IsAdjacent(const string & id);
+  bool IsAdjacent(const MacAddressType& mac);
+  bool IsRouteExists(const MacAddressType& mac);
+  //bool IsAdjacent(uint32_t ip4);
 private:
 struct Hub
 {

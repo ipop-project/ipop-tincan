@@ -47,11 +47,11 @@ void Tincan::UpdateRoute(
   MacAddressType mac_dest, mac_path;
   size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
   if(cnt != 6)
-    throw TCEXCEPT("AddRoute failed, destination MAC address was NOT successfully converted.");
+    throw TCEXCEPT("UpdateRoute failed, destination MAC address was NOT successfully converted.");
   cnt = StringToByteArray(path_mac, mac_path.begin(), mac_path.end());
   if(cnt != 6)
-    throw TCEXCEPT("AddRoute failed, path MAC address was NOT successfully converted.");
-  vn.AddRoute(mac_dest, mac_path);
+    throw TCEXCEPT("UpdateRoute failed, path MAC address was NOT successfully converted.");
+  vn.UpdateRoute(mac_dest, mac_path);
 }
 
 void
