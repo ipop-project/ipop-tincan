@@ -357,16 +357,20 @@ VirtualNetwork::ProcessIncomingFrameL2(
     req[TincanControl::Command] = TincanControl::ICC;
     req[TincanControl::InterfaceName] = descriptor_->name;
     IccMessage * icc = reinterpret_cast<IccMessage*>(frame->begin());
-    string icd((char*)icc->data_, icc->data_len_);
-    req[TincanControl::Data] = icd;
+    req[TincanControl::Data] = string((char*)icc->data_, icc->data_len_);
     LOG(LS_ERROR) << " Delivering ICC to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
     ctrl_link_.Deliver(move(ctrl));
   }
   else if(fp.IsFwdMsg())
   { // a frame to be routed on the overlay
-    if(peer_network_->IsRouteExists(fp.DestinationMac()))
+    //TODO: rewrite this logic, every vlink msg needs a header
+    FwdMessage * fwd_msg = reinterpret_cast<FwdMessage*>(frame->begin());
+    MacAddressType mac;
+    memmove(mac.data(), fwd_msg->Data(), 6);
+    
+    if(peer_network_->IsRouteExists(mac))
     {
-      shared_ptr<VirtualLink> vl = peer_network_->GetRoute(fp.DestinationMac());
+      shared_ptr<VirtualLink> vl = peer_network_->GetRoute(mac);
       TransmitMsgData *md = new TransmitMsgData;;
       md->tf = move(frame);
       md->vl = vl;
@@ -379,17 +383,14 @@ VirtualNetwork::ProcessIncomingFrameL2(
       Json::Value & req = ctrl->GetRequest();
       req[TincanControl::Command] = TincanControl::UpdateRoutes;
       req[TincanControl::InterfaceName] = descriptor_->name;
-      req[TincanControl::Data] = ByteArrayToString(frame->BufferToTransfer() + 4,
-        frame->BufferToTransfer() + frame->BytesToTransfer() - 4);
+      req[TincanControl::Data] = ByteArrayToString(fwd_msg->Data(),
+        fwd_msg->Data() + fwd_msg->Length());
       LOG(LS_ERROR) << "FWDing frame to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
       ctrl_link_.Deliver(move(ctrl));
     }
   }
   else
   {
-    //unique_ptr<TapFrame> frame = make_unique<TapFrame>(data, data_len);
-    //TapFrame * frame = tf_cache_.Acquire(data, data_len);
-    //TapFrameProperties fp(*frame);
     frame->BufferToTransfer(frame->begin());
     frame->BytesToTransfer(frame->BytesTransferred());
     frame->SetWriteOp();
@@ -461,7 +462,7 @@ VirtualNetwork::TapReadCompleteL2(
     {
       frame->Dump("ARP Response");
     }
-    else if (memcmp(fp.DestinationMac().data(),"\ff\ff\ff\ff\ff\ff", 6) != 0)
+    else if (memcmp(fp.DestinationMac().data(),"\xff\xff\xff\xff\xff\xff", 6) != 0)
     {
       frame->Dump("No Route Unicast");
     }

@@ -64,7 +64,6 @@ void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
     uid_map_[vlink->PeerInfo().uid] = hub;
   }
   LOG(LS_ERROR) << "Added node " << vlink->PeerInfo().mac_address; //!LS_VERBOSE
-  //LOG_F(LS_VERBOSE) << "Added node " << vlink->PeerInfo().mac_address;
 }
 
 void PeerNetwork::UpdateRoute(
@@ -81,12 +80,11 @@ void PeerNetwork::UpdateRoute(
       ByteArrayToString(route.begin(), route.end());
     throw TCEXCEPT(oss.str().c_str());
   }
-  shared_ptr<Hub> hub = mac_map_.at(route);
-  mac_routes_[dest] = hub;
+  mac_routes_[dest]->hub = mac_map_.at(route);
   LOG(LS_ERROR) << "Added route to node=" << //!LS_VERBOSE
     ByteArrayToString(dest.begin(), dest.end()) << " through node=" << 
     ByteArrayToString(route.begin(), route.end()) << " vlink obj=" << 
-    hub->vlink.get();
+    mac_routes_[dest]->hub->vlink.get();
 }
 /*
 Used when a vlink is removed and the peer is no longer adjacent. All routes that
@@ -120,7 +118,6 @@ PeerNetwork::Remove(
     LOG(LS_ERROR) << "Removing node " << hub->vlink->PeerInfo().mac_address << //!LS_VERBOSE
       " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
     hub->is_valid = false;
-    hub->vlink.reset();
     mac_map_.erase(mac); //remove the MAC for the adjacent node
     //when hub goes out of scope ref count is decr, if it is 0 it's deleted 
   }
@@ -168,9 +165,9 @@ PeerNetwork::GetRoute(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  shared_ptr<Hub> hub = mac_routes_.at(mac);
-  hub->accessed = steady_clock::now();
-  return hub->vlink;
+  shared_ptr<HubEx> hux = move(mac_routes_.at(mac));
+  hux->accessed = steady_clock::now();
+  return hux->hub->vlink;
 }
 
 bool
@@ -197,7 +194,7 @@ PeerNetwork::IsRouteExists(
   lock_guard<mutex> lgm(mac_map_mtx_);
   if(mac_routes_.count(mac) == 1)
   {
-    if(mac_routes_.at(mac)->is_valid)
+    if(mac_routes_.at(mac)->hub->is_valid)
       rv = true;
     else
       mac_routes_.erase(mac);
@@ -214,20 +211,19 @@ PeerNetwork::Run(Thread* thread)
     accessed = steady_clock::now();
     list<MacAddressType> ml;
     lock_guard<mutex> lgm(mac_map_mtx_);
-    for(auto i : mac_routes_)
+    for(auto & i : mac_routes_)
     {
-      if(!i.second->is_valid)
+      if(!i.second->hub->is_valid)
         ml.push_back(i.first);
       else
       {
         std::chrono::duration<double, milli> elapsed = steady_clock::now() - i.second->accessed;
-        if(elapsed > 2 * scavenge_interval)
+        if(elapsed > 3 * scavenge_interval)
           ml.push_back(i.first);
       }
     }
-    for(auto m : ml)
+    for(auto & mac : ml)
     {
-      MacAddressType mac = ml.front();
       LOG(LS_ERROR) << "Scavenging route to " << ByteArrayToString(mac.begin(), mac.end()); //!LS_VERBOSE
       mac_routes_.erase(mac);
     }

@@ -48,17 +48,21 @@ private:
 struct Hub
 {
   Hub() : is_valid(false)
-  {
-    accessed = steady_clock::now();
-  }
+  {}
   shared_ptr<VirtualLink> vlink;
   bool is_valid;
+};
+struct HubEx
+{
+  HubEx() : accessed(steady_clock::now())
+  {}
+  shared_ptr<Hub> hub;
   steady_clock::time_point accessed;
 };
   const string & name_;
   mutex mac_map_mtx_;
   map<MacAddressType, shared_ptr<Hub>> mac_map_;
-  map<MacAddressType, shared_ptr<Hub>> mac_routes_;
+  map<MacAddressType, unique_ptr<HubEx>> mac_routes_;
   //map by uid
   mutex uid_map_mtx_;
   map<string, shared_ptr<Hub>> uid_map_;

@@ -268,7 +268,7 @@ MacAddressType
 TapDevWin::MacAddress()
 {
   lock_guard<mutex> lg(rw_mutex_);
-  if(memcmp(mac_address_.data(), "\0\0\0\0\0\0", 6) == 0)
+  if(memcmp(mac_address_.data(), "\x0\x0\x0\x0\x0\x0", 6) == 0)
     GetMacAddress();
   return mac_address_;
 }
