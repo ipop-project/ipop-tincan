@@ -3,8 +3,9 @@
 BINARY = ipop-tincan
 CC = g++
 IDIR_I = ../include
+IDIR_L = ../include/linux
 IDIR_E = ../../external/include
-CFLAGS = -std=c++14 -Wall -fno-rtti -I$(IDIR_I) -I$(IDIR_E) -D LINUX -D WEBRTC_POSIX -D _IPOP_LINUX
+CFLAGS = -std=c++14 -Wall -fno-rtti -I$(IDIR_I) -I$(IDIR_E) -I$(IDIR_L) -D LINUX -D WEBRTC_POSIX -D _IPOP_LINUX
 SRCDIR = ../src
 LIN_SRC = ../src/linux
 LDIR = -L ../../external/lib/debug_x64/linux
@@ -24,19 +25,13 @@ $(ODIR)/%.o: $(SRCDIR)/%.cc
 	if [ ! -d $(ODIR) ]; then  mkdir -p $(ODIR); fi
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-
 $(TARGET): $(OBJ) $(LIN_OBJ)
-	if [ ! -d $(BDIR) ]; then  mkdir -p $(BDIR); fi
 	$(CC) -o $@ $^ $(LDIR) $(LIBS)
 
+$(LIN_OBJ): $(LIN_SRC)/tapdev_lnx.cc
+	$(info Building Linux specific objects ...)
+	$(CC) -c $< -o $@ $(CFLAGS)
 
-$(LIN_OBJ):force_look
-	$(info will run Makefile for linux specific objects)
-	cd $(LIN_SRC); $(MAKE) $(MAKEFLAGS)
-
-
-force_look:
-	true
 clean:
 	rm -rf $(TARGET) $(ODIR) *~
 
