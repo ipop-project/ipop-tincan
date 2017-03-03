@@ -62,7 +62,7 @@ struct HubEx
   const string & name_;
   mutex mac_map_mtx_;
   map<MacAddressType, shared_ptr<Hub>> mac_map_;
-  map<MacAddressType, unique_ptr<HubEx>> mac_routes_;
+  map<MacAddressType, HubEx> mac_routes_;
   //map by uid
   mutex uid_map_mtx_;
   map<string, shared_ptr<Hub>> uid_map_;

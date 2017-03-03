@@ -80,11 +80,12 @@ void PeerNetwork::UpdateRoute(
       ByteArrayToString(route.begin(), route.end());
     throw TCEXCEPT(oss.str().c_str());
   }
-  mac_routes_[dest]->hub = mac_map_.at(route);
+  mac_routes_[dest].hub = mac_map_.at(route);
+  mac_routes_[dest].accessed = steady_clock::now();
   LOG(LS_ERROR) << "Added route to node=" << //!LS_VERBOSE
     ByteArrayToString(dest.begin(), dest.end()) << " through node=" << 
     ByteArrayToString(route.begin(), route.end()) << " vlink obj=" << 
-    mac_routes_[dest]->hub->vlink.get();
+    mac_routes_[dest].hub->vlink.get();
 }
 /*
 Used when a vlink is removed and the peer is no longer adjacent. All routes that
@@ -165,9 +166,9 @@ PeerNetwork::GetRoute(
   const MacAddressType& mac)
 {
   lock_guard<mutex> lgm(mac_map_mtx_);
-  shared_ptr<HubEx> hux = move(mac_routes_.at(mac));
-  hux->accessed = steady_clock::now();
-  return hux->hub->vlink;
+  HubEx & hux = mac_routes_.at(mac);
+  hux.accessed = steady_clock::now();
+  return hux.hub->vlink;
 }
 
 bool
@@ -194,7 +195,7 @@ PeerNetwork::IsRouteExists(
   lock_guard<mutex> lgm(mac_map_mtx_);
   if(mac_routes_.count(mac) == 1)
   {
-    if(mac_routes_.at(mac)->hub->is_valid)
+    if(mac_routes_.at(mac).hub->is_valid)
       rv = true;
     else
       mac_routes_.erase(mac);
@@ -213,11 +214,11 @@ PeerNetwork::Run(Thread* thread)
     lock_guard<mutex> lgm(mac_map_mtx_);
     for(auto & i : mac_routes_)
     {
-      if(!i.second->hub->is_valid)
+      if(!i.second.hub->is_valid)
         ml.push_back(i.first);
       else
       {
-        std::chrono::duration<double, milli> elapsed = steady_clock::now() - i.second->accessed;
+        std::chrono::duration<double, milli> elapsed = steady_clock::now() - i.second.accessed;
         if(elapsed > 3 * scavenge_interval)
           ml.push_back(i.first);
       }
