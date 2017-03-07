@@ -32,16 +32,17 @@ includes the tincan specific headers as well as the payload data received from
 the TAP device or tincan link. A TFB facilitates
 decoupling of the raw data from the meta-data required to manage it.
 */
-class TapFrameBuffer
-{
-  friend class TapFrame;
-  friend class TapFrameCache;
-  friend class TapFrameProperties;
-  TapFrameBuffer() = default;
-  ~TapFrameBuffer() = default;
-  uint8_t fb_[kTapBufferSize];
-};
+//class TapFrameBuffer
+//{
+//  friend class TapFrame;
+//  friend class TapFrameCache;
+//  friend class TapFrameProperties;
+//  TapFrameBuffer() = default;
+//  ~TapFrameBuffer() = default;
+//  uint8_t fb_[kTapBufferSize];
+//};
 
+using TapFrameBuffer = array<uint8_t, kTapBufferSize>;
 /*
 A TapFrame encapsulates a TapFrameBuffer and defines the control and access
 semantics for that type. A single TapFrame can own and manage multiple TFBs
@@ -55,7 +56,7 @@ class  TapFrame : virtual public AsyncIo
   friend class TapFrameCache;
   friend class TapFrameProperties;
 public:
-  explicit TapFrame(bool alloc_tfb = false);
+  TapFrame();
 
   TapFrame(const TapFrame & rhs);
 
@@ -64,7 +65,7 @@ public:
   //Copies the specifed amount of data into the TFB.
   TapFrame(uint8_t* data, uint32_t len);
 
-  ~TapFrame();
+  virtual ~TapFrame();
 
   //Copies the TFB from the rhs frame to the lhs
   TapFrame &operator= (TapFrame & rhs);
@@ -84,210 +85,182 @@ public:
   const uint8_t & operator[](uint32_t const index) const;
 
   TapFrame & Initialize();
+  
+  TapFrame & Initialize(
+    uint8_t * buffer_to_transfer,
+    uint32_t bytes_to_transfer,
+    AIO_OP flags = AIO_READ,
+    uint32_t bytes_transferred = 0);
 
-  const uint8_t * EthernetHeader() const;
-
-  uint8_t * EthernetHeader();
-
-  uint8_t * begin();
-
-  uint8_t * end();
-
-  uint8_t * EthernetPl();
-
-  /*
-  Capacity is the maximum size ie., of the raw buffer
-  */
+  void Header(uint16_t val);
+  //First valid byte in tbf
+  uint8_t * Begin();
+  //after last valid byte in tbf
+  uint8_t * End();
+  //length of header + payload
+  uint32_t Length();
+  //Capacity is the maximum size ie., of the raw buffer 
   uint32_t Capacity() const;
+ 
+  uint8_t * Payload();
+
+  uint8_t * PayloadEnd();
+
+  uint32_t PayloadLength();
+
+  void PayloadLength(uint32_t length);
+
+  uint32_t PayloadCapacity();
 
   void Dump(const string & label);
-
- private:
+ protected:
    TapFrameBuffer * tfb_;
+   uint32_t pl_len_;
 };
-
-/*
-WIP:
-Holds a fixed pool of TFBs and acts as a custom allocator for the
-TapFrameBuffer type.
-*/
-class TapFrameCache
-{
-public:
-  TapFrameCache();
-  ~TapFrameCache();
-  uint32_t Reservation(size_t entity);
-  uint32_t CancelReservation(size_t entity);
-  TapFrame * Acquire();
-  TapFrame * Acquire(
-    const uint8_t * data,
-    uint32_t data_len);
-  void Reclaim(TapFrame* tf);
-  bool IsOverProvisioned();
-
-private:
-  TapFrame * AcquireMustSucceed();
-  uint32_t reservation_count_;
-  const uint32_t allocation_factor_;
-  const uint32_t max_allocation_;
-  uint32_t commitment_;
-  const uint32_t high_threshold_;
-  stack<TapFrame*> available_;
-  vector<TapFrame> master_;
-  mutex cache_mtx_;
-#if !defined(NDEBUG)
-  uint32_t realloc_count;
-#endif
-};
-
 
 ///////////////////////////////////////////////////////////////////////////////
-//IpOffsets
-///////////////////////////////////////////////////////////////////////////////
-class IpOffsets
+//IccMessage
+class IccMessage :
+  public TapFrame
 {
 public:
-  IpOffsets(uint8_t * ip_packet) :
-pkt_(ip_packet)
-{}
-uint8_t* Version()
-{
-  return pkt_;
-}
-uint8_t* IpHeaderLen()
-{
-  return pkt_;
-}
-uint8_t* TotalLength()
-{
-  return &pkt_[2];
-}
-uint8_t* Ttl()
-{
-  return &pkt_[8];
-}
-uint8_t* SourceIp()
-{
-  return &pkt_[12];
-}
-uint8_t* DestinationIp()
-{
-  return &pkt_[16];
-}
-uint8_t* Data()
-{
-  return &pkt_[24];
-}
-private:
-  uint8_t * pkt_;
-};
+  void Message(
+    uint8_t * in_buf,
+    uint32_t buf_len);
 
+};
+///////////////////////////////////////////////////////////////////////////////
+class DtfMessage :
+  public TapFrame
+{
+public:
+  void Message(
+    uint8_t * in_buf,
+    uint32_t buf_len);
+};
+///////////////////////////////////////////////////////////////////////////////
+class FwdMessage :
+  public TapFrame
+{
+public:
+  void Message(
+    uint8_t * in_buf,
+    uint32_t buf_len);
+};
 ///////////////////////////////////////////////////////////////////////////////
 //TapFrameProperties is a ready only accessor class for querying compound
 //properties of the TFB.
-///////////////////////////////////////////////////////////////////////////////
 class TapFrameProperties
 {
 public:
   TapFrameProperties(TapFrame & tf) :
-    tf_(tf),
-    ipp_(tf.EthernetPl())
+    tf_(tf)/*,
+    eth_(tf.Payload()),
+    ipp_(eth_.Payload())*/
   {}
 
   bool IsIccMsg() const
   {
-    return memcmp(tf_.EthernetHeader(), &kIccMagic,
-      sizeof(kIccMagic)) == 0;
+    return memcmp(tf_.Begin(), &kIccMagic,
+      kTapHeaderSize) == 0;
   }
   bool IsFwdMsg() const
   {
-    return memcmp(tf_.EthernetHeader(), &kFwdMagic,
-      sizeof(kFwdMagic)) == 0;
+    return memcmp(tf_.Begin(), &kFwdMagic,
+      kTapHeaderSize) == 0;
+  }
+  bool IsDtfMsg() const
+  {
+    return memcmp(tf_.Begin(), &kDtfMagic,
+      kTapHeaderSize) == 0;
   }
   bool IsIp4()
   {
-    const uint8_t* eth = tf_.EthernetHeader();
-    return *(uint16_t*)&eth[12] == 0x0008 && *ipp_.Version() >> 4 == 4;
+    EthOffsets eth = tf_.Payload();
+    IpOffsets ipp = eth.Payload();
+    return *(uint16_t*)eth.Type() == 0x0008 && *ipp.Version() >> 4 == 4;
   }
 
   bool IsIp6()
   {
-    return *ipp_.Version() >> 4 == 6;
+    EthOffsets eth = tf_.Payload();
+    IpOffsets ipp = eth.Payload();
+    return *(uint16_t*)eth.Type() == 0x0008 && *ipp.Version() >> 4 == 6;
   }
 
-  bool IsArpRequest() const
+  bool IsArpRequest()
   {
-    const uint8_t* eth = tf_.EthernetHeader();
-    return (*(uint16_t*)&eth[12]) == 0x0608 && eth[21] == 0x01;
+    EthOffsets eth = tf_.Payload();
+    return *(uint16_t*)eth.Type() == 0x0608 && (*(eth.Payload()+7) == 0x01);
   }
 
-  bool IsArpResponse() const
+  bool IsArpResponse()
   {
-    const uint8_t* eth = tf_.EthernetHeader();
-    return (*(uint16_t*)&eth[12]) == 0x0608 && eth[21] == 0x02;
+    EthOffsets eth = tf_.Payload();
+    return *(uint16_t*)eth.Type() == 0x0608 && (*(eth.Payload() + 7) == 0x02);
   }
 
-  int CompareDestinationIp4(uint32_t ip4_addr)
+  bool IsEthernetBroadcast()
   {
-    return memcmp(ipp_.DestinationIp(), &ip4_addr, 4);
-  }
-
-  bool IsEthernetBroadcast() const
-  {
-    uint64_t b = 0xffffffffffff;
-    return memcmp(tf_.EthernetHeader(), &b, 6) == 0;
+    EthOffsets eth = tf_.Payload();
+    return memcmp(eth.DestinationMac(), "\xFF\xFF\xFF\xFF\xFF\xFF", 6) == 0;
   }
 
   uint32_t DestinationIp4Address()
   {
-    return *(uint32_t*)ipp_.DestinationIp();
+    EthOffsets eth = tf_.Payload();
+    IpOffsets ipp = eth.Payload();
+    return *(uint32_t*)ipp.DestinationIp();
   }
 
   MacAddressType & DestinationMac()
   {
-    return *(MacAddressType *)(tf_.EthernetHeader());
+    EthOffsets eth = tf_.Payload();
+    return *(MacAddressType *)(eth.DestinationMac());
   }
 
 private:
   TapFrame & tf_;
-  IpOffsets ipp_;
+ // EthOffsets eth_;
+  //IpOffsets ipp_;
 };
+///////////////////////////////////////////////////////////////////////////////
 
-class TapArp4
-{
-public:
-  TapArp4(uint8_t * eth_data)
-  {
-    buf_ = eth_data;
-    //if((*(uint16_t*)&eth_header[12]) == 0x0608){
-    //}
-  }
-  void IsRquest(){}
-
-  void IsReply()
-  {}
-
-  uint32_t DestinationIp()
-  {
-      return *(uint32_t*)(&buf_[24]);
-  }
-
-  MacAddressType & DestinationMac()
-  {
-    return *(MacAddressType*)(&buf_[18]);
-  }
-  
-  uint32_t SourceIp()
-  {
-    return *(uint32_t*)(&buf_[14]);
-  }
-
-  MacAddressType & SourceMac()
-  {
-    return *(MacAddressType*)(&buf_[8]);
-  }
-private:
-  uint8_t * buf_;
-};
+//class TapArp4
+//{
+//public:
+//  TapArp4(uint8_t * eth_data)
+//  {
+//    buf_ = eth_data;
+//    //if((*(uint16_t*)&eth_header[12]) == 0x0608){
+//    //}
+//  }
+//  void IsRquest(){}
+//
+//  void IsReply()
+//  {}
+//
+//  uint32_t DestinationIp()
+//  {
+//      return *(uint32_t*)(&buf_[24]);
+//  }
+//
+//  MacAddressType & DestinationMac()
+//  {
+//    return *(MacAddressType*)(&buf_[18]);
+//  }
+//  
+//  uint32_t SourceIp()
+//  {
+//    return *(uint32_t*)(&buf_[14]);
+//  }
+//
+//  MacAddressType & SourceMac()
+//  {
+//    return *(MacAddressType*)(&buf_[8]);
+//  }
+//private:
+//  uint8_t * buf_;
+//};
 } //namespace tincan
 #endif  // TINCAN_TAP_FRAME_H_

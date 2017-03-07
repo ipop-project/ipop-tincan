@@ -151,6 +151,7 @@ TapDevWin::Open(
   {
     CloseHandle(dev_handle_);
     CloseHandle(cmpl_prt_handle_);
+    e.what();
     throw;
   }
 }
@@ -176,7 +177,7 @@ TapDevWin::Read(
   DWORD rv = GetLastError();
   if(rv != ERROR_IO_PENDING)
   {
-    LOG_F(LS_INFO) << "The TAP device read request operation failed.";
+    LOG_F(LS_ERROR) << "The TAP device read request operation failed.";
     return rv;
   }
   return 0;
@@ -195,7 +196,7 @@ TapDevWin::Write(
   DWORD rv = GetLastError();
   if(rv != ERROR_IO_PENDING && rv != ERROR_SUCCESS)
   {
-    LOG_F(LS_INFO) << "The TAP device write request operation failed.";
+    LOG_F(LS_WARNING) << "The TAP device write request operation failed.";
     return rv;
   }
   return 0;
@@ -253,6 +254,7 @@ TapDevWin::NetDeviceNameToGuid(
   catch(exception & e) {
     RegCloseKey(key_1);
     RegCloseKey(key_0);
+    e.what();
     throw;
   }
   return;

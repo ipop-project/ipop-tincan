@@ -108,16 +108,14 @@ void
 VirtualNetwork::StartTunnel(
   VirtualLink & vlink)
 {
-  vlink;
   lock_guard<mutex> lg(vn_mtx);
   for(uint8_t i = 0; i < kLinkConcurrentAIO; i++)
   {
     unique_ptr<TapFrame> tf = make_unique<TapFrame>();
-    if(tf)
-    {
-      tf->Initialize();
-      tdev_->Read(*tf.release());
-    }//else its fine, enough AIOs are active in the system
+    tf->Initialize();
+    tf->BufferToTransfer(tf->Payload());
+    tf->BytesToTransfer(tf->PayloadCapacity());
+    tdev_->Read(*tf.release());
   }
 }
 
@@ -125,7 +123,6 @@ void
 VirtualNetwork::DestroyTunnel(
   VirtualLink & vlink)
 {
-  vlink;
 }
 
 void
@@ -135,13 +132,6 @@ VirtualNetwork::UpdateRoute(
 {
   peer_network_->UpdateRoute(mac_dest, mac_path);
 }
-
-//void
-//VirtualNetwork::RemoveRoute(
-//  MacAddressType mac_dest)
-//{
-//  peer_network_->RemoveRoute(mac_dest);
-//}
 
 unique_ptr<VirtualLink>
 VirtualNetwork::CreateVlink(
@@ -159,7 +149,7 @@ VirtualNetwork::CreateVlink(
     *local_fingerprint_.get());
   if(descriptor_->l2tunnel_enabled)
   {
-    vl->SignalMessageReceived.connect(this, &VirtualNetwork::ProcessIncomingFrameL2);
+    vl->SignalMessageReceived.connect(this, &VirtualNetwork::VlinkReadCompleteL2);
   }
   else
   {
@@ -316,12 +306,10 @@ VirtualNetwork::SendIcc(
   const string & recipient_uid,
   const string & data)
 {
+  unique_ptr<IccMessage> icc = make_unique<IccMessage>();
+  icc->Message((uint8_t*)data.c_str(), (uint16_t)data.length());
   TransmitMsgData *md = new TransmitMsgData;
-  md->tf = make_unique<TapFrame>(true);
-  IccMessage * icc = reinterpret_cast<IccMessage*>(md->tf->begin());
-  icc->MessageData((uint8_t*)data.c_str(), (uint16_t)data.length());
-  md->tf->BytesToTransfer(icc->MessageLength());
-  md->tf->BufferToTransfer(md->tf->begin());
+  md->tf = move(icc);
   md->vl = peer_network_->UidToVlink(recipient_uid);
   worker_.Post(this, MSGID_SEND_ICC, md);
 }
@@ -341,14 +329,14 @@ Types of Transformation:
 
 */
 void
-VirtualNetwork::ProcessIncomingFrameL2(
+VirtualNetwork::VlinkReadCompleteL2(
   uint8_t * data,
   uint32_t data_len,
   VirtualLink & vlink)
 {
-  vlink;
   unique_ptr<TapFrame> frame = make_unique<TapFrame>(data, data_len);
   TapFrameProperties fp(*frame);
+  assert(!fp.IsFwdMsg()); // no forwarding at the moment
   if(fp.IsIccMsg())
   { // this is an ICC message, deliver to the ipop-controller
     unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
@@ -356,45 +344,45 @@ VirtualNetwork::ProcessIncomingFrameL2(
     Json::Value & req = ctrl->GetRequest();
     req[TincanControl::Command] = TincanControl::ICC;
     req[TincanControl::InterfaceName] = descriptor_->name;
-    IccMessage * icc = reinterpret_cast<IccMessage*>(frame->begin());
-    req[TincanControl::Data] = string((char*)icc->data_, icc->data_len_);
-    LOG(LS_ERROR) << " Delivering ICC to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
+    req[TincanControl::Data] = string((char*)frame->Payload(), frame->PayloadLength());
+    LOG(TC_DBG) << " Delivering ICC to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
     ctrl_link_.Deliver(move(ctrl));
   }
   else if(fp.IsFwdMsg())
   { // a frame to be routed on the overlay
-    //TODO: rewrite this logic, every vlink msg needs a header
-    FwdMessage * fwd_msg = reinterpret_cast<FwdMessage*>(frame->begin());
-    MacAddressType mac;
-    memmove(mac.data(), fwd_msg->Data(), 6);
-    
-    if(peer_network_->IsRouteExists(mac))
+    if(peer_network_->IsRouteExists(fp.DestinationMac()))
     {
-      shared_ptr<VirtualLink> vl = peer_network_->GetRoute(mac);
-      TransmitMsgData *md = new TransmitMsgData;;
+      shared_ptr<VirtualLink> vl = peer_network_->GetRoute(fp.DestinationMac());
+      TransmitMsgData *md = new TransmitMsgData;
       md->tf = move(frame);
       md->vl = vl;
       worker_.Post(this, MSGID_FWD_FRAME, md);
     }
     else
-    {
+    { //no route found, send to controller
       unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
       ctrl->SetControlType(TincanControl::CTTincanRequest);
       Json::Value & req = ctrl->GetRequest();
       req[TincanControl::Command] = TincanControl::UpdateRoutes;
       req[TincanControl::InterfaceName] = descriptor_->name;
-      req[TincanControl::Data] = ByteArrayToString(fwd_msg->Data(),
-        fwd_msg->Data() + fwd_msg->Length());
-      LOG(LS_ERROR) << "FWDing frame to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
+      req[TincanControl::Data] = ByteArrayToString(frame->Payload(),
+        frame->PayloadEnd());
+      LOG(TC_DBG) << "FWDing frame to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
       ctrl_link_.Deliver(move(ctrl));
     }
   }
-  else
+  else if (fp.IsDtfMsg())
   {
-    frame->BufferToTransfer(frame->begin());
-    frame->BytesToTransfer(frame->BytesTransferred());
+    frame->Dump("Frame from vlink");
+    frame->BufferToTransfer(frame->Payload()); //write frame payload to TAP
+    frame->BytesToTransfer(frame->PayloadLength());
     frame->SetWriteOp();
     tdev_->Write(*frame.release());
+  }
+  else
+  {
+    LOG_F(LS_ERROR) << "Unknown frame type received!";
+    frame->Dump("Invalid header");
   }
 }
 
@@ -421,18 +409,20 @@ VirtualNetwork::TapReadCompleteL2(
   if(!aio_rd->good_)
   {
     frame->Initialize();
+    frame->BufferToTransfer(frame->Payload());
+    frame->BytesToTransfer(frame->PayloadCapacity());
     if(0 != tdev_->Read(*frame))
       delete frame;
-      //tf_cache_.Reclaim(frame);
     return;
   }
+  frame->PayloadLength(frame->BytesTransferred());
   TapFrameProperties fp(*frame);
   MacAddressType mac = fp.DestinationMac();
-  frame->BufferToTransfer(frame->begin());
-  frame->BytesToTransfer(frame->BytesTransferred());
-  //bool found = peer_network_->IsAdjacent(mac);
+  frame->BufferToTransfer(frame->Begin()); //write frame header + PL to vlink
+  frame->BytesToTransfer(frame->Length());
   if(peer_network_->IsAdjacent(mac))
   {
+    frame->Header(kDtfMagic);
     frame->Dump("Unicast");
     shared_ptr<VirtualLink> vl = peer_network_->GetVlink(mac);
     TransmitMsgData *md = new TransmitMsgData;;
@@ -442,18 +432,16 @@ VirtualNetwork::TapReadCompleteL2(
   }
   else if(peer_network_->IsRouteExists(mac))
   {
+    frame->Header(kFwdMagic);
     frame->Dump("Frame FWD");
     TransmitMsgData *md = new TransmitMsgData;
-    md->tf = make_unique<TapFrame>(true);
-    FwdMessage * fwd = reinterpret_cast<FwdMessage*>(md->tf->begin());
-    fwd->Data((uint8_t*)frame->BufferToTransfer(), (uint16_t)frame->BytesTransferred());
-    md->tf->BytesToTransfer(fwd->Length());
-    md->tf->BufferToTransfer(md->tf->begin());
+    md->tf.reset(frame);
     md->vl = peer_network_->GetRoute(mac);
     worker_.Post(this, MSGID_FWD_FRAME, md);
   }
   else
   {
+    frame->Header(kIccMagic);
     if(fp.IsArpRequest())
     {
       frame->Dump("ARP Request");
@@ -466,20 +454,20 @@ VirtualNetwork::TapReadCompleteL2(
     {
       frame->Dump("No Route Unicast");
     }
-  }
     // The IPOP Controller has to find a route to deliver this ARP as Tincan cannot
     unique_ptr<TincanControl> ctrl = make_unique<TincanControl>();
     ctrl->SetControlType(TincanControl::CTTincanRequest);
     Json::Value & req = ctrl->GetRequest();
     req[TincanControl::Command] = TincanControl::UpdateRoutes;
     req[TincanControl::InterfaceName] = descriptor_->name;
-    req[TincanControl::Data] = ByteArrayToString(frame->BufferToTransfer(),
-      frame->BufferToTransfer() + frame->BytesToTransfer());
+    req[TincanControl::Data] = ByteArrayToString(frame->Payload(),
+      frame->PayloadEnd());
     ctrl_link_.Deliver(move(ctrl));
     //Post a new TAP read request
-    frame->Initialize();
+    frame->Initialize(frame->Payload(), frame->PayloadCapacity());
     if(0 != tdev_->Read(*frame))
       delete frame;
+  }
 }
 
 void
@@ -487,7 +475,10 @@ VirtualNetwork::TapWriteCompleteL2(
   AsyncIo * aio_wr)
 {
   TapFrame * frame = static_cast<TapFrame*>(aio_wr->context_);
-  frame->Dump("TAP Write Completed");
+  if(frame->IsGood())
+    frame->Dump("TAP Write Completed");
+  else
+    LOG_F(LS_WARNING) << "Tap Write FAILED completion";
   delete frame;
 }
 
@@ -520,7 +511,7 @@ void VirtualNetwork::OnMessage(Message * msg)
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
     delete msg->pdata;
-    frame->Initialize();
+    frame->Initialize(frame->Payload(), frame->PayloadCapacity());
     if(0 == tdev_->Read(*frame))
       frame.release();
   }
@@ -530,8 +521,8 @@ void VirtualNetwork::OnMessage(Message * msg)
     unique_ptr<TapFrame> frame = move(((TransmitMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
-    LOG_F(LS_ERROR) << "Sent ICC to=" <<vl->PeerInfo().vip4 << " data=\n" <<
-      string((char*)(frame->begin()+4), *(uint16_t*)(frame->begin()+2));
+    //LOG_F(TC_DBG) << "Sent ICC to=" <<vl->PeerInfo().vip4 << " data=\n" <<
+    //  string((char*)(frame->begin()+4), *(uint16_t*)(frame->begin()+2));
     delete msg->pdata;
   }
   break;
@@ -551,11 +542,18 @@ void VirtualNetwork::OnMessage(Message * msg)
   }
   break;
   case MSGID_FWD_FRAME:
+  case MSGID_FWD_FRAME_RD:
   {
     unique_ptr<TapFrame> frame = move(((TransmitMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
-    LOG(LS_ERROR) << "Forward frame to " << vl->PeerInfo().vip4;//!LS_VERBOSE
+    LOG(TC_DBG) << "FWDing frame to " << vl->PeerInfo().vip4;//!LS_VERBOSE
+    if(msg->message_id == MSGID_FWD_FRAME_RD)
+    {
+      frame->Initialize(frame->Payload(), frame->PayloadCapacity());
+      if(0 == tdev_->Read(*frame))
+        frame.release();
+    }
     delete msg->pdata;
   }
   break;
@@ -568,21 +566,18 @@ VirtualNetwork::ProcessIncomingFrame(
   uint32_t data_len,
   VirtualLink & vlink)
 {
-  data, data_len, vlink;
 }
 
 void
 VirtualNetwork::TapReadComplete(
   AsyncIo * aio_rd)
 {
-  aio_rd;
 }
 
 void
 VirtualNetwork::TapWriteComplete(
   AsyncIo * aio_wr)
 {
-  aio_wr;
 }
 
 void
@@ -591,8 +586,6 @@ VirtualNetwork::InjectFame(
 {
   unique_ptr<TapFrame> tf = make_unique<TapFrame>();
   tf->Initialize();
-  tf->SetWriteOp();
-  tf->BufferToTransfer(tf->begin());
   if(data.length() > 2 * kTapBufferSize)
   {
     stringstream oss;
@@ -600,12 +593,15 @@ VirtualNetwork::InjectFame(
       " is larger than maximum accepted " << kTapBufferSize;
     throw TCEXCEPT(oss.str().c_str());
   }
-  size_t len = StringToByteArray(data, tf->begin(), tf->end());
+  size_t len = StringToByteArray(data, tf->Payload(), tf->End());
   if(len != data.length() / 2)
     throw TCEXCEPT("Inject Frame operation failed - ICC decode failure");
+  tf->SetWriteOp();
+  tf->PayloadLength((uint32_t)len);
+  tf->BufferToTransfer(tf->Payload());
   tf->BytesTransferred((uint32_t)len);
   tf->BytesToTransfer((uint32_t)len);
   tdev_->Write(*tf.release());
-  LOG(LS_ERROR) << "Frame injected=\n" << data;//!LS_VERBOSE
+  LOG(TC_DBG) << "Frame injected=\n" << data;//!LS_VERBOSE
 }
 } //namespace tincan

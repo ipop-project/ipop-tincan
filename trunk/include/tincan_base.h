@@ -72,34 +72,37 @@ using std::vector;
 using std::memcpy;
 
 
-//
+#define TC_DBG LS_ERROR
+///////////////////////////////////////////////////////////////////////////////
 static const uint16_t kTincanVerMjr = 2;
 //
 static const uint16_t kTincanVerMnr = 0;
 //
 static const uint16_t kTincanVerRev = 0;
 //
-static const uint8_t kIpopProtoVer = 4;
+static const uint8_t kTincanControlVer = 4;
 //
-static const uint16_t kStandardMtuSize = 1500;
+static const uint8_t kTincanLinkVer = 1;
 //
-static const uint16_t kEthernetHeaderSize = 14;
+static const uint16_t kMaxMtuSize = 1500;
 //
-static const uint16_t kEthernetSize = kEthernetHeaderSize + kStandardMtuSize;
+static const uint16_t kTapHeaderSize = 2;
+
+static const uint16_t kEthHeaderSize = 14;
+
+static const uint16_t kEthernetSize = kEthHeaderSize + kMaxMtuSize;
 //
-static const uint16_t kTapBufferSize = /*kTapHeaderSize + */kEthernetSize;
+static const uint16_t kTapBufferSize = kTapHeaderSize + kEthernetSize;
 //
 //Port Allocator Flags
 static const uint32_t kFlags = 0;
 
-//ICC Properties
-static const uint16_t kIccMagic = 'SG';
-static const uint16_t kIccMsgHdr = 2 * sizeof(uint16_t);
-static const uint32_t kMaxIccMsgLen = kTapBufferSize - kIccMsgHdr;
-//
-static const uint16_t kFwdMagic = 'RT';
-static const uint16_t kFwdMsgHdr = 2 * sizeof(uint16_t);
-static const uint32_t kMaxFwdMsgLen = kTapBufferSize - kFwdMsgHdr;
+static const uint8_t kFT_DTF = 0x0A;
+static const uint8_t kFT_FWD = 0x0B;
+static const uint8_t kFT_ICC = 0x0C;
+static const uint16_t kDtfMagic = 0x0A01;
+static const uint16_t kFwdMagic = 0x0B01;
+static const uint16_t kIccMagic = 0x0C01;
 
 static const char kCandidateDelim = ':';
 //
@@ -145,7 +148,7 @@ public:
 #if !defined(TINCAN_MAIN)
 extern TincanParameters tp;
 #endif
-
+///////////////////////////////////////////////////////////////////////////////
 template<typename InputIter>
 string ByteArrayToString(
   InputIter first,
@@ -193,5 +196,70 @@ size_t StringToByteArray(
   }
   return count;
 }
+///////////////////////////////////////////////////////////////////////////////
+//IpOffsets
+class IpOffsets
+{
+public:
+  IpOffsets(uint8_t * ip_packet) :
+    pkt_(ip_packet)
+  {}
+  uint8_t* Version()
+  {
+    return pkt_;
+  }
+  uint8_t* IpHeaderLen()
+  {
+    return pkt_;
+  }
+  uint8_t* TotalLength()
+  {
+    return &pkt_[2];
+  }
+  uint8_t* Ttl()
+  {
+    return &pkt_[8];
+  }
+  uint8_t* SourceIp()
+  {
+    return &pkt_[12];
+  }
+  uint8_t* DestinationIp()
+  {
+    return &pkt_[16];
+  }
+  uint8_t* Payload()
+  {
+    return &pkt_[24];
+  }
+private:
+  uint8_t * pkt_;
+};
+///////////////////////////////////////////////////////////////////////////////
+class EthOffsets
+{
+public:
+  EthOffsets(uint8_t * eth_frame) :
+    frm_(eth_frame)
+  {}
+  uint8_t* DestinationMac()
+  {
+    return frm_;
+  }
+  uint8_t* SourceMac()
+  {
+    return &frm_[6];
+  }
+  uint8_t* Type()
+  {
+    return &frm_[12];
+  }
+  uint8_t* Payload()
+  {
+    return &frm_[14];
+  }
+private:
+  uint8_t * frm_;
+};
 } // namespace tincan
 #endif // TINCAN_BASE_H_

@@ -57,6 +57,7 @@ public:
     MSGID_END_CONNECTION,
     MSGID_QUERY_NODE_INFO,
     MSGID_FWD_FRAME,
+    MSGID_FWD_FRAME_RD,
   };
   //class IccMsgData : public MessageData
   //{
@@ -100,56 +101,64 @@ public:
     {}
     ~LinkStatsMsgData() = default;
   };
-  struct IccMessage
-  {
-    void MessageData(
-      uint8_t * msg,
-      uint16_t len)
-    {
-      if(len > kMaxIccMsgLen)
-        throw TCEXCEPT("The create ICC message failed, the message length is greater than maximum allowed.");
+  //struct IccMessage
+  //{
+  //  void MessageData(
+  //    uint8_t * msg,
+  //    uint16_t len)
+  //  {
+  //    if(len > kMaxIccMsgLen)
+  //      throw TCEXCEPT("The create ICC message failed, the message length is greater than maximum allowed.");
 
-      magic_ = kIccMagic;
-      data_len_ = len;
-      memmove(data_, msg, data_len_);
-    }
-    uint8_t * MessageData()
-    {
-      return data_;
-    }
-    uint32_t MessageLength() //length of entire message
-    {
-      return sizeof(magic_) + sizeof(data_len_) + data_len_;
-    }
-    uint16_t magic_;
-    uint16_t data_len_; // number of occupied bytes in data_
-    uint8_t data_[kMaxIccMsgLen];
-  };
-  struct FwdMessage
-  {
-    void Data(
-      uint8_t * msg,
-      uint16_t len)
-    {
-      if(len > kMaxFwdMsgLen)
-        throw TCEXCEPT("The create FWD message failed, the message length is greater than maximum allowed.");
+  //    magic_ = kIccMagic;
+  //    data_len_ = len;
+  //    memmove(data_, msg, data_len_);
+  //  }
+  //  uint8_t * Data()
+  //  {
+  //    return data_;
+  //  }
+  //  uint32_t Length() //length of entire message
+  //  {
+  //    return sizeof(magic_) + sizeof(data_len_) + data_len_;
+  //  }
+  //  uint32_t DataLength() //length of entire message
+  //  {
+  //    return data_len_;
+  //  }
+  //  uint16_t magic_;
+  //  uint16_t data_len_; // number of occupied bytes in data_
+  //  uint8_t data_[kMaxIccMsgLen];
+  //};
+  //struct FwdMessage
+  //{
+  //  void Data(
+  //    uint8_t * msg,
+  //    uint16_t len)
+  //  {
+  //    if(len > kMaxFwdMsgLen)
+  //      throw TCEXCEPT("The create FWD message failed, the message length is greater than maximum allowed.");
 
-      magic_ = kFwdMagic;
-      data_len_ = len;
-      memmove(data_, msg, data_len_);
-    }
-    uint8_t * Data()
-    {
-      return data_;
-    }
-    uint32_t Length() //length of entire message
-    {
-      return sizeof(magic_) + sizeof(data_len_) + data_len_;
-    }
-    uint16_t magic_;
-    uint16_t data_len_; // number of occupied bytes in data_
-    uint8_t data_[kMaxFwdMsgLen];
-  };
+  //    magic_ = kFwdMagic;
+  //    data_len_ = len;
+  //    memmove(data_, msg, data_len_);
+  //  }
+  //  uint8_t * Data()
+  //  {
+  //    return data_;
+  //  }
+  //  uint32_t Length() //length of entire message
+  //  {
+  //    return sizeof(magic_) + sizeof(data_len_) + data_len_;
+  //  }
+  //  uint32_t DataLength() //length of entire message
+  //  {
+  //    return data_len_;
+  //  }
+  //  uint16_t magic_;
+  //  uint16_t data_len_; // number of occupied bytes in data_
+  //  uint8_t data_[kMaxFwdMsgLen];
+  //};
   //ctor
    VirtualNetwork(
      unique_ptr<VnetDescriptor> descriptor,
@@ -206,7 +215,7 @@ public:
     uint32_t data_len,
     VirtualLink & vlink);
 
-  void ProcessIncomingFrameL2(
+  void VlinkReadCompleteL2(
     uint8_t * data,
     uint32_t data_len,
     VirtualLink & vlink);

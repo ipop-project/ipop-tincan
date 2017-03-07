@@ -75,7 +75,7 @@ const Json::StaticString TincanControl::VIP6("VIP6");
 const Json::StaticString TincanControl::VnetDescription("VnetDescription");
 
 TincanControl::TincanControl() :
-  proto_ver_(kIpopProtoVer),
+  proto_ver_(kTincanControlVer),
   tag_(NextTagValue()),
   type_(CTTincanRequest),
   dict_req_(nullptr),
@@ -84,7 +84,7 @@ TincanControl::TincanControl() :
 
 TincanControl::TincanControl(
   unique_ptr<Json::Value> req) :
-  proto_ver_(kIpopProtoVer),
+  proto_ver_(kTincanControlVer),
   tag_(NextTagValue()),
   type_(CTTincanRequest),
   dict_req_(req.release()),
@@ -94,7 +94,7 @@ TincanControl::TincanControl(
 TincanControl::TincanControl(
   unique_ptr<Json::Value> req,
   unique_ptr<Json::Value> resp) :
-  proto_ver_(kIpopProtoVer),
+  proto_ver_(kTincanControlVer),
   tag_(NextTagValue()),
   type_(CTTincanRequest),
   dict_req_(req.release()),
@@ -124,7 +124,7 @@ TincanControl::TincanControl(
     throw TCEXCEPT(oss.str().c_str());
   }
   uint32_t ver = ctrl[IPOP][ProtocolVersion].asUInt();
-  if(ver != kIpopProtoVer)
+  if(ver != kTincanControlVer)
   {
     ostringstream oss;
     oss << "Invalid IPOP protocol version in control header (" << ver << ")";

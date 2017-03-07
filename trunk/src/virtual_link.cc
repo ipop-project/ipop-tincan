@@ -46,7 +46,7 @@ VirtualLink::VirtualLink(
 
 VirtualLink::~VirtualLink()
 {
-  LOG(LS_ERROR) << "vlink dtor=" << this;//!LS_VERBOSE
+  LOG(TC_DBG) << "vlink dtor=" << this;//!LS_VERBOSE
 }
 
 string VirtualLink::Name()
