@@ -25,7 +25,6 @@
 #include "tincan_base.h"
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/json.h"
 #include "webrtc/base/socketaddress.h"
 #pragma warning( pop )

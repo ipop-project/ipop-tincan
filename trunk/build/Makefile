@@ -5,7 +5,7 @@ CC = g++
 IDIR_I = ../include
 IDIR_L = ../include/linux
 IDIR_E = ../../external/include
-CFLAGS = -std=c++14 -Wall -fno-rtti -I$(IDIR_I) -I$(IDIR_E) -I$(IDIR_L) -D LINUX -D WEBRTC_POSIX -D _IPOP_LINUX
+CFLAGS = -std=c++14 -Wall -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-value -fno-rtti -I$(IDIR_I) -I$(IDIR_E) -I$(IDIR_L) -D LINUX -D WEBRTC_POSIX -D _IPOP_LINUX
 SRCDIR = ../src
 LIN_SRC = ../src/linux
 LDIR = -L ../../external/lib/debug_x64/linux
@@ -19,7 +19,7 @@ tincan_main.o virtual_link.o virtual_network.o tap_frame.o
 LIN_OBJ_=tapdev_lnx.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 LIN_OBJ = $(patsubst %,$(ODIR)/%,$(LIN_OBJ_))
-
+HDRS = $(IDIR_I)/%.h $(IDIR_L)/%.h
 
 $(ODIR)/%.o: $(SRCDIR)/%.cc
 	if [ ! -d $(ODIR) ]; then  mkdir -p $(ODIR); fi
@@ -29,10 +29,7 @@ $(TARGET): $(OBJ) $(LIN_OBJ)
 	$(CC) -o $@ $^ $(LDIR) $(LIBS)
 
 $(LIN_OBJ): $(LIN_SRC)/tapdev_lnx.cc
-	$(info Building Linux specific objects ...)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
 	rm -rf $(TARGET) $(ODIR) *~
-
-

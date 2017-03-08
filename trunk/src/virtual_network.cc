@@ -25,19 +25,6 @@
 #include "tincan_control.h"
 namespace tincan
 {
-string ipstring(uint8_t* ip4)
-{
-  ostringstream mac;
-  for(short i = 0; i < 4; ++i)
-  {
-    if(i != 0) mac << '.';
-    mac.width(3);
-    mac.fill('0');
-    mac << std::dec << (int)ip4[i];
-  }
-  return mac.str();
-}
-
 VirtualNetwork::VirtualNetwork(
   unique_ptr<VnetDescriptor> descriptor,
   IpopControllerLink & ctrl_handle) :

@@ -268,7 +268,6 @@ void
 ControlDispatch::InjectFrame(
   TincanControl & control)
 {
-  control;
   Json::Value & req = control.GetRequest();
   lock_guard<mutex> lg(disp_mutex_);
   try
@@ -286,7 +285,6 @@ void
 ControlDispatch::QueryStunCandidates(
   TincanControl & control)
 {
-  control;
   //TODO: implementation
 }
 

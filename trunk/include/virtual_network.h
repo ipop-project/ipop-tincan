@@ -25,7 +25,6 @@
 #include "tincan_base.h"
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/network.h"
 #include "webrtc/base/sslidentity.h"
 #include "webrtc/base/thread.h"
@@ -243,16 +242,16 @@ private:
     unique_ptr<VlinkDescriptor> vlink_desc,
     unique_ptr<PeerDescriptor> peer_desc);
   
+  TapDev * tdev_;
+  PeerNetwork * peer_network_;
+  unique_ptr<VnetDescriptor> descriptor_;
+  IpopControllerLink & ctrl_link_;//TODO: change to shared_ptr<IpopControllerLink> ctrl_link_;
   rtc::BasicNetworkManager net_manager_;
   unique_ptr<rtc::SSLIdentity> sslid_;
   unique_ptr<rtc::SSLFingerprint> local_fingerprint_;
-  unique_ptr<VnetDescriptor> descriptor_;
-  TapDev * tdev_;
-  PeerNetwork * peer_network_;
-  IpopControllerLink & ctrl_link_;//TODO: change to shared_ptr<IpopControllerLink> ctrl_link_;
   rtc::Thread worker_;
-  mutex vn_mtx;
   rtc::Thread peer_net_thread_;
+  mutex vn_mtx;
 };
 }  // namespace tincan
 #endif  // TINCAN_VIRTUAL_NETWORK_H_

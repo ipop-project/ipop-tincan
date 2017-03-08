@@ -24,7 +24,6 @@
 #define TINCAN_VIRTUAL_LINK_H_
 #include "tincan_base.h"
 #pragma warning( push )
-#pragma warning(disable:4100)
 #pragma warning(disable:4459)
 #pragma warning(disable:4996)
 #include "webrtc/base/asyncpacketsocket.h"

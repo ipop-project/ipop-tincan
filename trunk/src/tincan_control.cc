@@ -23,7 +23,6 @@
 #include "tincan_control.h"
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/logging.h"
 #pragma warning( pop )
 #include "tincan_exception.h"

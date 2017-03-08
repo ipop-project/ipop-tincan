@@ -25,7 +25,6 @@
 #include "tincan_base.h"
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/asyncudpsocket.h"
 #include "webrtc/base/asyncpacketsocket.h"
 #include "webrtc/base/logging.h"

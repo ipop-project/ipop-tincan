@@ -42,7 +42,6 @@ ControlListener::ReadPacketHandler(
   const SocketAddress & remote_addr,
   const PacketTime & ptime)
 {
-  socket, remote_addr, ptime;
   try {
     TincanControl ctrl(data, len);
     LOG_F(LS_VERBOSE) << "Received CONTROL: " << ctrl.StyledString();

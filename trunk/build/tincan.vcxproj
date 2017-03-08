@@ -488,6 +488,7 @@
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_MBCS;%(PreprocessorDefinitions);WEBRTC_WIN;_IPOP_WIN</PreprocessorDefinitions>
       <PrecompiledHeaderFile />
+      <DisableSpecificWarnings>4100;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

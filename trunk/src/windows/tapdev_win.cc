@@ -24,7 +24,6 @@
 #if defined(_IPOP_WIN)
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "windows/tapdev_win.h"
 #include "webrtc/base/systeminfo.h"
 #pragma warning(pop)

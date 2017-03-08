@@ -23,7 +23,6 @@
 #include "virtual_link.h"
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/stringencode.h"
 #pragma warning( pop )
 #include "tincan_exception.h"
@@ -36,9 +35,9 @@ VirtualLink::VirtualLink(
   vlink_desc_(move(vlink_desc)),
   peer_desc_(move(peer_desc)),
   tiebreaker_(rtc::CreateRandomId64()),
+  ice_conn_role_(cricket::CONNECTIONROLE_ACTPASS),
   packet_options_(DSCP_DEFAULT),
-  cas_ready_(false),
-  ice_conn_role_(cricket::CONNECTIONROLE_ACTPASS)
+  cas_ready_(false)
 {
   content_name_.append(vlink_desc_->name).append("_").append(
     peer_desc_->uid);
@@ -152,7 +151,6 @@ VirtualLink::OnReadPacket(
   const rtc::PacketTime & ptime,
   int flags)
 {
-  channel, flags, ptime;
   //TapFrame *frame = new TapFrame((uint8_t*)data, (uint32_t)len);
   SignalMessageReceived((uint8_t*)data, *(uint32_t*)&len, *this);
 }
@@ -162,7 +160,6 @@ VirtualLink::OnSentPacket(
   cricket::TransportChannel * channel,
   const rtc::SentPacket & packet)
 {
-  packet, channel;
   //nothing to do atm ...
 }
 
@@ -170,7 +167,6 @@ void VirtualLink::OnCandidateGathered(
   cricket::TransportChannelImpl* ch,
   const cricket::Candidate& cnd)
 {
-  ch;
   //if((cnd.protocol() == cricket::UDP_PROTOCOL_NAME)
   //  && (cnd.type() == cricket::STUN_PORT_TYPE))
   {
@@ -191,7 +187,6 @@ void VirtualLink::OnCandidateGathered(
 void VirtualLink::OnGatheringState(
   cricket::TransportChannelImpl* channel)
 {
-  channel;
   if(local_candidates_.empty())
     return;
   SignalLocalCasReady(Candidates());

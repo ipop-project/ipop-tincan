@@ -25,7 +25,6 @@
 
 #pragma warning( push )
 #pragma warning(disable:4996)
-#pragma warning(disable:4100)
 #include "webrtc/base/logging.h"
 #pragma warning( pop )
 
@@ -52,10 +51,10 @@ struct AsyncIo
 {
   AsyncIo() :
     buffer_to_transfer_(nullptr),
-    bytes_transferred_(0),
     context_(nullptr),
-    flags_(AIO_READ),
     bytes_to_transfer_(0),
+    bytes_transferred_(0),
+    flags_(AIO_READ),
     good_(true)
   {
 #if defined(_IPOP_WIN)
@@ -69,10 +68,11 @@ struct AsyncIo
     AIO_OP flags,
     uint32_t bytes_transferred = 0) :
     buffer_to_transfer_(buffer),
-    bytes_transferred_(bytes_transferred),
     context_(context),
+    bytes_to_transfer_(bytes_to_transfer),
+    bytes_transferred_(bytes_transferred),
     flags_(flags),
-    bytes_to_transfer_(bytes_to_transfer)
+    good_(true)
   {
 #if defined(_IPOP_WIN)
     ZeroMemory(this, sizeof(OVERLAPPED));
@@ -150,10 +150,10 @@ struct AsyncIo
     return good_;
   }
   uint8_t * buffer_to_transfer_;
-  uint32_t bytes_to_transfer_;
-  AIO_OP flags_;
   void * context_;
+  uint32_t bytes_to_transfer_;
   uint32_t bytes_transferred_;
+  AIO_OP flags_;
   bool good_;
 };
 }

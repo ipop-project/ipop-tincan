@@ -74,13 +74,11 @@ private:
   private:
     virtual void Deliver(
       TincanControl & ctrl_resp) {
-      ctrl_resp;
       LOG_F(LS_INFO) << msg_ << endl;
     }
     virtual void Deliver(
       unique_ptr<TincanControl> ctrl_resp)
     {
-      ctrl_resp;
       LOG_F(LS_INFO) << msg_ << endl;
     }
     string msg_;
