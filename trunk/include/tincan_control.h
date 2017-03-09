@@ -102,6 +102,7 @@ const array<const char*, 3> ControlTypeStrings = { {"TincanRequest", "TincanResp
   static const Json::StaticString QueryNodeInfo;
   static const Json::StaticString QueryStunCandidates;
   static const Json::StaticString Recipient;
+  static const Json::StaticString RecipientMac;
   static const Json::StaticString RemovePeer;
   static const Json::StaticString RemoveRoutes;
   static const Json::StaticString Request;

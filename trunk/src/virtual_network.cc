@@ -155,13 +155,15 @@ VirtualNetwork::CreateVlinkEndpoint(
   LOG_F(LS_VERBOSE) << "Attempting to create a new virtual link for node "
     << peer_desc->uid;
   shared_ptr<VirtualLink> vl;
-  if(peer_network_->IsAdjacent(peer_desc->uid))
+  MacAddressType mac;
+  StringToByteArray(peer_desc->mac_address, mac.begin(), mac.end());
+  if(peer_network_->IsAdjacent(mac))
   {
-    vl = peer_network_->UidToVlink(peer_desc->uid);
+    vl = peer_network_->GetVlink(mac);
   }
   else
   {
-    string uid = peer_desc->uid;
+    //string uid = peer_desc->uid;
     // create vlink using the worker thread
     CreateVlinkMsgData md;
     md.peer_desc = move(peer_desc);
@@ -170,8 +172,8 @@ VirtualNetwork::CreateVlinkEndpoint(
     //block until it ready
     md.msg_event.Wait(MessageQueue::kForever);
     //grab it from the peer_network
-    if (peer_network_->IsAdjacent(uid))
-      vl = peer_network_->UidToVlink(uid);
+    if (peer_network_->IsAdjacent(mac))
+      vl = peer_network_->GetVlink(mac);
     else throw TCEXCEPT("The CreateVlinkEndpoint operation failed.");
   }
   return vl;
@@ -183,14 +185,16 @@ VirtualNetwork::ConnectToPeer(
   unique_ptr<VlinkDescriptor> vlink_desc)
 {
   shared_ptr<VirtualLink> vl;
-  if(peer_network_->IsAdjacent(peer_desc->uid))
+  MacAddressType mac;
+  StringToByteArray(peer_desc->mac_address, mac.begin(), mac.end());
+  if(peer_network_->IsAdjacent(mac))
   {
-    vl = peer_network_->UidToVlink(peer_desc->uid);
+    vl = peer_network_->GetVlink(mac);
     vl->PeerCandidates(peer_desc->cas);
   }
   else
   {
-    string uid = peer_desc->uid;
+    //string uid = peer_desc->uid;
     // create vlink using the worker thread
     CreateVlinkMsgData md;
     md.peer_desc = move(peer_desc);
@@ -198,7 +202,7 @@ VirtualNetwork::ConnectToPeer(
     worker_.Post(this, MSGID_CREATE_LINK, &md);
     //block until it ready
     md.msg_event.Wait(Event::kForever);
-    vl = peer_network_->UidToVlink(uid);
+    vl = peer_network_->GetVlink(mac);
   }
   if(vl)
   {
@@ -211,12 +215,14 @@ VirtualNetwork::ConnectToPeer(
 }
 
 void VirtualNetwork::RemovePeerConnection(
-  const string & peer_uid)
+  const string & peer_mac)
 {
-  if(peer_network_->IsAdjacent(peer_uid))
+  MacAddressType mac;
+  StringToByteArray(peer_mac, mac.begin(), mac.end());
+  if(peer_network_->IsAdjacent(mac))
   {
-    UidMsgData * md = new UidMsgData;
-    md->uid = peer_uid;
+    MacMsgData * md = new MacMsgData;
+    md->mac = mac;
     worker_.Post(this, MSGID_END_CONNECTION, md);
   }
 }
@@ -254,12 +260,14 @@ VirtualNetwork::IgnoredNetworkInterfaces(
 }
 
 void VirtualNetwork::QueryNodeInfo(
-  const string & node_uid,
+  const string & node_mac,
   Json::Value & node_info)
 {
-  if(peer_network_->IsAdjacent(node_uid))
+  MacAddressType mac;
+  StringToByteArray(node_mac, mac.begin(), mac.end());
+  if(peer_network_->IsAdjacent(mac))
   {
-    shared_ptr<VirtualLink> vl = peer_network_->UidToVlink(node_uid);
+    shared_ptr<VirtualLink> vl = peer_network_->GetVlink(mac);
     node_info[TincanControl::UID] = vl->PeerInfo().uid;
     node_info[TincanControl::VIP4] = vl->PeerInfo().vip4;
     node_info[TincanControl::VIP6] = vl->PeerInfo().vip6;
@@ -283,21 +291,23 @@ void VirtualNetwork::QueryNodeInfo(
   }
   else
   {
-    node_info[TincanControl::UID] = node_uid;
+    node_info[TincanControl::MAC] = node_mac;
     node_info[TincanControl::Status] = "unknown";
   }
 }
 
 void
 VirtualNetwork::SendIcc(
-  const string & recipient_uid,
+  const string & recipient_mac,
   const string & data)
 {
   unique_ptr<IccMessage> icc = make_unique<IccMessage>();
   icc->Message((uint8_t*)data.c_str(), (uint16_t)data.length());
   TransmitMsgData *md = new TransmitMsgData;
   md->tf = move(icc);
-  md->vl = peer_network_->UidToVlink(recipient_uid);
+  MacAddressType mac;
+  StringToByteArray(recipient_mac, mac.begin(), mac.end());
+  md->vl = peer_network_->GetVlink(mac);
   worker_.Post(this, MSGID_SEND_ICC, md);
 }
 
@@ -515,9 +525,9 @@ void VirtualNetwork::OnMessage(Message * msg)
   break;
   case MSGID_END_CONNECTION:
   {
-    string uid = ((UidMsgData*)msg->pdata)->uid;
+    MacAddressType mac = ((MacMsgData*)msg->pdata)->mac;
     delete msg->pdata;
-    peer_network_->Remove(uid);
+    peer_network_->Remove(mac);
     //DestroyTunnel(*vl);
   }
   break;

@@ -59,10 +59,10 @@ void PeerNetwork::Add(shared_ptr<VirtualLink> vlink)
     }
     mac_map_[mac] = hub;
   }
-  {
-    lock_guard<mutex> lg(uid_map_mtx_);
-    uid_map_[vlink->PeerInfo().uid] = hub;
-  }
+  //{
+  //  lock_guard<mutex> lg(uid_map_mtx_);
+  //  uid_map_[vlink->PeerInfo().uid] = hub;
+  //}
   LOG(TC_DBG) << "Added node " << vlink->PeerInfo().mac_address; //!LS_VERBOSE
 }
 
@@ -93,29 +93,30 @@ use this path must be removed as well.
 */
 void
 PeerNetwork::Remove(
-  const string & peer_uid)
-  //const MacAddressType & mac)
+  //const string & peer_uid)
+  MacAddressType mac)
 {
   try
   {
-    lock_guard<mutex> lgu(uid_map_mtx_);
-    auto peer = uid_map_.find(peer_uid);
-    shared_ptr<Hub> hub;
-    if(peer != uid_map_.end())
+    //lock_guard<mutex> lgu(uid_map_mtx_);
+    //auto peer = uid_map_.find(peer_uid);
+    //shared_ptr<Hub> hub;
+    /*if(peer != uid_map_.end())
     {
       hub = peer->second;
       uid_map_.erase(peer);
-    }
+    }*/
     lock_guard<mutex> lg(mac_map_mtx_);
-    MacAddressType mac;
-    size_t nb = StringToByteArray(hub->vlink->PeerInfo().mac_address,
+    //MacAddressType mac;
+    /*size_t nb = StringToByteArray(hub->vlink->PeerInfo().mac_address,
       mac.begin(), mac.end());
     if(sizeof(MacAddressType) != nb)
     {
       ostringstream oss;
       oss << "Failed to convert MAC address :" << hub->vlink->PeerInfo().mac_address;
       throw TCEXCEPT(oss.str().c_str());
-    }
+    }*/
+    shared_ptr<Hub> hub = mac_map_.at(mac);
     LOG(TC_DBG) << "Removing node " << hub->vlink->PeerInfo().mac_address << //!LS_VERBOSE
       " hub use count=" << hub.use_count() << " vlink obj=" << hub->vlink.get();
     hub->is_valid = false;
@@ -129,19 +130,20 @@ PeerNetwork::Remove(
   catch(...)
   {
     ostringstream oss;
-    oss << "The Peer Network Remove operation failed. UID " << peer_uid
-      << " was not found in peer network: " << name_;
+    oss << "The Peer Network Remove operation failed. MAC " <<
+      ByteArrayToString(mac.begin(), mac.end()) <<
+      " was not found in peer network: " << name_;
     LOG_F(LS_WARNING) << oss.str().c_str();
   }
 }
 
-shared_ptr<VirtualLink>
-PeerNetwork::UidToVlink(
-  const string & uid)
-{
-  lock_guard<mutex> lgu(uid_map_mtx_);
-  return uid_map_.at(uid)->vlink;
-}
+//shared_ptr<VirtualLink>
+//PeerNetwork::UidToVlink(
+//  const string & uid)
+//{
+//  lock_guard<mutex> lgu(uid_map_mtx_);
+//  return uid_map_.at(uid)->vlink;
+//}
 
 shared_ptr<VirtualLink>
 PeerNetwork::GetVlink(
@@ -171,12 +173,21 @@ PeerNetwork::GetRoute(
   return hux.hub->vlink;
 }
 
+//bool
+//PeerNetwork::IsAdjacent(
+//  const string & id)
+//{
+//  lock_guard<mutex> lgu(uid_map_mtx_);
+//  return uid_map_.count(id) == 1 ? true : false;
+//}
+
 bool
 PeerNetwork::IsAdjacent(
-  const string & id)
+  const string & mac)
 {
-  lock_guard<mutex> lgu(uid_map_mtx_);
-  return uid_map_.count(id) == 1 ? true : false;
+  MacAddressType mac_arr;
+  StringToByteArray(mac, mac_arr.begin(), mac_arr.end());
+  return IsAdjacent(mac_arr);
 }
 
 bool

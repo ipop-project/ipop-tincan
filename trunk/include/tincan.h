@@ -57,7 +57,7 @@ public:
 
   void QueryNodeInfo(
     const string & tap_name,
-    const string & node_uid,
+    const string & node_mac,
     Json::Value & node_info) override;
 
   //void RemoveRoute(

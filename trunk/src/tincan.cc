@@ -135,11 +135,11 @@ Tincan::InjectFrame(
 void
 Tincan::QueryNodeInfo(
   const string & tap_name,
-  const string & node_uid,
+  const string & node_mac,
   Json::Value & node_info)
 {
   VirtualNetwork & vn = VnetFromName(tap_name);
-  if(node_uid.length() == 0 || node_uid.compare(vn.Descriptor().uid) == 0)
+  if(node_mac.length() == 0 || node_mac == vn.Descriptor().mac)
   {
     GetLocalNodeInfo(vn, node_info);
   }
@@ -148,7 +148,7 @@ Tincan::QueryNodeInfo(
     node_info[TincanControl::Type] = "peer";
     node_info[TincanControl::VnetDescription] = vn.Descriptor().description;
     node_info[TincanControl::InterfaceName] = vn.Name();
-    vn.QueryNodeInfo(node_uid, node_info);
+    vn.QueryNodeInfo(node_mac, node_info);
   }
 }
 
@@ -173,8 +173,8 @@ Tincan::RemoveVlink(
 {
   const string & tap_name = link_desc[TincanControl::InterfaceName].asString();
   VirtualNetwork & vn = VnetFromName(tap_name);
-  const string & uid = link_desc[TincanControl::UID].asString();
-  vn.RemovePeerConnection(uid);
+  const string & mac = link_desc[TincanControl::MAC].asString();
+  vn.RemovePeerConnection(mac);
 }
 
 void
@@ -183,9 +183,9 @@ Tincan::SendIcc(
 {
   const string & tap_name = icc_desc[TincanControl::InterfaceName].asString();
   VirtualNetwork & vn = VnetFromName(tap_name);
-  const string & uid= icc_desc[TincanControl::Recipient].asString();
+  const string & mac = icc_desc[TincanControl::RecipientMac].asString();
   const string & data = icc_desc[TincanControl::Data].asString();
-  vn.SendIcc(uid, data);
+  vn.SendIcc(mac, data);
 }
 
 void

@@ -75,10 +75,10 @@ public:
   public:
     shared_ptr<VirtualLink> vl;
   };
-  class UidMsgData : public MessageData
+  class MacMsgData : public MessageData
   {
   public:
-    string uid;
+    MacAddressType mac;
   };
   class CreateVlinkMsgData : public MessageData
   {
@@ -186,7 +186,7 @@ public:
     unique_ptr<VlinkDescriptor> vlink_desc);
 
   void RemovePeerConnection(
-    const string & peer_uid);
+    const string & peer_mac);
 
   VnetDescriptor & Descriptor();
 
@@ -200,11 +200,11 @@ public:
     const vector<string>& ignored_list);
   
   void QueryNodeInfo(
-    const string & node_uid,
+    const string & node_mac,
     Json::Value & node_info);
 
   void SendIcc(
-    const string & recipient_uid,
+    const string & recipient_mac,
     const string & data);
 
   //

@@ -235,14 +235,14 @@ ControlDispatch::QueryNodeInfo(
   TincanControl & control)
 {
   Json::Value & req = control.GetRequest(), node_info;
-  string uid = req[TincanControl::UID].asString();
+  string mac = req[TincanControl::MAC].asString();
   string tap_name = req[TincanControl::InterfaceName].asString();
   string resp;
   bool status = false;
   lock_guard<mutex> lg(disp_mutex_);
   try
   {
-    tincan_->QueryNodeInfo(tap_name, uid, node_info);
+    tincan_->QueryNodeInfo(tap_name, mac, node_info);
     resp = node_info.toStyledString();;
     status = true;
   } catch(exception & e)
@@ -295,13 +295,13 @@ ControlDispatch::RemovePeer(
   bool status = false;
   Json::Value & req = control.GetRequest();
   const string tap_name = req[TincanControl::InterfaceName].asString();
-  const string uid = req[TincanControl::UID].asString();
+  const string mac = req[TincanControl::MAC].asString();
   string msg("The virtual link to ");
-  msg.append(uid).append(" has been removed.");
+  msg.append(mac).append(" has been removed.");
   lock_guard<mutex> lg(disp_mutex_);
   try
   {
-    if(!tap_name.empty() && !uid.empty())
+    if(!tap_name.empty() && !mac.empty())
     {
       tincan_->RemoveVlink(req);
       status = true;
@@ -310,7 +310,7 @@ ControlDispatch::RemovePeer(
     {
       ostringstream oss;
       oss << "Invalid parameters in request to remove link to peer node. " <<
-        "Received: TAP Name=" << tap_name << " Peer UID=" << uid;
+        "Received: TAP Name=" << tap_name << " MAC=" << mac;
       msg = oss.str();
       throw TCEXCEPT(msg.c_str());
     }

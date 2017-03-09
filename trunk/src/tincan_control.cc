@@ -54,7 +54,7 @@ const Json::StaticString TincanControl::QueryStunCandidates("QueryStunCandidates
 const Json::StaticString TincanControl::RemovePeer("RemovePeer");
 const Json::StaticString TincanControl::RemoveRoutes("RemoveRoutes");
 const Json::StaticString TincanControl::Request("Request");
-const Json::StaticString TincanControl::Recipient("Recipient");
+const Json::StaticString TincanControl::RecipientMac("RecipientMac");
 const Json::StaticString TincanControl::Response("Response");
 const Json::StaticString TincanControl::Routes("Routes");
 const Json::StaticString TincanControl::UpdateRoutes("UpdateRoutes");
