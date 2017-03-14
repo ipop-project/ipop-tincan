@@ -84,7 +84,7 @@ Tincan::SetIpopControllerLink(
 void Tincan::CreateVNet(unique_ptr<VnetDescriptor> lvecfg)
 {
   lock_guard<mutex> lg(vnets_mutex_);
-  auto vnet = make_unique<VirtualNetwork>(move(lvecfg), *ctrl_link_);
+  auto vnet = make_unique<VirtualNetwork>(move(lvecfg), ctrl_link_);
   vnet->Configure();
   vnet->Start();
   vnets_.push_back(move(vnet));
@@ -151,21 +151,6 @@ Tincan::QueryNodeInfo(
     vn.QueryNodeInfo(node_mac, node_info);
   }
 }
-
-//void
-//Tincan::RemoveRoute(
-//  const string & tap_name,
-//  const string & dest_mac)
-//{
-//  VirtualNetwork & vn = VnetFromName(tap_name);
-//  MacAddressType mac_dest;
-//  size_t cnt = StringToByteArray(dest_mac, mac_dest.begin(), mac_dest.end());
-//  if(cnt != 6)
-//    throw TCEXCEPT("Destination MAC address was NOT successfully converted.");
-//  vn.RemoveRoute(mac_dest);
-//  LOG_F(LS_VERBOSE) << "Removed route to node " << dest_mac;
-//
-//}
 
 void
 Tincan::RemoveVlink(
@@ -296,15 +281,13 @@ Tincan::Shutdown()
 FUNCTION:ControlHandler
 PURPOSE: Handles keyboard signals
 PARAMETERS: The signal code
-RETURN VALUE: None
-THROWS: None
-COMMENTS:
+RETURN VALUE: Success/Failure
 ++*/
 #if defined(_IPOP_WIN)
 BOOL __stdcall Tincan::ControlHandler(DWORD CtrlType) {
   switch(CtrlType) {
-  case CTRL_BREAK_EVENT:  // use Ctrl+C or Ctrl+Break to simulate
-  case CTRL_C_EVENT:      // SERVICE_CONTROL_STOP in debug mode
+  case CTRL_BREAK_EVENT:  // use Ctrl+C or Ctrl+Break to send
+  case CTRL_C_EVENT:      // termination signal
     cout << "Stopping tincan... " << std::endl;
     self_->OnStop();
     return(TRUE);
@@ -313,5 +296,3 @@ BOOL __stdcall Tincan::ControlHandler(DWORD CtrlType) {
 }
 #endif // _IPOP_WIN
 } // namespace tincan
-
-

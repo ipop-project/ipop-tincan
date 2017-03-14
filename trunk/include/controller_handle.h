@@ -66,10 +66,6 @@ namespace tincan {
       const string & uid_node,
       Json::Value & state_data) = 0;
 
-    //virtual   void RemoveRoute(
-    //  const string & tap_name,
-    //  const string & dest_mac) = 0;
-
     virtual void RemoveVlink(
       const Json::Value & link_desc) = 0;
 

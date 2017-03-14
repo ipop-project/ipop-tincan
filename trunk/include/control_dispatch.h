@@ -55,7 +55,6 @@ private:
   void QueryNodeInfo(TincanControl & control);
   void QueryStunCandidates(TincanControl & control);
   void RemovePeer(TincanControl & control);
-  //void RemoveRoutes(TincanControl & control);
   void SetLogLevel(TincanControl & control);
   void SetNetworkIgnoreList(TincanControl & control);
   void SendICC(TincanControl & control);

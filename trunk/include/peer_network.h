@@ -35,17 +35,13 @@ public:
   ~PeerNetwork();
   void Add(shared_ptr<VirtualLink> vlink);
   void UpdateRoute(MacAddressType & dest, MacAddressType & route);
-  //void Remove(const string & peer_uid);
   void Remove(MacAddressType mac);
-  //shared_ptr<VirtualLink> UidToVlink(const string & id);
   shared_ptr<VirtualLink> GetVlink(const string & mac);
   shared_ptr<VirtualLink> GetVlink(const MacAddressType & mac);
   shared_ptr<VirtualLink> GetRoute(const MacAddressType & mac);
-  //bool IsAdjacent(const string & id);
   bool IsAdjacent(const string & mac);
   bool IsAdjacent(const MacAddressType& mac);
   bool IsRouteExists(const MacAddressType& mac);
-  //bool IsAdjacent(uint32_t ip4);
 private:
 struct Hub
 {
@@ -65,10 +61,6 @@ struct HubEx
   mutex mac_map_mtx_;
   map<MacAddressType, shared_ptr<Hub>> mac_map_;
   map<MacAddressType, HubEx> mac_routes_;
-  //map by uid
-  //mutex uid_map_mtx_;
-  //map<string, shared_ptr<Hub>> uid_map_;
-  //Runnable interface implemenation
   void Run(Thread* thread) override;
   milliseconds const scavenge_interval;
 };

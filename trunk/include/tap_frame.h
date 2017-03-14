@@ -32,16 +32,6 @@ includes the tincan specific headers as well as the payload data received from
 the TAP device or tincan link. A TFB facilitates
 decoupling of the raw data from the meta-data required to manage it.
 */
-//class TapFrameBuffer
-//{
-//  friend class TapFrame;
-//  friend class TapFrameCache;
-//  friend class TapFrameProperties;
-//  TapFrameBuffer() = default;
-//  ~TapFrameBuffer() = default;
-//  uint8_t fb_[kTapBufferSize];
-//};
-
 using TapFrameBuffer = array<uint8_t, kTapBufferSize>;
 /*
 A TapFrame encapsulates a TapFrameBuffer and defines the control and access
@@ -154,9 +144,7 @@ class TapFrameProperties
 {
 public:
   TapFrameProperties(TapFrame & tf) :
-    tf_(tf)/*,
-    eth_(tf.Payload()),
-    ipp_(eth_.Payload())*/
+    tf_(tf)
   {}
 
   bool IsIccMsg() const
@@ -221,46 +209,6 @@ public:
 
 private:
   TapFrame & tf_;
- // EthOffsets eth_;
-  //IpOffsets ipp_;
 };
-///////////////////////////////////////////////////////////////////////////////
-
-//class TapArp4
-//{
-//public:
-//  TapArp4(uint8_t * eth_data)
-//  {
-//    buf_ = eth_data;
-//    //if((*(uint16_t*)&eth_header[12]) == 0x0608){
-//    //}
-//  }
-//  void IsRquest(){}
-//
-//  void IsReply()
-//  {}
-//
-//  uint32_t DestinationIp()
-//  {
-//      return *(uint32_t*)(&buf_[24]);
-//  }
-//
-//  MacAddressType & DestinationMac()
-//  {
-//    return *(MacAddressType*)(&buf_[18]);
-//  }
-//  
-//  uint32_t SourceIp()
-//  {
-//    return *(uint32_t*)(&buf_[14]);
-//  }
-//
-//  MacAddressType & SourceMac()
-//  {
-//    return *(MacAddressType*)(&buf_[8]);
-//  }
-//private:
-//  uint8_t * buf_;
-//};
 } //namespace tincan
 #endif  // TINCAN_TAP_FRAME_H_

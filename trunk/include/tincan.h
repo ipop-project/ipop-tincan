@@ -60,10 +60,6 @@ public:
     const string & node_mac,
     Json::Value & node_info) override;
 
-  //void RemoveRoute(
-  //  const string & tap_name,
-  //  const string & dest_mac) override;
-
   void RemoveVlink(
     const Json::Value & link_desc) override;
 

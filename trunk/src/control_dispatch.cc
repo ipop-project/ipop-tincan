@@ -215,9 +215,6 @@ ControlDispatch::CreateVNet(
     vn_desc->turn_addr = req["TurnAddress"].asString();
     vn_desc->turn_pass = req["TurnPass"].asString();
     vn_desc->turn_user = req["TurnUser"].asString();
-    //vn_desc->vip6 = req["LocalVirtIP6"].asString();
-    //vn_desc->prefix6 = req["LocalPrefix6"].asUInt();
-    //vn_desc->mtu6 = req["MTU6"].asUInt();
     tincan_->CreateVNet(move(vn_desc));
     status = true;
   } catch(exception & e)

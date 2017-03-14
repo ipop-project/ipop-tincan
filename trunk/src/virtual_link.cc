@@ -40,12 +40,12 @@ VirtualLink::VirtualLink(
   cas_ready_(false)
 {
   content_name_.append(vlink_desc_->name).append("_").append(
-    peer_desc_->uid);
+    peer_desc_->mac_address);
 }
 
 VirtualLink::~VirtualLink()
 {
-  LOG(TC_DBG) << "vlink dtor=" << this;//!LS_VERBOSE
+  //LOG(TC_DBG) << "vlink dtor=" << this;
 }
 
 string VirtualLink::Name()
@@ -197,12 +197,12 @@ void VirtualLink::OnWriteableState(
 {
   if(channel->writable())
   {
-    LOG_F(LS_INFO) << "channel is now writeable: " << content_name_;
+    LOG(TC_DBG) << "link connected to: " << peer_desc_->mac_address;
     SignalLinkReady(*this);
   }
   else
   {
-    LOG_F(LS_INFO) << "channel is NOT writeable: " << content_name_;
+    LOG(TC_DBG) << "link NOT writeable: " << peer_desc_->mac_address;
     SignalLinkBroken(*this);
   }
 }

@@ -58,12 +58,6 @@ public:
     MSGID_FWD_FRAME,
     MSGID_FWD_FRAME_RD,
   };
-  //class IccMsgData : public MessageData
-  //{
-  //public:
-  //  shared_ptr<VirtualLink> vl;
-  //  unique_ptr<TapFrame> tf;
-  //};
   class TransmitMsgData : public MessageData
   {
   public:
@@ -100,68 +94,10 @@ public:
     {}
     ~LinkStatsMsgData() = default;
   };
-  //struct IccMessage
-  //{
-  //  void MessageData(
-  //    uint8_t * msg,
-  //    uint16_t len)
-  //  {
-  //    if(len > kMaxIccMsgLen)
-  //      throw TCEXCEPT("The create ICC message failed, the message length is greater than maximum allowed.");
-
-  //    magic_ = kIccMagic;
-  //    data_len_ = len;
-  //    memmove(data_, msg, data_len_);
-  //  }
-  //  uint8_t * Data()
-  //  {
-  //    return data_;
-  //  }
-  //  uint32_t Length() //length of entire message
-  //  {
-  //    return sizeof(magic_) + sizeof(data_len_) + data_len_;
-  //  }
-  //  uint32_t DataLength() //length of entire message
-  //  {
-  //    return data_len_;
-  //  }
-  //  uint16_t magic_;
-  //  uint16_t data_len_; // number of occupied bytes in data_
-  //  uint8_t data_[kMaxIccMsgLen];
-  //};
-  //struct FwdMessage
-  //{
-  //  void Data(
-  //    uint8_t * msg,
-  //    uint16_t len)
-  //  {
-  //    if(len > kMaxFwdMsgLen)
-  //      throw TCEXCEPT("The create FWD message failed, the message length is greater than maximum allowed.");
-
-  //    magic_ = kFwdMagic;
-  //    data_len_ = len;
-  //    memmove(data_, msg, data_len_);
-  //  }
-  //  uint8_t * Data()
-  //  {
-  //    return data_;
-  //  }
-  //  uint32_t Length() //length of entire message
-  //  {
-  //    return sizeof(magic_) + sizeof(data_len_) + data_len_;
-  //  }
-  //  uint32_t DataLength() //length of entire message
-  //  {
-  //    return data_len_;
-  //  }
-  //  uint16_t magic_;
-  //  uint16_t data_len_; // number of occupied bytes in data_
-  //  uint8_t data_[kMaxFwdMsgLen];
-  //};
   //ctor
    VirtualNetwork(
      unique_ptr<VnetDescriptor> descriptor,
-     IpopControllerLink & ctrl_handle);
+     shared_ptr<IpopControllerLink> ctrl_handle);
 
   ~VirtualNetwork();
   void Configure();
@@ -172,7 +108,6 @@ public:
   void DestroyTunnel(
     VirtualLink & vlink);
   void UpdateRoute(MacAddressType mac_dest, MacAddressType mac_path);
-  //void RemoveRoute(MacAddressType mac_dest);
   //
   //Creates the listening endpoint of vlink and returns its candidate address
   //set for the connection.
@@ -245,7 +180,7 @@ private:
   TapDev * tdev_;
   PeerNetwork * peer_network_;
   unique_ptr<VnetDescriptor> descriptor_;
-  IpopControllerLink & ctrl_link_;//TODO: change to shared_ptr<IpopControllerLink> ctrl_link_;
+  shared_ptr<IpopControllerLink> ctrl_link_;
   rtc::BasicNetworkManager net_manager_;
   unique_ptr<rtc::SSLIdentity> sslid_;
   unique_ptr<rtc::SSLFingerprint> local_fingerprint_;

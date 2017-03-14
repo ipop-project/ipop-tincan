@@ -27,7 +27,7 @@ namespace tincan
 {
 VirtualNetwork::VirtualNetwork(
   unique_ptr<VnetDescriptor> descriptor,
-  IpopControllerLink & ctrl_handle) :
+  shared_ptr<IpopControllerLink> ctrl_handle) :
   tdev_(nullptr),
   peer_network_(nullptr),
   descriptor_(move(descriptor)),
@@ -163,7 +163,6 @@ VirtualNetwork::CreateVlinkEndpoint(
   }
   else
   {
-    //string uid = peer_desc->uid;
     // create vlink using the worker thread
     CreateVlinkMsgData md;
     md.peer_desc = move(peer_desc);
@@ -194,7 +193,6 @@ VirtualNetwork::ConnectToPeer(
   }
   else
   {
-    //string uid = peer_desc->uid;
     // create vlink using the worker thread
     CreateVlinkMsgData md;
     md.peer_desc = move(peer_desc);
@@ -342,8 +340,8 @@ VirtualNetwork::VlinkReadCompleteL2(
     req[TincanControl::Command] = TincanControl::ICC;
     req[TincanControl::InterfaceName] = descriptor_->name;
     req[TincanControl::Data] = string((char*)frame->Payload(), frame->PayloadLength());
-    LOG(TC_DBG) << " Delivering ICC to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
-    ctrl_link_.Deliver(move(ctrl));
+    //LOG(TC_DBG) << " Delivering ICC to ctrl, data=\n" << req[TincanControl::Data].asString();
+    ctrl_link_->Deliver(move(ctrl));
   }
   else if(fp.IsFwdMsg())
   { // a frame to be routed on the overlay
@@ -364,8 +362,8 @@ VirtualNetwork::VlinkReadCompleteL2(
       req[TincanControl::InterfaceName] = descriptor_->name;
       req[TincanControl::Data] = ByteArrayToString(frame->Payload(),
         frame->PayloadEnd());
-      LOG(TC_DBG) << "FWDing frame to ctrl, data=\n" << req[TincanControl::Data].asString();//!LS_VERBOSE
-      ctrl_link_.Deliver(move(ctrl));
+      //LOG(TC_DBG) << "FWDing frame to ctrl, data=\n" << req[TincanControl::Data].asString();
+      ctrl_link_->Deliver(move(ctrl));
     }
   }
   else if (fp.IsDtfMsg())
@@ -459,7 +457,7 @@ VirtualNetwork::TapReadCompleteL2(
     req[TincanControl::InterfaceName] = descriptor_->name;
     req[TincanControl::Data] = ByteArrayToString(frame->Payload(),
       frame->PayloadEnd());
-    ctrl_link_.Deliver(move(ctrl));
+    ctrl_link_->Deliver(move(ctrl));
     //Post a new TAP read request
     frame->Initialize(frame->Payload(), frame->PayloadCapacity());
     if(0 != tdev_->Read(*frame))
@@ -544,7 +542,7 @@ void VirtualNetwork::OnMessage(Message * msg)
     unique_ptr<TapFrame> frame = move(((TransmitMsgData*)msg->pdata)->tf);
     shared_ptr<VirtualLink> vl = ((TransmitMsgData*)msg->pdata)->vl;
     vl->Transmit(*frame);
-    LOG(TC_DBG) << "FWDing frame to " << vl->PeerInfo().vip4;//!LS_VERBOSE
+    //LOG(TC_DBG) << "FWDing frame to " << vl->PeerInfo().vip4;
     if(msg->message_id == MSGID_FWD_FRAME_RD)
     {
       frame->Initialize(frame->Payload(), frame->PayloadCapacity());
@@ -599,6 +597,6 @@ VirtualNetwork::InjectFame(
   tf->BytesTransferred((uint32_t)len);
   tf->BytesToTransfer((uint32_t)len);
   tdev_->Write(*tf.release());
-  LOG(TC_DBG) << "Frame injected=\n" << data;//!LS_VERBOSE
+  //LOG(TC_DBG) << "Frame injected=\n" << data;
 }
 } //namespace tincan

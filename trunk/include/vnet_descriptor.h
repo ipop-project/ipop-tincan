@@ -33,9 +33,6 @@ struct VnetDescriptor
   string vip4;
   uint32_t prefix4;
   uint32_t mtu4;
-  //string vip6;
-  //uint32_t prefix6;
-  //uint32_t mtu6;
   string description;
   string stun_addr;
   string turn_addr;
@@ -43,8 +40,6 @@ struct VnetDescriptor
   string turn_pass;
   bool l2tunnel_enabled;
   bool l3tunnel_enabled;
-  //struct in_addr vip4_addr;
-  //struct in6_addr vip6_addr;
 };
 } // namespace tincan
 #endif // TINCAN_VNET_DESCRIPTOR_H_
