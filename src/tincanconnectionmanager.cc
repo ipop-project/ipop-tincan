@@ -119,6 +119,7 @@ TinCanConnectionManager::TinCanConnectionManager(
 void TinCanConnectionManager::Setup(
     const std::string& uid, const std::string& ip4, int ip4_mask,
     const std::string& ip6, int ip6_mask, int subnet_mask, int switchmode) {
+  ASSERT(link_setup_thread_->IsCurrent());
 
   // input verification before proceeding
   if (!tincan_id_.empty() || uid.size() != kIdSize) return;
@@ -407,6 +408,7 @@ bool TinCanConnectionManager::SetRelay(
 }
 
 void TinCanConnectionManager::SetupTransport(PeerState* peer_state) {
+  ASSERT(link_setup_thread_->IsCurrent());
   peer_state->transport->SetIceTiebreaker(tiebreaker_);
   peer_state->remote_fingerprint.reset(
       talk_base::SSLFingerprint::CreateFromRfc4572(talk_base::DIGEST_SHA_1,
@@ -446,6 +448,7 @@ bool TinCanConnectionManager::CreateTransport(
     const std::string& stun_server, const std::string& turn_server,
     const std::string& turn_user, const std::string& turn_pass,
     const bool sec_enabled) {
+  ASSERT(link_setup_thread_->IsCurrent());
   if (uid_map_.find(uid) != uid_map_.end() || tincan_id_ == uid) {
     LOG_TS(INFO) << "EXISTS " << uid;
     return false;
@@ -654,6 +657,7 @@ void TinCanConnectionManager::GetChannelStats_w(const std::string &uid,
 void TinCanConnectionManager::InsertTransportMap_w(const std::string sub_uid,
                                                    cricket::Transport* transport)
 {
+  ASSERT(packet_handling_thread_->IsCurrent());
   if (short_uid_map_.find(sub_uid) != short_uid_map_.end()) {
     LOG_TS(LERROR) << "uid: " << sub_uid << " already exists" << endl;
   }
@@ -662,6 +666,7 @@ void TinCanConnectionManager::InsertTransportMap_w(const std::string sub_uid,
 
 void TinCanConnectionManager::DeleteTransportMap_w(const std::string sub_uid)
 {
+  ASSERT(packet_handling_thread_->IsCurrent());
   if (short_uid_map_.find(sub_uid) == short_uid_map_.end()) {
     // There is some bug here. So log it.
     LOG_TS(LERROR) << "Can't find uid: " << sub_uid;
@@ -673,6 +678,7 @@ void TinCanConnectionManager::DeleteTransportMap_w(const std::string sub_uid)
 Json::Value TinCanConnectionManager::StateToJson(const std::string& uid,
                                                  uint32 xmpp_time,
                                                  bool get_stats) {
+  ASSERT(link_setup_thread_->IsCurrent());
   Json::Value peer(Json::objectValue);
   peer["uid"] = uid;
   peer["status"] = "offline";
